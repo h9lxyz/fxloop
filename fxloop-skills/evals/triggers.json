@@ -1,0 +1,292 @@
+[
+  {
+    "skill": "fxloop-connect",
+    "query": "connect FXLoop to this project and show me the app",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-connect",
+    "query": "set up fxloop for my JavaFX app",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-connect",
+    "query": "can you see my JavaFX app? take a screenshot",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-connect",
+    "query": "hook the fxloop mcp server up to this gradle project",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-connect",
+    "query": "how do I add JavaFX to my Maven project?",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-connect",
+    "query": "set up a GitHub Actions workflow for this repo",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-connect",
+    "query": "connect to the PostgreSQL database",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-ui-review",
+    "query": "review this screen \u2014 what looks off?",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-ui-review",
+    "query": "give me a UI audit of the main window",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-ui-review",
+    "query": "critique the layout of my JavaFX app",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-ui-review",
+    "query": "review this pull request",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-ui-review",
+    "query": "review MainController.java for code smells",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-ui-review",
+    "query": "audit our dependencies for CVEs",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-fix-layout",
+    "query": "the save button is misaligned",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-fix-layout",
+    "query": "the side panel doesn't resize with the window",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-fix-layout",
+    "query": "everything is squashed in the detail form",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-fix-layout",
+    "query": "there's a huge empty gap on the right",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-fix-layout",
+    "query": "fix the NullPointerException in TicketService",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-fix-layout",
+    "query": "align these columns in the CSV export",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-fix-layout",
+    "query": "my flexbox layout is broken on the website",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-style",
+    "query": "make the app look modern",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-style",
+    "query": "add dark mode to the JavaFX app",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-style",
+    "query": "match our brand colors",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-style",
+    "query": "the hover state of the button doesn't work",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-style",
+    "query": "format this Java file",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-style",
+    "query": "what is the difference between ArrayList and LinkedList?",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-style",
+    "query": "style the React component with Tailwind",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-style",
+    "query": "fix the code style warnings from checkstyle",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-accessibility",
+    "query": "is this app accessible?",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-accessibility",
+    "query": "make it keyboard friendly",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-accessibility",
+    "query": "run a contrast check on the settings window",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-accessibility",
+    "query": "make the REST API accessible from other hosts",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-accessibility",
+    "query": "change the field access modifier to private",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-responsive",
+    "query": "does it work on a 1366x768 laptop?",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-responsive",
+    "query": "long German strings break the UI",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-responsive",
+    "query": "test it right-to-left",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-responsive",
+    "query": "make the website responsive on mobile",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-responsive",
+    "query": "translate the strings to German",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-flow-polish",
+    "query": "the add-contact flow feels clunky",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-flow-polish",
+    "query": "the app freezes when I click refresh",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-flow-polish",
+    "query": "nothing happens when I press save",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-flow-polish",
+    "query": "speed up the Maven build",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-flow-polish",
+    "query": "the CI pipeline freezes",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-forms-dialogs",
+    "query": "clean up the new ticket form",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-forms-dialogs",
+    "query": "the dialog sizing is off",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-forms-dialogs",
+    "query": "Escape doesn't close the settings dialog",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-forms-dialogs",
+    "query": "validate this JSON schema",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-forms-dialogs",
+    "query": "write a form for the HTML signup page",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-consistency",
+    "query": "make all screens look the same",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-consistency",
+    "query": "the settings window looks different from the rest",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-consistency",
+    "query": "create a shared theme for the app",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-consistency",
+    "query": "make the code consistent with our formatter",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-consistency",
+    "query": "unify the logging configuration",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-lock-in",
+    "query": "make sure this doesn't regress",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-lock-in",
+    "query": "write a TestFX test for this flow",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-lock-in",
+    "query": "lock this fix in with a UI test",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-lock-in",
+    "query": "write a unit test for the TicketRepository",
+    "should_trigger": false
+  },
+  {
+    "skill": "fxloop-lock-in",
+    "query": "add JMH benchmarks",
+    "should_trigger": false
+  }
+]

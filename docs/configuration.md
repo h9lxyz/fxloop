@@ -2,7 +2,7 @@
 
 The server reads `FXLOOP_*` environment variables (set them in the MCP client's `env`). Any variable can also be given as a CLI flag `--key=value`: strip `FXLOOP_`, lower-case, `_` becomes `-` (`FXLOOP_PROJECT_DIR` is `--project-dir=...`). Flags win over environment. Booleans accept `true`/`1`/`yes`.
 
-**Project file:** an optional `fxloop.properties` with the flag names as keys (lowest precedence, below env and flags), read at server start from the server's working directory, else from the configured project dir. A relative `project-dir` is resolved against the file's directory. This is how the Claude Code plugin (`/fxloop:connect`) configures a project without MCP edits; reconnect the MCP server after changing it.
+**Project file:** an optional `fxloop.properties` with the flag names as keys (lowest precedence, below env and flags), read at server start from the server's working directory, else from the configured project dir. A relative `project-dir` is resolved against the file's directory. This is how the `fxloop-connect` skill configures a project without MCP edits; reconnect the MCP server after changing it.
 
 ```properties
 # the module with the Application, relative to this file

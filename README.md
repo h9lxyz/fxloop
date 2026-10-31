@@ -4,15 +4,14 @@ FXLoop is an MCP server plus an in-JVM agent that gives coding agents (Claude Co
 
 **Status:** `1.0.0-SNAPSHOT`, built from source (not yet on Maven Central). See [docs/05-implementation-tracking.md](docs/05-implementation-tracking.md) for per-feature status. Publishing, macOS/Windows CI runs and soak tests are CI/human steps.
 
-## Quickstart (Claude Code plugin)
+## Quickstart (agent skills)
 
-```
-/plugin marketplace add fxloop/fxloop
-/plugin install fxloop@fxloop
-/fxloop:connect
+```sh
+./mvnw install -DskipTests                            # until FXLoop is on Maven Central
+cp -r fxloop-skills/skills/fxloop-* ~/.claude/skills/ # or your agent's skills directory
 ```
 
-The [plugin](fxloop-plugin/README.md) bundles the MCP server launcher and ten UI/UX skills (connect, ui-review, fix-layout, style, accessibility, responsive, flow-polish, forms-dialogs, consistency, lock-in). `/fxloop:connect` adds the build plugin and a production guard, launches your app and shows a screenshot.
+Then, in your app's project, ask your agent: "connect FXLoop to this project and show me the app". The `fxloop-connect` skill registers the MCP server for your agent (Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI or any stdio MCP client), adds the build plugin and a production guard, asks you to reload the agent's MCP servers once, then launches your app and shows a screenshot. Nine more [skills](fxloop-skills/README.md) cover UI review, layout, styling, accessibility, responsiveness, flows, forms, consistency and regression tests; they trigger from plain requests.
 
 ## Quickstart (manual MCP setup)
 
@@ -45,13 +44,13 @@ Then ask your agent to call `fx_get_app_status`: the first call builds the app, 
 | `fxloop-server` | The stdio MCP server (shaded `-all.jar`); builds, launches, supervises, reloads (Kotlin) |
 | `fxloop-maven-plugin` | `fxloop:prepare` writes `target/fxloop/launch.json` ([README](fxloop-maven-plugin/README.md)) |
 | `fxloop-gradle-plugin` | Gradle plugin `dev.fxloop`, task `fxloopPrepare` ([README](fxloop-gradle-plugin/README.md)); standalone Gradle build |
-| `fxloop-plugin` | Claude Code plugin: MCP bootstrap, developer skills S0–S9, shared references, skill evals ([README](fxloop-plugin/README.md)) |
+| `fxloop-skills` | Agent skills S0–S9 (plain `SKILL.md` folders), MCP bootstrap, shared references, skill evals ([README](fxloop-skills/README.md)) |
 | `sample-apps/*` | Test targets: `fxloop-sample-app` (contacts), `fxloop-gauntlet-app` (dialogs, menus, tabs...), `fxloop-sample-app-gradle`, `fxloop-sample-app-kotlin` (Kotlin twin, Gradle Kotlin DSL); `fxloop-showcase-app` (standalone Kotlin/Maven helpdesk with planted UI/UX issues for the skills demo, answer key in its `ISSUES.md`) |
 | `fxloop-acceptance` | End-to-end suite driving the server over MCP (`-Pacceptance`) |
 
 ## Documentation
 
-[Configuration](docs/configuration.md) · [Tools reference](docs/tools.md) · [Security](docs/security.md) · [Limitations](docs/limitations.md) · [Troubleshooting](docs/troubleshooting.md) · [CI templates](docs/ci/README.md) · [Monocle headless](docs/ci/monocle.md) · Design: [overview](docs/00-overview.md), [PoC](docs/01-prd-poc.md), [MVP](docs/02-prd-mvp.md), [production](docs/03-prd-production.md), [visual feedback](docs/04-prd-visual-feedback.md), [skills](docs/06-prd-skills.md), [live dev loop](docs/07-prd-live-dev.md), [CSS inspector](docs/08-prd-css-inspector.md) · Decisions: [FXML load registry](docs/decisions/fxml-load-registry.md), [Kotlin](docs/decisions/kotlin.md)
+[Configuration](docs/configuration.md) · [Tools reference](docs/tools.md) · [Security](docs/security.md) · [Limitations](docs/limitations.md) · [Troubleshooting](docs/troubleshooting.md) · [CI templates](docs/ci/README.md) · [Monocle headless](docs/ci/monocle.md) · Design: [overview](docs/00-overview.md), [PoC](docs/01-prd-poc.md), [MVP](docs/02-prd-mvp.md), [production](docs/03-prd-production.md), [visual feedback](docs/04-prd-visual-feedback.md), [skills](docs/06-prd-skills.md), [live dev loop](docs/07-prd-live-dev.md), [CSS inspector](docs/08-prd-css-inspector.md) · Decisions: [FXML load registry](docs/decisions/fxml-load-registry.md), [Kotlin](docs/decisions/kotlin.md), [skills packaging](docs/decisions/skills-packaging.md)
 
 Build the docs site with `mkdocs serve` (see `mkdocs.yml`).
 

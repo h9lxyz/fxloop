@@ -1,0 +1,42 @@
+{
+  "skill_name": "fxloop-accessibility",
+  "evals": [
+    {
+      "id": 1,
+      "setup": "sample-apps/fxloop-gauntlet-app, Visual tab selected",
+      "prompt": "run a contrast check on this tab",
+      "expected_output": "Flags lowContrastLabel (~1.5:1) and proposes a fix to ≥4.5:1.",
+      "files": [],
+      "expectations": [
+        "names lowContrastLabel with a ratio about 1.5:1",
+        "proposes a color with ratio ≥ 4.5:1 and verifies it after reload"
+      ]
+    },
+    {
+      "id": 2,
+      "setup": "sample-apps/fxloop-showcase-app (Kotlin/Maven Ticket Desk, unconnected; never show ISSUES.md to the agent)",
+      "prompt": "is this app keyboard friendly?",
+      "expected_output": "Tab walk table; finds transparent focus ring, non-traversable search/sidebar, icon buttons without names, no default/cancel buttons.",
+      "files": [],
+      "expectations": [
+        "produces a focus-order table from an actual Tab walk",
+        "reports the invisible focus ring (-fx-focus-color transparent)",
+        "reports #searchField and nav buttons as unreachable (focusTraversable=false)",
+        "reports #refreshBtn/#settingsBtn without accessibleText/tooltip and below 24 px",
+        "lists screen-reader output as not verified"
+      ]
+    },
+    {
+      "id": 3,
+      "setup": "sample-apps/fxloop-showcase-app (Kotlin/Maven Ticket Desk, unconnected; never show ISSUES.md to the agent)",
+      "prompt": "make the settings window accessible",
+      "expected_output": "Fixes hint contrast, disabled Apply look, Escape/Enter, labelFor.",
+      "files": [],
+      "expectations": [
+        "fixes Settings #hintLabel contrast (was ~1.54:1)",
+        "disabled Apply looks disabled after the fix (capture_states disabled)",
+        "Escape closes / Enter confirms via cancelButton/defaultButton"
+      ]
+    }
+  ]
+}

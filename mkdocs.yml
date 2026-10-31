@@ -34,3 +34,4 @@ nav:
       - Kotlin tooling: decisions/kotlin.md
       - Live dev loop: decisions/live-dev-loop.md
       - CSS inspector contract: decisions/css-inspector-contract.md
+      - Skills packaging: decisions/skills-packaging.md

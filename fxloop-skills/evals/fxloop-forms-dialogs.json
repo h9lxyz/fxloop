@@ -1,0 +1,41 @@
+{
+  "skill_name": "fxloop-forms-dialogs",
+  "evals": [
+    {
+      "id": 1,
+      "setup": "sample-apps/fxloop-showcase-app (Kotlin/Maven Ticket Desk, unconnected; never show ISSUES.md to the agent)",
+      "prompt": "clean up the New ticket dialog",
+      "expected_output": "Owner/modality, tab order, Enter/Escape, inline validation, GridPane, app stylesheet.",
+      "files": [],
+      "expectations": [
+        "detects that the dialog has no owner/modality (two instances can open)",
+        "Tab walk shows Customer before Priority mismatch",
+        "Enter/Escape do nothing before; defaultButton/cancelButton after",
+        "validation moved inline instead of modal Alerts",
+        "dialog uses the app stylesheet after the fix (explain_style origin AUTHOR)"
+      ]
+    },
+    {
+      "id": 2,
+      "setup": "sample-apps/fxloop-showcase-app (Kotlin/Maven Ticket Desk, unconnected; never show ISSUES.md to the agent)",
+      "prompt": "the settings window opens in a weird place",
+      "expected_output": "Finds fixed (40,40) position on top of the sidebar and no owner; centers on owner.",
+      "files": [],
+      "expectations": [
+        "reports the fixed position / bounds overlapping the main window",
+        "fix uses initOwner and centering"
+      ]
+    },
+    {
+      "id": 3,
+      "setup": "sample-apps/fxloop-showcase-app (Kotlin/Maven Ticket Desk, unconnected; never show ISSUES.md to the agent)",
+      "prompt": "dialog sizing is off",
+      "expected_output": "New ticket dialog fixed 320×240 truncates labels; resizable/sizeToScene fix.",
+      "files": [],
+      "expectations": [
+        "reports textTruncated on dialog labels",
+        "removes fixed scene size, sets min size, lint clean after"
+      ]
+    }
+  ]
+}

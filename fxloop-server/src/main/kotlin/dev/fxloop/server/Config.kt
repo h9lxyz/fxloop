@@ -9,7 +9,7 @@ import java.util.Properties
  * (flag = env name without `FXLOOP_`, lower-case, '_' → '-'; e.g. `--project-dir=…`). Lowest precedence: an optional
  * project file `fxloop.properties` using the flag names as keys (`project-dir=app`, `app-args=--seed`), looked up in the
  * server's working directory, else in the configured project dir. A relative `project-dir` there is resolved against
- * the file's directory. It lets a project (and the `/fxloop:connect` skill) configure the server without MCP edits.
+ * the file's directory. It lets a project (and the `fxloop-connect` skill) configure the server without MCP edits.
  */
 data class Config(
     val projectDir: Path,

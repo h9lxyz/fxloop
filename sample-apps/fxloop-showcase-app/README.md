@@ -5,8 +5,8 @@ A deliberately flawed **Kotlin + Maven** JavaFX 21 helpdesk app used to demo the
 The answer key is [ISSUES.md](ISSUES.md). Don't give it to an agent during a demo or eval.
 
 It is a standalone Maven project (own wrapper, not a reactor module, no `fxloop-parent`) and is **not connected to
-FXLoop yet** (no `fxloop-maven-plugin`), so `/fxloop:connect` (S0) is the first step of every demo. The entry point is
-a top-level `fun main` (`dev.fxloop.showcase.MainKt`).
+FXLoop yet** (no `fxloop-maven-plugin`, no MCP config), so `fxloop-connect` (S0) is the first step of every demo. The
+entry point is a top-level `fun main` (`dev.fxloop.showcase.MainKt`).
 
     ./mvnw verify          # one headless smoke test (TestFX + Monocle)
     ./mvnw javafx:run      # plain run, no FXLoop
@@ -34,6 +34,18 @@ Program arguments, or `-Dfxloop.showcase.args="..."`:
 | `--de` | German resource bundle (long strings) |
 | `--rtl` | `NodeOrientation.RIGHT_TO_LEFT` on the root |
 | `--empty` | no tickets or customers (empty states) |
+
+## Running a demo
+
+Once per machine, from the FXLoop repo root: `./mvnw install -DskipTests`, then copy the skills into your agent's
+skills directory (`cp -r fxloop-skills/skills/fxloop-* ~/.claude/skills/` for Claude Code).
+
+Per demo, work on a copy. Connecting edits `pom.xml` and adds an MCP config, and the copy leaves the answer key behind:
+
+    rm -rf ~/demo/ticket-desk && mkdir -p ~/demo && cp -r sample-apps/fxloop-showcase-app ~/demo/ticket-desk && rm ~/demo/ticket-desk/ISSUES.md
+
+Open the agent in `~/demo/ticket-desk`, ask the S0 prompt below, reload the MCP servers when it asks, say "continue",
+then work down the table. Score the run against [ISSUES.md](ISSUES.md) here.
 
 ## Demo prompts
 

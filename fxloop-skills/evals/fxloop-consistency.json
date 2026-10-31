@@ -1,0 +1,41 @@
+{
+  "skill_name": "fxloop-consistency",
+  "evals": [
+    {
+      "id": 1,
+      "setup": "sample-apps/fxloop-showcase-app (Kotlin/Maven Ticket Desk, unconnected; never show ISSUES.md to the agent)",
+      "prompt": "make Customers, Reports and Settings look like the main window",
+      "expected_output": "Divergence table (fonts Arial/Georgia/System, four primary button styles, spacing, titles), shared stylesheet refactor, re-capture.",
+      "files": [],
+      "expectations": [
+        "divergence table covers fonts, primary buttons, spacing and titles across the screens",
+        "identifies INLINE origins in Customers/Reports via explain_style",
+        "proposes .root variables and component classes",
+        "after table shows a single value per role",
+        "screenshots per screen before/after cited"
+      ]
+    },
+    {
+      "id": 2,
+      "setup": "sample-apps/fxloop-sample-app (Maven Java) plus the gauntlet app",
+      "prompt": "unify the button styles",
+      "expected_output": "Small divergence table; shared classes.",
+      "files": [],
+      "expectations": [
+        "samples primary/secondary buttons with fx_explain_style",
+        "proposes one shared class set"
+      ]
+    },
+    {
+      "id": 3,
+      "setup": "sample-apps/fxloop-showcase-app (Kotlin/Maven Ticket Desk, unconnected; never show ISSUES.md to the agent)",
+      "prompt": "create a shared theme for the app",
+      "expected_output": "Shared stylesheet attached to every Stage and Dialog.",
+      "files": [],
+      "expectations": [
+        "shared stylesheet attached to secondary stages/dialogs (e.g. via a helper)",
+        "duplicate per-screen rules removed"
+      ]
+    }
+  ]
+}
