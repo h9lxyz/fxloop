@@ -65,7 +65,14 @@ class Harness(
     fun raw(name: String, args: ObjectNode = Json.obj()): ToolResult = tools.call(name, args)
 
     fun ok(name: String, args: ObjectNode = Json.obj()): ObjectNode {
-        val r = raw(name, args)
+        var r = raw(name, args)
+        if (r.isError && r.structured?.path("code")?.asText() == "FX_TIMEOUT") {
+            // These tests assert behaviour, not latency: on a machine loaded by parallel sessions the FX thread can be
+            // busy past the 5 s timeout (first-use class loading, WebView init). Retry once, visibly.
+            System.err.println("[harness] $name hit FX_TIMEOUT under load; retrying once")
+            Thread.sleep(2000)
+            r = raw(name, args)
+        }
         assertThat(r.isError).describedAs("%s failed: %s", name, r.text).isFalse()
         return r.structured!!
     }
