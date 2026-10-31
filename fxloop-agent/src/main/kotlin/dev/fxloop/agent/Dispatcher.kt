@@ -56,6 +56,20 @@ internal class Dispatcher(private val rt: AgentRuntime) {
         handlers[Method.EXPLAIN_LAYOUT] = Introspect::explainLayout
         handlers[Method.EVAL_JS] = Probes::evalJs
         handlers[Method.BLOCK_FX_THREAD] = Probes::blockFxThread
+        handlers[Method.REMOUNT_VIEWS] = { p -> rt.mounts.remount(p) }
+        handlers[Method.SET_BAR_STATE] = { p ->
+            p["config"]?.let(rt.human::configure)
+            rt.bar.applyState(p)
+        }
+        handlers[Method.GET_BAR_STATE] = { Fx.call { rt.bar.describe() } }
+        handlers[Method.GET_PICKED] = { p -> rt.pick.get(p) }
+        handlers[Method.SET_PICK_MODE] = { p -> rt.pick.set(p) }
+        handlers[Method.TEST_HUMAN_INPUT] = { p ->
+            if (!java.lang.Boolean.getBoolean("fxloop.test")) {
+                throw FcpException(Fcp.Error.DISABLED, "testHumanInput is only available with -Dfxloop.test=true")
+            }
+            rt.human.testInput(p)
+        }
     }
 
     fun dispatch(method: String, params: ObjectNode?): JsonNode {
@@ -71,6 +85,9 @@ internal class Dispatcher(private val rt: AgentRuntime) {
         o.setNode("fxml", rt.fxml.describe())
         o.put("handles", rt.handles.size())
         o.put("redefineSupported", rt.instrumentation != null && rt.instrumentation.isRedefineClassesSupported)
+        o.setNode("mounts", rt.mounts.describe())
+        o.setNode("human", rt.human.describe())
+        o.put("pickActive", rt.pick.active)
         o
     }
 

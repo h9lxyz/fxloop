@@ -142,7 +142,7 @@ internal class FcpServer(private val runtime: AgentRuntime) {
         }
     }
 
-    private fun emit(event: String, payload: ObjectNode) {
+    internal fun emit(event: String, payload: ObjectNode) {
         val conn = current ?: return
         try {
             conn.codec.write(FcpFrame.event(event, payload))

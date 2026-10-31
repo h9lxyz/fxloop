@@ -7,6 +7,7 @@ import dev.fxloop.protocol.FcpException
 import dev.fxloop.protocol.Json
 import dev.fxloop.server.Config
 import dev.fxloop.server.app.AppSession
+import dev.fxloop.server.app.LiveState
 import dev.fxloop.server.loop.Journal
 import dev.fxloop.server.loop.JournalEntry
 import dev.fxloop.server.loop.Reloader
@@ -24,7 +25,8 @@ class Ctx(val config: Config) {
     val session = AppSession(config)
     val visuals = Visuals(session, ScreenStore(session.fxloopDir.resolve("screens"), config.screensKeep), config.screenshotRatePerSec)
     val journal = Journal(500)
-    val reloader = Reloader(session, visuals)
+    val live = LiveState(config, session)
+    val reloader = Reloader(session, visuals, live)
     val watch: WatchMode = WatchMode { files ->
         reloader.reload(Reloader.Options(files = files, allowRestart = false, replay = false, visualDiff = false,
             javaTier = watchModeName() == "all", consume = false)) { Json.obj() }

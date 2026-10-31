@@ -43,6 +43,16 @@ object Fcp {
         const val EVAL_JS = "evalJs"
         const val CAPTURE_STATES = "captureStates"
 
+        // Live dev loop (PRD 07)
+        const val REMOUNT_VIEWS = "remountViews"
+        const val SET_BAR_STATE = "setBarState"
+        const val GET_BAR_STATE = "getBarState"
+        const val GET_PICKED = "getPicked"
+        const val SET_PICK_MODE = "setPickMode"
+
+        /** Test-only: synthetic "human" input outside the agent-action bracket; only honoured with `-Dfxloop.test=true`. */
+        const val TEST_HUMAN_INPUT = "testHumanInput"
+
         /** Test-only: blocks the FX thread; only honoured with `-Dfxloop.test=true`. */
         const val BLOCK_FX_THREAD = "blockFxThread"
     }
@@ -51,6 +61,10 @@ object Fcp {
     object Event {
         const val UI_ERROR = "uiError"
         const val APP_LOG = "appLog"
+        const val HUMAN_ACTION = "humanAction"
+        const val HUMAN_PICK = "humanPick"
+        const val HUMAN_RESTART_REQUEST = "humanRestartRequest"
+        const val CONTROL_MODE_CHANGED = "controlModeChanged"
     }
 
     /** Machine-readable error codes carried in [FcpError.code]. */
@@ -69,6 +83,7 @@ object Fcp {
         const val UNSUPPORTED_TARGET = "UNSUPPORTED_TARGET"
         const val REDEFINE_REJECTED = "REDEFINE_REJECTED"
         const val FXML_NOT_REGISTERED = "FXML_NOT_REGISTERED"
+        const val PICK_STALE = "PICK_STALE"
         const val DISABLED = "DISABLED"
         const val INTERNAL = "INTERNAL"
         const val DISCONNECTED = "DISCONNECTED"

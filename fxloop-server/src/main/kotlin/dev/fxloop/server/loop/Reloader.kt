@@ -8,6 +8,7 @@ import dev.fxloop.protocol.FcpException
 import dev.fxloop.protocol.Json
 import dev.fxloop.protocol.LaunchDescriptor
 import dev.fxloop.server.app.AppSession
+import dev.fxloop.server.app.LiveState
 import dev.fxloop.server.mcp.ToolException
 import dev.fxloop.server.see.Frame
 import dev.fxloop.server.see.ScreenStore
@@ -26,7 +27,7 @@ import kotlin.io.path.name
  * Tier router (PRD 02 §3): CSS live → FXML swap → HotSwap → restart(+replay). Mixed change-sets execute tiers in
  * that order; one call returns the full story.
  */
-class Reloader(private val session: AppSession, private val visuals: Visuals) {
+class Reloader(private val session: AppSession, private val visuals: Visuals, private val live: LiveState) {
     /** @property consume whether this reload advances the change baseline (watch mode passes explicit files: false) */
     data class Options(
         val files: List<String>? = null,

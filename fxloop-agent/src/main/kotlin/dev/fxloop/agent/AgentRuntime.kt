@@ -20,6 +20,10 @@ class AgentRuntime private constructor(
     val logs: LogCapture = LogCapture(2000)
     val handles: HandleTable = HandleTable()
     val fxml: FxmlRegistry = FxmlRegistry()
+    val mounts: MountRegistry = MountRegistry()
+    val human: HumanInput = HumanInput(this)
+    val bar: DevBar = DevBar(this)
+    val pick: PickMode = PickMode(this)
 
     @Volatile
     internal var server: FcpServer? = null
@@ -27,6 +31,9 @@ class AgentRuntime private constructor(
     private fun boot() {
         if (instrumentation != null && options.fxmlHook) {
             FxmlHook.install(instrumentation)
+        }
+        if (instrumentation != null) {
+            MountRegistry.installHooks(instrumentation)
         }
         Thread(::awaitFxAndListen, "fxloop-agent-init").apply { isDaemon = true }.start()
         options.ownerPid?.let(OwnerWatchdog::start)
@@ -55,6 +62,7 @@ class AgentRuntime private constructor(
             logs.install()
         }
         options.stateFile?.let { GeometryStore(it).install() }
+        human.install() // hotkeys work even when recording is off (options.recordHuman)
         Thread(::listen, "fxloop-agent-listen").apply { isDaemon = true }.start()
     }
 
@@ -72,6 +80,11 @@ class AgentRuntime private constructor(
         } catch (e: Exception) {
             AgentLog.warn("FCP listener failed", e)
         }
+    }
+
+    /** Sends an unsolicited event to the connected server; dropped when none is connected. */
+    internal fun emitEvent(event: String, payload: com.fasterxml.jackson.databind.node.ObjectNode) {
+        server?.emit(event, payload)
     }
 
     private fun sleep(ms: Long) {

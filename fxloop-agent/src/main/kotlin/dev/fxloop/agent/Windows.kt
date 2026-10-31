@@ -13,7 +13,8 @@ import javafx.stage.Window
 
 /** Window enumeration and addressing. Must be called on the FX thread. */
 internal object Windows {
-    fun showing(): List<Window> = Window.getWindows().filter { it.isShowing && it.scene != null }
+    /** Showing app windows; agent overlays (dev bar, pick outline) are never part of any tool's view. */
+    fun showing(): List<Window> = Window.getWindows().filter { it.isShowing && it.scene != null && !Overlays.isOverlay(it) }
 
     fun type(w: Window): String {
         if (w is PopupWindow) return "POPUP"
