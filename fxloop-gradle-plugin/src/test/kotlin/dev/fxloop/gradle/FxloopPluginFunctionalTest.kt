@@ -94,6 +94,39 @@ class FxloopPluginFunctionalTest {
     }
 
     @Test
+    fun `kotlin sources and class dirs are described`() {
+        write("settings.gradle.kts", "rootProject.name = \"fixture\"\n")
+        write(
+            "build.gradle.kts",
+            "plugins {\n    kotlin(\"jvm\") version \"2.4.21\"\n    id(\"dev.fxloop\")\n}\nrepositories { mavenCentral() }\n$fxDeps\n",
+        )
+        write(
+            "src/main/kotlin/demo/Main.kt",
+            """
+            package demo
+            import javafx.application.Application
+            import javafx.scene.Scene
+            import javafx.scene.control.Label
+            import javafx.stage.Stage
+            class DemoApp : Application() {
+                override fun start(s: Stage) { s.scene = Scene(Label("hi")); s.show() }
+            }
+            fun main(args: Array<String>) = Application.launch(DemoApp::class.java, *args)
+            """.trimIndent(),
+        )
+        write("src/main/resources/demo/app.css", ".root {}")
+
+        val r = runner("fxloopPrepare", "--stacktrace").build()
+        assertThat(r.output).contains("FXLoop: mainClass=demo.MainKt")
+        val d = descriptor()
+        assertEquals(real("build/classes/kotlin/main"), d.outputDir)
+        assertThat(d.sourceRoots).containsExactly(real("src/main/kotlin"))
+        assertThat(d.resourceRoots).containsExactly(real("src/main/resources"))
+        assertThat(d.classpath).doesNotContain(d.outputDir).contains(real("build/resources/main"))
+        assertThat(d.classpath).anyMatch { it.contains("kotlin-stdlib") }
+    }
+
+    @Test
     fun `single Application subclass is found`() {
         buildFile()
         write("src/main/java/demo/DemoApp.java", app("DemoApp"))

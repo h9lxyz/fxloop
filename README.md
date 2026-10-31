@@ -4,7 +4,17 @@ FXLoop is an MCP server plus an in-JVM agent that gives coding agents (Claude Co
 
 **Status:** `1.0.0-SNAPSHOT`, built from source (not yet on Maven Central). See [docs/05-implementation-tracking.md](docs/05-implementation-tracking.md) for per-feature status. Publishing, macOS/Windows CI runs and soak tests are CI/human steps.
 
-## Quickstart (Claude Code)
+## Quickstart (Claude Code plugin)
+
+```
+/plugin marketplace add fxloop/fxloop
+/plugin install fxloop@fxloop
+/fxloop:connect
+```
+
+The [plugin](fxloop-plugin/README.md) bundles the MCP server launcher and ten UI/UX skills (connect, ui-review, fix-layout, style, accessibility, responsive, flow-polish, forms-dialogs, consistency, lock-in). `/fxloop:connect` adds the build plugin and a production guard, launches your app and shows a screenshot.
+
+## Quickstart (manual MCP setup)
 
 ```sh
 ./mvnw install -DskipTests                       # builds fxloop-server/target/fxloop-server-1.0.0-SNAPSHOT-all.jar
@@ -35,7 +45,8 @@ Then ask your agent to call `fx_get_app_status`: the first call builds the app, 
 | `fxloop-server` | The stdio MCP server (shaded `-all.jar`); builds, launches, supervises, reloads (Kotlin) |
 | `fxloop-maven-plugin` | `fxloop:prepare` writes `target/fxloop/launch.json` ([README](fxloop-maven-plugin/README.md)) |
 | `fxloop-gradle-plugin` | Gradle plugin `dev.fxloop`, task `fxloopPrepare` ([README](fxloop-gradle-plugin/README.md)); standalone Gradle build |
-| `sample-apps/*` | Java test targets: `fxloop-sample-app` (contacts), `fxloop-gauntlet-app` (dialogs, menus, tabs...), `fxloop-sample-app-gradle`; `fxloop-showcase-app` (standalone Kotlin/Maven helpdesk with planted UI/UX issues for the skills demo, answer key in its `ISSUES.md`) |
+| `fxloop-plugin` | Claude Code plugin: MCP bootstrap, developer skills S0–S9, shared references, skill evals ([README](fxloop-plugin/README.md)) |
+| `sample-apps/*` | Test targets: `fxloop-sample-app` (contacts), `fxloop-gauntlet-app` (dialogs, menus, tabs...), `fxloop-sample-app-gradle`, `fxloop-sample-app-kotlin` (Kotlin twin, Gradle Kotlin DSL); `fxloop-showcase-app` (standalone Kotlin/Maven helpdesk with planted UI/UX issues for the skills demo, answer key in its `ISSUES.md`) |
 | `fxloop-acceptance` | End-to-end suite driving the server over MCP (`-Pacceptance`) |
 
 ## Documentation

@@ -66,6 +66,7 @@ class Reloader(private val session: AppSession, private val visuals: Visuals) {
         val css = ArrayList<Path>()
         val fxml = ArrayList<Path>()
         val java = ArrayList<Path>()
+        val kotlin = ArrayList<Path>()
         val other = ArrayList<Path>()
         val reasons = Json.array()
         for (c in changes(opt, d)) {
@@ -77,6 +78,7 @@ class Reloader(private val session: AppSession, private val visuals: Visuals) {
                 lower.endsWith(".css") -> css.add(c.file)
                 lower.endsWith(".fxml") -> fxml.add(c.file)
                 lower.endsWith(".java") -> java.add(c.file)
+                lower.endsWith(".kt") -> kotlin.add(c.file)
                 else -> other.add(c.file)
             }
         }
@@ -101,8 +103,8 @@ class Reloader(private val session: AppSession, private val visuals: Visuals) {
             if (session.config.externalCompile) {
                 val classes = changedClasses(d)
                 if (classes.isNotEmpty() && !redefine(classes, emptyList(), tiers, System.currentTimeMillis(), "external", reasons)) needsRestart = true
-            } else if (java.isNotEmpty()) {
-                when (javaTier(d, java, tiers, out, reasons)) {
+            } else if (java.isNotEmpty() || kotlin.isNotEmpty()) {
+                when (javaTier(d, java, kotlin, tiers, out, reasons)) {
                     null -> { // compile errors: no partial swap, no restart
                         if (opt.consume) checkpoint()
                         return out
@@ -166,9 +168,9 @@ class Reloader(private val session: AppSession, private val visuals: Visuals) {
     }
 
     /** @return true = swapped, false = needs restart, null = compile errors (reported in [out]) */
-    private fun javaTier(d: LaunchDescriptor, java: List<Path>, tiers: ArrayNode, out: ObjectNode, reasons: ArrayNode): Boolean? {
+    private fun javaTier(d: LaunchDescriptor, java: List<Path>, kotlin: List<Path>, tiers: ArrayNode, out: ObjectNode, reasons: ArrayNode): Boolean? {
         val t0 = System.currentTimeMillis()
-        val rels = java.map(visuals::relative)
+        val rels = (java + kotlin).map(visuals::relative)
         val buildName = session.build.kind.name.lowercase()
         fun buildToolCompile(via: String): Map<String, ByteArray>? {
             val r = session.build.compile()
@@ -179,7 +181,8 @@ class Reloader(private val session: AppSession, private val visuals: Visuals) {
             }
             return changedClasses(d)
         }
-        if (d.annotationProcessors) {
+        // javac cannot compile Kotlin, and annotation processors need the build's processor path
+        if (d.annotationProcessors || kotlin.isNotEmpty()) {
             val classes = buildToolCompile(buildName) ?: return null
             return redefine(classes, rels, tiers, t0, buildName, reasons)
         }

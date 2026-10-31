@@ -12,7 +12,7 @@ Paths are relative to `src/main/`.
 |---|---|---|---|
 | 0.1 | No FXLoop build plugin, no enforcer guard, no `CLAUDE.md` section | `pom.xml` | connect must add `fxloop-maven-plugin` |
 | 0.2 | Kotlin top-level `main` → main class `MainKt` | `kotlin/.../Main.kt` | ✓ resolved via `javafx-maven-plugin` `mainClass` |
-| 0.3 | Kotlin sources: HotSwap tier needs external-compile mode | — | connect should set `FXLOOP_EXTERNAL_COMPILE=true` and say so |
+| 0.3 | Kotlin sources: `.kt` edits compile through Maven, then HotSwap (slower than javac) | — | connect should say so and offer `external-compile=true` with IDE auto-build |
 
 ## S1 — UI review (lint_visual, screenshots)
 
@@ -80,7 +80,7 @@ Paths are relative to `src/main/`.
 |---|---|---|
 | 5.1 | German strings truncate every nav item and action button (`Formular zurücksetzen`, `Wissensdatenbank`, ...) | ✓ `textTruncated` with `--de` (47 findings) |
 | 5.2 | `--rtl`: the absolute layout mirrors badly, and the export button lands at x=−276 | ✓ `outOfScene` with `--rtl` |
-| 5.3 | No `minWidth/minHeight` on the stage; below ~900 px the detail card is clipped | resize ladder (see gaps) |
+| 5.3 | No `minWidth/minHeight` on the stage; below ~900 px the detail card is clipped | resize ladder (`window.width`) |
 | 5.4 | New ticket dialog is fixed 320×240 and non-resizable | ✓ `textTruncated` on all four dialog labels |
 | 5.5 | Settings content (≈372 px) taller than the fixed 360 px scene | screenshot |
 
@@ -142,8 +142,8 @@ selection, delete the selected (filtered) ticket, and create a ticket → select
 
 Observations about FXLoop itself, not planted issues:
 
-1. **Gradle plugin, Kotlin projects** (found while this app still had a Gradle build): `fxloopPrepare` writes `outputDir=build/classes/java/main`, leaves out `build/classes/kotlin/main` from the classpath, and leaves `sourceRoots` empty, so the app fails with class-not-found for `MainKt`. The Maven plugin handles the Maven build of this app correctly (`target/classes`, `src/main/kotlin`).
-2. `fx_set_property` on `Stage[0]` `width` → `UNSUPPORTED_TARGET: width is read-only`; S5's "resize stage via properties" has no tool path.
+1. ~~**Gradle plugin, Kotlin projects**: `fxloopPrepare` left out `build/classes/kotlin/main` and `src/main/kotlin`.~~ Fixed in Stage D: all class dirs and source languages are described (see `fxloop-sample-app-kotlin`).
+2. ~~`fx_set_property` on `Stage[0]` `width` → `UNSUPPORTED_TARGET` (`Stage[0]` resolves to the root node).~~ Fixed in Stage D: `name=window.width` / `window.height` on any node addresses its Stage.
 3. `fx_lint_visual lowContrast` misses status chips (labels with their own background inside table cells), the table header, and KPI captions.
 4. `fx_lint_fxml missingFxIdField` reports every fx:id without a controller field (26 here, 1 real). The real one's suggestion was "rename fx:id to 'priorityCol'" instead of `priorityBox`.
 5. `fx_explain_style property=-fx-background-color` on an inline-styled Button returns no items.

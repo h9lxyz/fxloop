@@ -38,7 +38,15 @@ class FxloopPlugin : Plugin<Project> {
 
             t.runtimeClasspath.from(runtimeClasspath)
             t.classesDir.convention(main.java.classesDirectory)
-            t.sourceRoots.convention(main.java.sourceDirectories.elements.map { s -> s.map { it.asFile.absolutePath } })
+            // all class output dirs (build/classes/java/main, build/classes/kotlin/main, ...)
+            t.classesDirs.from(main.output.classesDirs)
+            // every source language of the set (java, kotlin, groovy...), minus resources
+            t.sourceRoots.convention(
+                main.allSource.sourceDirectories.elements.zip(main.resources.sourceDirectories.elements) { all, res ->
+                    val r = res.map { it.asFile.absoluteFile }.toSet()
+                    all.map { it.asFile.absoluteFile }.filter { it !in r }.map { it.absolutePath }
+                },
+            )
             t.resourceRoots.convention(main.resources.sourceDirectories.elements.map { s -> s.map { it.asFile.absolutePath } })
             t.workingDir.convention(project.layout.projectDirectory.asFile.absolutePath)
             t.javafxJars.convention(javafxArtifacts.map { l -> l.map { it.file.absolutePath } })

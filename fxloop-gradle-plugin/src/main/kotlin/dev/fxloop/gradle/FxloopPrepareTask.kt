@@ -41,18 +41,24 @@ abstract class FxloopPrepareTask : DefaultTask() {
 
     @get:InputFiles @get:PathSensitive(PathSensitivity.ABSOLUTE) abstract val runtimeClasspath: ConfigurableFileCollection
     @get:Internal abstract val classesDir: DirectoryProperty
+    @get:Internal abstract val classesDirs: ConfigurableFileCollection
     @get:Internal abstract val resourcesDir: DirectoryProperty
     @get:OutputFile abstract val outputFile: RegularFileProperty
 
     @TaskAction
     fun prepare() {
-        val outputDir = classesDir.get().asFile.toPath().toAbsolutePath()
+        val javaClasses = classesDir.get().asFile.toPath().toAbsolutePath()
+        val classDirs = (listOf(javaClasses) + classesDirs.files.map { it.toPath().toAbsolutePath() }).distinct()
+        // outputDir is where HotSwap looks for changed classes: the Java dir unless only another language (Kotlin)
+        // produced classes; the other class dirs go on the classpath/module path in front of the dependencies.
+        val outputDir = classDirs.firstOrNull(::hasClasses) ?: javaClasses
+        val extraClassDirs = classDirs.filter { it != outputDir && Files.isDirectory(it) }
         val resources: Path? = resourcesDir.orNull?.asFile?.toPath()?.toAbsolutePath()
 
         val main = MainClassResolver.resolve(
             MainClassResolver.Inputs(
                 explicitMainClass.orNull, javafxMainClass.orNull, applicationMainClass.orNull,
-                manifestMainClass.orNull, outputDir,
+                manifestMainClass.orNull, classDirs,
             ),
         )
 
@@ -63,7 +69,8 @@ abstract class FxloopPrepareTask : DefaultTask() {
 
         // Runtime classpath minus the compiled-classes dir (carried separately as outputDir);
         // the resources dir stays so resources load from the classpath.
-        val runtime = runtimeClasspath.files.map { it.toPath().toAbsolutePath() }.filter { it != outputDir }.toMutableList()
+        val runtime = (extraClassDirs + runtimeClasspath.files.map { it.toPath().toAbsolutePath() })
+            .filter { it != outputDir }.distinct().toMutableList()
         if (resources != null && Files.isDirectory(resources) && resources !in runtime) runtime.add(0, resources)
         val runtimeStr = runtime.map(Path::toString)
 
@@ -120,6 +127,9 @@ abstract class FxloopPrepareTask : DefaultTask() {
             "classpath", "modulepath" -> m
             else -> throw GradleException("Invalid fxloop.launchMode '${launchMode.get()}' (expected auto|classpath|modulepath)")
         }
+
+    private fun hasClasses(dir: Path): Boolean =
+        Files.isDirectory(dir) && Files.walk(dir).use { s -> s.anyMatch { it.toString().endsWith(".class") } }
 
     private fun existing(dirs: List<String>): List<String> =
         dirs.map { Path.of(it) }.filter { Files.isDirectory(it) }.map { it.toAbsolutePath().toString() }
