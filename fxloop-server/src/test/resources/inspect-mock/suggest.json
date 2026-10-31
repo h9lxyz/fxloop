@@ -1,0 +1,2 @@
+{"selector":".panel .button.primary","file":"src/main/resources/app/app.css","needsImportant":false,
+ "snippet":".panel .button.primary {\n    -fx-padding: 10;\n}","why":"Remove the inline style first; then this rule applies. Rule is the most specific match.","blockers":[]}

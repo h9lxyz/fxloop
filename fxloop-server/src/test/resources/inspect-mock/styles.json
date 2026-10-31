@@ -1,0 +1,29 @@
+{"target":{"h":12,"path":"Stage[0]/Scene/VBox/HBox/Button#save","type":"Button","fxId":"save"},
+ "styleClass":"button primary","pseudoClasses":["hover","focused"],"inlineStyle":"-fx-padding: 4",
+ "properties":[
+  {"cssProperty":"-fx-background-color","value":"#3b82f6","origin":"AUTHOR","simulation":"ok",
+   "winner":{"ruleId":"s2:r14","selector":".panel .button.primary","specificity":"0,3,0","origin":"AUTHOR","file":"src/main/resources/app/app.css","line":48,"text":"-fx-background-color: #3b82f6;","important":false,"sheet":"file:/app.css"},
+   "overridden":[{"ruleId":"s1:r2","selector":".button","specificity":"0,1,0","origin":"USER_AGENT","text":"-fx-background-color: #e8e8e8;","important":false,"sheet":"modena","reason":"lower specificity (0,1,0 < 0,3,0)"}],
+   "blockers":[]},
+  {"cssProperty":"-fx-padding","value":"4","origin":"INLINE","simulation":"ok",
+   "winner":{"ruleId":"inline","selector":"style=\"-fx-padding: 4\"","origin":"INLINE","text":"-fx-padding: 4","important":false},
+   "overridden":[{"ruleId":"s2:r14","selector":".panel .button.primary","specificity":"0,3,0","origin":"AUTHOR","text":"-fx-padding: 10;","important":false,"reason":"inline style wins"}],
+   "blockers":[{"kind":"inline-wins","cause":"The inline style=\"-fx-padding: 4\" beats every stylesheet rule.","next":"Remove the inline style or edit it in code (setStyle)."}]},
+  {"cssProperty":"-fx-text-fill","value":"white","origin":"AUTHOR","simulation":"mismatch","simulatedValue":"black",
+   "winner":{"ruleId":"s2:r20","selector":".primary","specificity":"0,1,0","origin":"AUTHOR","file":"src/main/resources/app/app.css","line":61,"text":"-fx-text-fill: white;","important":true,"sheet":"file:/app.css"},
+   "blockers":[{"kind":"set-in-code","cause":"Value also set in code, which wins over author CSS.","next":"Remove setTextFill call or use !important."}]},
+  {"cssProperty":"-fx-font-family","value":"\"Inter\"","origin":"AUTHOR","simulation":"ok",
+   "inheritedFrom":{"path":"Stage[0]/Scene/VBox","winner":{"ruleId":"s2:r1","selector":".root","specificity":"0,1,0","origin":"AUTHOR","file":"src/main/resources/app/app.css","line":3,"text":"-fx-font-family: \"Inter\";","important":false}},
+   "blockers":[]}
+ ],
+ "rules":[
+  {"ruleId":"inline","selector":"style=\"-fx-padding: 4\"","specificity":"1,0,0","origin":"INLINE","declarations":[{"property":"-fx-padding","text":"-fx-padding: 4","important":false,"status":"winner"}]},
+  {"ruleId":"s2:r20","selector":".primary","specificity":"0,1,0","origin":"AUTHOR","file":"src/main/resources/app/app.css","absFile":"/home/dev/mock/src/main/resources/app/app.css","line":61,"declarations":[{"property":"-fx-text-fill","text":"-fx-text-fill: white !important;","important":true,"status":"winner"}]},
+  {"ruleId":"s2:r14","selector":".panel .button.primary","specificity":"0,3,0","origin":"AUTHOR","file":"src/main/resources/app/app.css","absFile":"/home/dev/mock/src/main/resources/app/app.css","line":48,"declarations":[
+    {"property":"-fx-background-color","text":"-fx-background-color: #3b82f6;","important":false,"status":"winner"},
+    {"property":"-fx-padding","text":"-fx-padding: 10;","important":false,"status":"overridden","reason":"inline style wins"}]},
+  {"ruleId":"s1:r2","selector":".button","specificity":"0,1,0","origin":"USER_AGENT","file":"modena.css","line":1234,"declarations":[{"property":"-fx-background-color","text":"-fx-background-color: #e8e8e8;","important":false,"status":"overridden","reason":"lower specificity (0,1,0 < 0,3,0)"}]},
+  {"ruleId":"code","selector":"(set in code)","origin":"USER","declarations":[{"property":"-fx-text-fill","text":"-fx-text-fill: black;","important":false,"status":"overridden","reason":"!important in app.css:61"}]}
+ ],
+ "sheets":[],
+ "editorUrl":"idea://open?file={file}&line={line}"}
