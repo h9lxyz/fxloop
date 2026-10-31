@@ -26,6 +26,8 @@ nav:
       - Production PRD: 03-prd-production.md
       - Visual feedback PRD: 04-prd-visual-feedback.md
       - Implementation tracking: 05-implementation-tracking.md
+      - Skills PRD: 06-prd-skills.md
+      - Live dev loop PRD: 07-prd-live-dev.md
   - Decisions:
       - FXML load registry: decisions/fxml-load-registry.md
       - Kotlin tooling: decisions/kotlin.md

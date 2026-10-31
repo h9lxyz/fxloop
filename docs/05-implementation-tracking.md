@@ -1,6 +1,6 @@
 # FXLoop — Implementation Tracking (Document 5)
 
-Feature/task mapping for PRDs 00–04 and 06 with live status. One row per deliverable; IDs reference the PRD section that specifies it.
+Feature/task mapping for PRDs 00–04, 06 and 07 with live status. One row per deliverable; IDs reference the PRD section that specifies it.
 
 **Status legend:** ⬜ todo · 🟨 in progress · ✅ done · ⚠️ done with documented deviation · ⏭️ deferred / out of local scope (reason given)
 
@@ -139,6 +139,18 @@ Baseline: Java 17 bytecode (`--release 17`), built and tested locally on JDK 25 
 | D10 | S9 `fxloop-lock-in` (journal → TestFX, harden, headless run) | 06 §4 | plugin | ⬜ | needs export (C8) |
 | D11 | References 5–8 (accessibility, fxml, testfx, tool-reference) | 06 §5 | plugin | ⬜ | tool-reference generated (C21) |
 | D12 | Skill evals (3–5 tasks per skill on sample apps) + trigger tests | 06 §7 | evals | ⬜ | |
+
+## Stage E — Live dev loop (PRD 07)
+
+| ID | Feature / task | PRD ref | Module | Status | Notes |
+|---|---|---|---|---|---|
+| E1 | Remount: `FxLoopDev.view/onReload`, `REMOUNT_VIEWS`, `remount` tier (+ opt-in `restage`), gauntlet wiring | 07 §3 | dev, agent, server | ⬜ | A-E1 |
+| E2 | View-state carry-over across FXML swap and remount (`carryState`, `stateCarried`) | 07 §4 | agent | ⬜ | A-E2 |
+| E3 | Human input journal (`source`, agent-action bracket for robot and event input, password redaction) | 07 §5 | agent, server | ⬜ | A-E3 |
+| E4 | Restart deferral while the developer is active, Restart button and hotkey | 07 §6 | agent, server | ⬜ | A-E4 |
+| E5a | Dev bar: overlay, tool invisibility, mode / last reload / action-needed segments, `actionNeeded` in status, viewer `status` strip | 07 §7.1, §7.3–7.4 | agent, server | ⬜ | A-E5a, A-E5b, A-E5d |
+| E5b | Control modes: `fx_set_control_mode`, event-mode defaults in `shared`, `conflicts`, bar toggle | 07 §7.2 | agent, server | ⬜ | A-E5c |
+| E6 | Pick mode, `fx_get_picked`, `{picked:true}` targets, PRD 06 skill updates | 07 §8 | agent, server, plugin | ⬜ | A-E6, then manual run |
 
 ## Items requiring external resources (cannot be completed in this local session)
 
