@@ -32,6 +32,7 @@ internal object Reloads {
      * Parent that ends with one of them is replaced by a cache-busted variant so the StyleManager reparses it.
      */
     fun reloadCss(p: ObjectNode): ObjectNode {
+        dev.fxloop.agent.css.Sheets.invalidate()
         val rel = p.path("files").map { it.asText().replace('\\', '/') }
         val gen = CSS_GENERATION.incrementAndGet()
         return Fx.call {

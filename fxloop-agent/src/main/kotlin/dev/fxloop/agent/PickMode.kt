@@ -167,7 +167,10 @@ class PickMode(private val rt: AgentRuntime) {
         pickedAt = clock()
         val t = Targets.summary(n)
         t.remove("h")
-        rt.emitEvent(Fcp.Event.HUMAN_PICK, Json.obj().setNode("target", t).put("ts", pickedAt))
+        val o = Json.obj().setNode("target", t).put("ts", pickedAt)
+        o.put("path", t.path("path").asText(null)) // the CSS inspector page selects by path (PRD 08 §4)
+        o.put("window", n.scene?.window?.let { Windows.indexOf(it) } ?: -1)
+        rt.emitEvent(Fcp.Event.HUMAN_PICK, o)
         leave()
     }
 

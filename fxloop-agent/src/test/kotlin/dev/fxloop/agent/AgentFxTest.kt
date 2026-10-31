@@ -21,6 +21,9 @@ import javafx.scene.control.TextField
 import javafx.scene.layout.Pane
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
+import javafx.scene.input.PickResult
 import javafx.scene.paint.Color
 import javafx.stage.Stage
 import org.assertj.core.api.Assertions.assertThat
@@ -266,6 +269,76 @@ class AgentFxTest {
         fx { Interaction.ensureVisible(second) }
         assertThat(fx { (Targets.query("#tabs", null).single() as TabPane).selectionModel.selectedIndex }).isEqualTo(1)
         fx { (Targets.query("#tabs", null).single() as TabPane).selectionModel.select(0) }
+    }
+
+    private fun mouse(type: javafx.event.EventType<MouseEvent>, target: Node, button: MouseButton = MouseButton.PRIMARY): MouseEvent {
+        val b = target.localToScreen(target.boundsInLocal)
+        return MouseEvent(
+            type, 5.0, 5.0, b.minX + 5, b.minY + 5, button, 1, false, false, false, false,
+            button == MouseButton.PRIMARY, false, button == MouseButton.SECONDARY, false, false, true, PickResult(target, 5.0, 5.0),
+        )
+    }
+
+    private fun clickOn(target: Node) {
+        for (t in listOf(MouseEvent.MOUSE_PRESSED, MouseEvent.MOUSE_RELEASED, MouseEvent.MOUSE_CLICKED)) {
+            javafx.event.Event.fireEvent(target, mouse(t, target))
+        }
+    }
+
+    private fun overlayPopups() = fx { javafx.stage.Window.getWindows().filter { it.properties[Overlay.OVERLAY_KEY] == true } }
+
+    @Test
+    fun highlightPopupIsInvisibleToTools() {
+        val before = fx { Windows.showing().size }
+        val r = fx { Overlay.highlight(Json.obj().put("path", NodePath.of(Targets.query("#ok", null).single()))) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertThat(r.path("shown").asBoolean()).isTrue()
+        assertThat(r.path("bounds").path("w").asInt()).isGreaterThan(0)
+        assertThat(fx { Overlay.isShown() }).isTrue()
+        assertThat(overlayPopups()).isNotEmpty()
+        assertThat(fx { Windows.showing().size }).isEqualTo(before)
+        assertThat(fx { Windows.showing().none { it.properties[Overlay.OVERLAY_KEY] == true } }).isTrue()
+        val cleared = fx { Overlay.highlight(Json.obj().put("clear", true)) }
+        assertThat(cleared.path("shown").asBoolean()).isFalse()
+        assertThat(fx { Overlay.isShown() }).isFalse()
+    }
+
+    @Test
+    fun inspectorPickStartArmsPickModeAndConsumesTheClick() {
+        val ok = node("#ok")
+        val dispatcher = Dispatcher(rt)
+        try {
+            // control: unarmed, the same synthetic click reaches the button
+            fx { clickOn(ok) }
+            assertThat(fired.get()).isEqualTo(1)
+            dispatcher.dispatch(Fcp.Method.PICK_START, Json.obj())
+            assertThat(rt.pick.active).isTrue()
+            fx { clickOn(ok) }
+            WaitForAsyncUtils.waitForFxEvents()
+            assertThat(fired.get()).isEqualTo(1)
+            assertThat(rt.pick.active).isFalse()
+            assertThat(fx { rt.pick.picked() }).isSameAs(ok)
+            // cancel
+            dispatcher.dispatch(Fcp.Method.PICK_START, Json.obj())
+            dispatcher.dispatch(Fcp.Method.PICK_START, Json.obj().put("cancel", true))
+            assertThat(rt.pick.active).isFalse()
+        } finally {
+            fx { if (rt.pick.active) rt.pick.toggle(null) }
+        }
+    }
+
+    @Test
+    fun skinFlagExposesInternals() {
+        fun count(skin: Boolean): Int {
+            val p = Json.obj().put("maxDepth", 30).put("maxNodes", 5000)
+            if (skin) p.put("skin", true)
+            return Dispatcher(rt).dispatch(Fcp.Method.GET_SCENE_GRAPH, p).path("nodeCount").asInt()
+        }
+        val plain = count(false)
+        val skin = count(true)
+        assertThat(skin).isGreaterThan(plain)
+        val p = Json.obj().put("maxDepth", 30).put("maxNodes", 5000).put("skin", true)
+        assertThat(Dispatcher(rt).dispatch(Fcp.Method.GET_SCENE_GRAPH, p).toString()).contains("\"skin\":true")
     }
 
     @Test

@@ -28,7 +28,7 @@ object CoreTools {
             Schema.obj()) {
             val started = s.ensureStarted()
             val st = s.status()
-            ctx.viewer?.let { v -> st.put("viewerUrl", v.url()) }
+            ctx.viewer?.let { v -> st.put("viewerUrl", v.url()); st.put("inspectorUrl", v.inspectUrl()) }
             st.put("watchMode", ctx.watch.mode)
             st.put("screensDir", ctx.visuals.relative(ctx.visuals.store.dir))
             val live = ctx.live.status(st["human"])
@@ -119,8 +119,9 @@ object CoreTools {
             "Bounded JSON of the logical scene graph of a window (or subtree): h (handle), path, type, fxId, styleClass, " +
                 "text, value, visible (only when false), disabled/focused (only when true), boundsScreen, kids. Output is budgeted " +
                 "(depth, nodes, ~56 KB) with {truncated:true} markers. Virtualized controls report itemCount and " +
-                "visibleCells only. Skin internals of built-in controls are omitted.",
+                "visibleCells only. Skin internals of built-in controls are omitted unless skin=true.",
             Schema.obj().target().integer("rootHandle", "Subtree root handle")
+                .bool("skin", "Include skin (control-internal) nodes; they are addressed by handle")
                 .integer("maxDepth", "Depth budget (default 12)", 1, 64).integer("maxNodes", "Node budget (default 400)", 1, 5000)) { a ->
             s.ensureStarted()
             val r = s.call(Fcp.Method.GET_SCENE_GRAPH, a) as ObjectNode

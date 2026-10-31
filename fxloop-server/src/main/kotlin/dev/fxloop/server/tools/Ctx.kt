@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import dev.fxloop.protocol.Fcp
 import dev.fxloop.protocol.FcpException
 import dev.fxloop.protocol.Json
+import dev.fxloop.protocol.Tokens
 import dev.fxloop.server.Config
 import dev.fxloop.server.app.AppSession
 import dev.fxloop.server.app.ActionNeeded
@@ -15,6 +16,7 @@ import dev.fxloop.server.loop.Reloader
 import dev.fxloop.server.loop.SceneDiff
 import dev.fxloop.server.loop.WatchMode
 import dev.fxloop.server.mcp.ToolResult
+import dev.fxloop.server.see.Inspector
 import dev.fxloop.server.see.ScreenStore
 import dev.fxloop.server.see.Viewer
 import dev.fxloop.server.see.Visuals
@@ -43,9 +45,46 @@ class Ctx(val config: Config) {
     var viewer: Viewer? = null
     private val restarting = AtomicBoolean(false)
 
+    val inspector = Inspector({ ensureViewer() }, config.browserEnabled)
+
+    /** Builds the viewer with the inspector API wired to [session] and starts it (port 0 = ephemeral). */
+    @Synchronized
+    fun ensureViewer(port: Int = 0): Viewer = viewer ?: Viewer(port, Tokens.generate(), visuals.store,
+        api = { m, p, t -> session.call(m, if (m in CSS_METHODS) withCssRoots(p) else p, t) }, connected = { session.connected }, editorUrl = config.editorUrl).also {
+        it.start()
+        viewer = it
+        log.info("live viewer: {}", it.url())
+    }
+
+    /** Project layout for the CSS engine, so `file` names the source stylesheet rather than its build copy (PRD 08 §3.2). */
+    fun withCssRoots(p: ObjectNode): ObjectNode {
+        val d = session.descriptor ?: return p.put("projectDir", config.projectDir.toString())
+        val wd = java.nio.file.Path.of(d.workingDir)
+        fun abs(s: String) = wd.resolve(s).toAbsolutePath().normalize().toString()
+        p.put("projectDir", config.projectDir.toString())
+        p.set<JsonNode>("outputDirs", Json.strings(listOf(abs(d.outputDir))))
+        p.set<JsonNode>("resourceRoots", Json.strings(d.resourceRoots.map(::abs)))
+        return p
+    }
+
+    private fun publish(event: String, json: JsonNode) {
+        viewer?.publish(event, json)
+    }
+
     init {
         live.watchMode = { watch.mode }
         live.statusSink = { viewer?.publishStatus(it) }
+        reloader.onReloaded { r ->
+            publish("reload", Json.obj {
+                val files = putArray("files")
+                val names = putArray("tiers")
+                r.path("tiersApplied").forEach { t ->
+                    names.add(t.path("tier").asText())
+                    t.path("files").forEach { f -> if (files.none { it.asText() == f.asText() }) files.add(f.asText()) }
+                }
+            })
+        }
+
         session.onLaunched {
             reloader.checkpoint()
             dev.fxloop.server.loop.InProcessCompiler.warmUpAsync()
@@ -69,7 +108,11 @@ class Ctx(val config: Config) {
                 }
                 live.onHumanAction(payload)
             }
-            Fcp.Event.HUMAN_PICK -> live.onHumanPick(payload)
+            Fcp.Event.HUMAN_PICK -> {
+                live.onHumanPick(payload)
+                publish("pick", payload) // an open inspector page selects the picked node
+            }
+            Fcp.Event.INSPECTOR_REQUESTED -> inspector.open(payload.path("h").takeIf { it.isInt }?.asInt(), payload.path("path").asText(null))
             Fcp.Event.CONTROL_MODE_CHANGED -> {
                 val mode = if (payload.path("mode").asText() == "shared") LiveState.Control.SHARED else LiveState.Control.AGENT
                 live.setControl(mode, "bar")
@@ -222,6 +265,7 @@ class Ctx(val config: Config) {
 
     companion object {
         private val SHARED_EVENT_TOOLS = setOf("fx_click_node", "fx_type_keys")
+        val CSS_METHODS = setOf(Fcp.Method.EXPLAIN_STYLE, Fcp.Method.CSS_CASCADE, Fcp.Method.CSS_SUGGEST)
 
         val METHODS = mapOf(
             "fx_click_node" to Fcp.Method.CLICK,

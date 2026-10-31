@@ -1,10 +1,8 @@
 package dev.fxloop.server
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import dev.fxloop.protocol.Tokens
 import dev.fxloop.server.app.Versions
 import dev.fxloop.server.mcp.ToolRegistry
-import dev.fxloop.server.see.Viewer
 import dev.fxloop.server.tools.ActTools
 import dev.fxloop.server.tools.CoreTools
 import dev.fxloop.server.tools.Ctx
@@ -84,11 +82,8 @@ fun main(args: Array<String>) {
     val log = LoggerFactory.getLogger("dev.fxloop.server")
     val ctx = Ctx(config)
     config.viewerPort?.let { port ->
-        val viewer = Viewer(port, Tokens.generate(), ctx.visuals.store)
-        viewer.start()
-        ctx.viewer = viewer
+        ctx.ensureViewer(port)
         ctx.live.push()
-        log.info("live viewer: {}", viewer.url())
     }
     val reg = registry(ctx)
     // The server must die with its MCP client: the SDK only completes the session on stdin EOF (it never exits the

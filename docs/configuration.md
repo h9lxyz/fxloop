@@ -28,6 +28,8 @@ headless=xvfb
 | `FXLOOP_APP_LOGS` / `--app-logs` | `false` | Capture app `java.util.logging` records (incl. SLF4J via JUL bridge) into `fx_get_logs source=app`. |
 | `FXLOOP_WEBVIEW` / `--webview` | `false` | Enables `fx_eval_js` (otherwise `DISABLED`). |
 | `FXLOOP_VIEWER` / `--viewer` | off | Port for the live screenshot viewer (token-protected HTTP). |
+| `FXLOOP_EDITOR_URL` / `--editor-url` | unset | Template for "open in editor" links in the inspector, e.g. `idea://open?file={file}&line={line}`; returned as `editorUrl` by `/api/styles`. |
+| `FXLOOP_BROWSER` / `--browser` | `auto` | `none` stops the server from opening a browser for `fx_open_inspector` and dev-bar picks (the URL is still returned). |
 | `FXLOOP_WATCH` / `--watch` | `css-only` | Initial file-watch mode: `css-only`, `all` (also Java/FXML), `off`. Change at runtime with `fx_set_watch_mode`. |
 | `FXLOOP_EXTERNAL_COMPILE` / `--external-compile` | `false` | The IDE/build tool compiles; the server HotSwaps changed classes from the output dir instead of running its own javac. |
 | `FXLOOP_JBR` / `--jbr` | `false` | Opt into JetBrains Runtime enhanced redefinition: adds `-XX:+AllowEnhancedClassRedefinition` to the launch so structural hot-swaps are attempted before restarting; marks hotswap results `jbrEnhanced`. Requires launching on JBR (`FXLOOP_JAVA_HOME`). See [limitations](limitations.md). |
@@ -38,7 +40,7 @@ headless=xvfb
 | `FXLOOP_RECORD_HUMAN` / `--record-human` | `true` | Journal the developer's own clicks, key presses and text commits (`source: human`) in launched and embedded modes. Memory only; `PasswordField` content is never recorded. `false` disables capture. |
 | `FXLOOP_HUMAN_IDLE_MS` / `--human-idle-ms` | `10000` | Human input within this window defers restarts (`restartDeferred: humanActive`). |
 | `FXLOOP_CONTROL` / `--control` | `auto` | `auto` starts in `agent` and switches to `shared` on the first human input, never back. `agent`: the agent may drive with robot input. `shared`: actions default to synthetic events. |
-| `FXLOOP_BAR` / `--bar` | `auto` | Dev bar on the app window: `on`, `pill` (corner pill) or `off`. `auto` is `on` with a real display and `off` headless. |
+| `FXLOOP_BAR` / `--bar` | `auto` | Dev bar on the app window: `on`, `pill` (corner pill) or `off`. `auto` is `on` with a real display and `off` headless. Its **Inspect CSS** button opens the browser CSS inspector (PRD 08). |
 | `FXLOOP_PICK_KEY` / `--pick-key` | `Ctrl+Shift+F12` | Hotkey that toggles pick mode on the focused window. |
 | `FXLOOP_RESTART_KEY` / `--restart-key` | `Ctrl+Shift+F5` | Hotkey for the bar's **Restart** button: restarts with replay. |
 | `FXLOOP_TEST` / `--test` | `false` | Adds `-Dfxloop.test=true` to the app and exposes test-only tool `fx_test_block_fx_thread`. Not for normal use. |

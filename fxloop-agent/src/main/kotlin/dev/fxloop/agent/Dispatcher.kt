@@ -2,6 +2,7 @@ package dev.fxloop.agent
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
+import dev.fxloop.agent.css.CssInspect
 import dev.fxloop.protocol.Fcp
 import dev.fxloop.protocol.Fcp.Method
 import dev.fxloop.protocol.FcpException
@@ -53,6 +54,8 @@ internal class Dispatcher(private val rt: AgentRuntime) {
         handlers[Method.LINT_VISUAL] = VisualLint::lint
         handlers[Method.EXPLAIN_PROPERTY] = Introspect::explainProperty
         handlers[Method.EXPLAIN_STYLE] = Introspect::explainStyle
+        handlers[Method.CSS_CASCADE] = CssInspect::cascade
+        handlers[Method.CSS_SUGGEST] = CssInspect::suggest
         handlers[Method.EXPLAIN_LAYOUT] = Introspect::explainLayout
         handlers[Method.EVAL_JS] = Probes::evalJs
         handlers[Method.BLOCK_FX_THREAD] = Probes::blockFxThread
@@ -69,6 +72,11 @@ internal class Dispatcher(private val rt: AgentRuntime) {
                 throw FcpException(Fcp.Error.DISABLED, "testHumanInput is only available with -Dfxloop.test=true")
             }
             rt.human.testInput(p)
+        }
+        handlers[Method.HIGHLIGHT] = Overlay::highlight
+        handlers[Method.PICK_START] = { p ->
+            if (p.path("cancel").asBoolean(false)) rt.pick.set(Json.obj().put("on", false))
+            else rt.pick.set(Json.obj().put("on", true).also { o -> p.intOrNull("windowIndex")?.let { o.put("windowIndex", it) } })
         }
     }
 
@@ -107,7 +115,7 @@ internal class Dispatcher(private val rt: AgentRuntime) {
                 window = Windows.byIndex(p.intOrNull("windowIndex"))
                 root = window.scene.root
             }
-            val s = SceneSerializer(maxDepth, maxNodes)
+            val s = SceneSerializer(maxDepth, maxNodes, skin = p.path("skin").asBoolean(false))
             val out = Json.obj()
             out.setNode("window", Windows.describe(window, Windows.indexOf(window)))
             out.setNode("root", s.serialize(root))

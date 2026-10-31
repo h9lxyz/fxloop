@@ -53,6 +53,16 @@ object Fcp {
         /** Test-only: synthetic "human" input outside the agent-action bracket; only honoured with `-Dfxloop.test=true`. */
         const val TEST_HUMAN_INPUT = "testHumanInput"
 
+        /** CSS inspector (PRD 08): full per-property cascade for the browser inspector. */
+        const val CSS_CASCADE = "cssCascade"
+        const val CSS_SUGGEST = "cssSuggest"
+
+        /** Visual-only overlay: draws or clears a node highlight (agent-owned popup, invisible to tools). */
+        const val HIGHLIGHT = "highlight"
+
+        /** Arms pick mode on a window: the next click is consumed and reported as a [Event.HUMAN_PICK] event (PRD 07 pick mode). */
+        const val PICK_START = "pickStart"
+
         /** Test-only: blocks the FX thread; only honoured with `-Dfxloop.test=true`. */
         const val BLOCK_FX_THREAD = "blockFxThread"
     }
@@ -65,6 +75,9 @@ object Fcp {
         const val HUMAN_PICK = "humanPick"
         const val HUMAN_RESTART_REQUEST = "humanRestartRequest"
         const val CONTROL_MODE_CHANGED = "controlModeChanged"
+
+        /** The developer clicked *Inspect CSS* on the dev bar: `{path?}` (node to preselect). */
+        const val INSPECTOR_REQUESTED = "inspectorRequested"
     }
 
     /** Machine-readable error codes carried in [FcpError.code]. */

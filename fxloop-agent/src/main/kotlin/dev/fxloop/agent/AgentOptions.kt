@@ -49,6 +49,10 @@ data class AgentOptions(
             )
         }
 
+        /** `on`/`true` (case-insensitive) enable a switch; anything else, including absent, does not. */
+        @JvmStatic
+        fun isOn(v: String?): Boolean = v != null && (v.equals("on", true) || v.equals("true", true))
+
         /** Production guard: `-Dfxloop.enabled=false` disables the agent regardless of arguments. */
         @JvmStatic
         fun disabledBySystemProperty(): Boolean = "false".equals(System.getProperty("fxloop.enabled"), ignoreCase = true)

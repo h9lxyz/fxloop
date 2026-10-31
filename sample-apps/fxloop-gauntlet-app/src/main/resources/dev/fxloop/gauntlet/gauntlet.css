@@ -4,3 +4,16 @@
 #stateBtn:focused { -fx-border-color: #00aa00; -fx-border-width: 3; }
 #stateBtn:pressed { -fx-background-color: #cc0000; -fx-text-fill: white; }
 #stateBtn:disabled { -fx-background-color: #999999; -fx-text-fill: #dddddd; -fx-opacity: 0.6; }
+
+/* ---- "Cascade" tab: one known conflict per node, exercised by CssInspectorAcceptanceTest (PRD 08 §7). ----
+   Do not "fix" these: the overridden rules are deliberate. Companion sheet: cascade-panel.css (on #cxPanel). */
+.root { -accent: #ff0000; }
+.primary { -fx-background-color: #3366cc; }
+.cx-panel .cx-bar .button { -fx-background-color: #e8e8e8; }
+#cxInline { -fx-text-fill: green; }
+#cxImportant { -fx-text-fill: green !important; }
+.cx-accented { -fx-text-fill: -accent; }
+.button.cx-ghost { -fx-text-fill: red; }
+#cxSkin { -fx-fill: red; }
+.cx-fonted { -fx-font: 12px "System"; -fx-font-size: 20px; }
+.cx-unresolved { -fx-text-fill: -nowhere; }

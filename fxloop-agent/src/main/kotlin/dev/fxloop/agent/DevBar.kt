@@ -272,6 +272,18 @@ class DevBar(private val rt: AgentRuntime) {
 
     // ---- one bar per stage ----------------------------------------------------------------------------------
 
+    /** *Inspect CSS* (PRD 08 §4): asks the server to open the browser inspector on the last pick or the focused node. */
+    private fun requestInspector(stage: Stage) {
+        val o = Json.obj()
+        val node = runCatching { rt.pick.picked() }.getOrNull()?.takeIf { it.scene?.window === stage }
+            ?: stage.scene?.focusOwner?.let(Overlay::resolvable)
+        if (node != null) {
+            NodePath.of(node)?.let { o.put("path", it) }
+            o.put("h", rt.handles.handleOf(node))
+        }
+        rt.emitEvent(Fcp.Event.INSPECTOR_REQUESTED, o)
+    }
+
     private inner class BarView(val stage: Stage) {
         val popup = Popup()
         private val root = HBox(6.0)
@@ -357,6 +369,7 @@ class DevBar(private val rt: AgentRuntime) {
                         "copy" -> kids.add(button("Copy reason") { copy(if (a.kind == "rebuildFailed") a.next else a.reason) })
                     }
                 }
+                kids.add(button("Inspect CSS") { requestInspector(stage) })
                 kids.add(button("Pick") { rt.pick.toggle(stage) })
                 val shared = synchronized(lock) { control == "shared" }
                 kids.add(button(if (shared) "Hand back to agent" else "Let me drive") { toggleControl() })

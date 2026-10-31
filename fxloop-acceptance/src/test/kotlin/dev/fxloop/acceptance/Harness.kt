@@ -27,6 +27,7 @@ class Harness(
     webview: Boolean = false,
     headlessOverride: String? = null,
     configure: (Config) -> Config = { it },
+    private val browser: String = "none", // acceptance runs never open a real browser (inspector tests)
 ) : AutoCloseable {
     val repo: Path = Path.of(System.getProperty("fxloop.repo") ?: "..").toAbsolutePath().normalize()
     val project: Path = copyOf(repo, app)
@@ -58,6 +59,7 @@ class Harness(
             testMode = true,
             screenshotRatePerSec = 0.0,
             watchMode = "off",
+            browser = browser,
             startupTimeoutMs = 60_000,
         ))
         return Ctx(config)

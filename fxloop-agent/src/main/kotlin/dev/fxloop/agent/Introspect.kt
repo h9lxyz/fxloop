@@ -2,6 +2,7 @@ package dev.fxloop.agent
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
+import dev.fxloop.agent.css.CssInspect
 import dev.fxloop.protocol.Json
 import dev.fxloop.protocol.Paging
 import java.util.IdentityHashMap
@@ -101,8 +102,14 @@ internal object Introspect {
         return o
     }
 
+    /** Rule-level cascade by default (PRD 08 §3.4); `rules:false` restores the 1.0 origin-only output exactly. */
+    fun explainStyle(p: ObjectNode): ObjectNode {
+        if (p.path("rules").asBoolean(true)) return CssInspect.explainStyle(p, ::legacyFields)
+        return Fx.call { originOnly(p) }
+    }
+
     @Suppress("UNCHECKED_CAST")
-    fun explainStyle(p: ObjectNode): ObjectNode = Fx.call {
+    private fun originOnly(p: ObjectNode): ObjectNode {
         val node = Targets.resolve(p)
         val only = if (p.hasNonNull("property")) p.get("property").asText() else null
         val items = ArrayList<JsonNode>()
@@ -118,6 +125,13 @@ internal object Introspect {
             items.add(o)
         }
         val out = Paging.page(items, p.path("offset").asInt(0), minOf(200, p.path("limit").asInt(80)))
+        legacyFields(node, out)
+        out.put("note", "rule-level source mapping (exact selector/line) is out of scope; origin + candidates only")
+        return out
+    }
+
+    /** Fields shared by both modes: target, classes, pseudo-classes, inline style, candidate stylesheets. */
+    private fun legacyFields(node: Node, out: ObjectNode) {
         out.setNode("target", Targets.summary(node))
         out.put("styleClass", node.styleClass.joinToString(" "))
         out.put("pseudoClasses", node.pseudoClassStates.toString())
@@ -139,8 +153,6 @@ internal object Introspect {
                 sheets.add(Json.obj().put("url", scene.userAgentStylesheet).put("on", "Scene (user agent)"))
             }
         }
-        out.put("note", "rule-level source mapping (exact selector/line) is out of scope; origin + candidates only")
-        out
     }
 
     fun explainLayout(p: ObjectNode): ObjectNode = Fx.call {

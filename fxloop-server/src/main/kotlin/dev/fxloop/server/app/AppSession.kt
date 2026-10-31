@@ -64,7 +64,7 @@ class AppSession(val config: Config) {
         restartListeners += listener
     }
 
-    /** Receives agent events other than uiError/appLog (humanAction, humanPick, humanRestartRequest, controlModeChanged). */
+    /** Receives agent events other than uiError/appLog (humanAction, humanPick, humanRestartRequest, controlModeChanged, inspectorRequested). */
     fun onAgentEvent(listener: (String, JsonNode) -> Unit) {
         eventListeners += listener
     }

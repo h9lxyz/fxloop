@@ -41,7 +41,13 @@ data class Config(
     val bar: String = "auto",
     val pickKey: String = "Ctrl+Shift+F12",
     val restartKey: String = "Ctrl+Shift+F5",
+    // CSS inspector (PRD 08)
+    val editorUrl: String? = null,
+    val browser: String = "auto",
 ) {
+    /** Whether the server may open a browser for the inspector (`FXLOOP_BROWSER=none` disables). */
+    val browserEnabled: Boolean get() = !"none".equals(browser, ignoreCase = true)
+
     companion object {
         const val PROJECT_FILE = "fxloop.properties"
 
@@ -91,6 +97,8 @@ data class Config(
                 bar = str("FXLOOP_BAR")?.lowercase() ?: "auto",
                 pickKey = str("FXLOOP_PICK_KEY") ?: "Ctrl+Shift+F12",
                 restartKey = str("FXLOOP_RESTART_KEY") ?: "Ctrl+Shift+F5",
+                editorUrl = str("FXLOOP_EDITOR_URL"),
+                browser = str("FXLOOP_BROWSER")?.lowercase() ?: "auto",
             )
         }
 

@@ -1,6 +1,6 @@
 # FXLoop
 
-FXLoop is an MCP server plus an in-JVM agent that gives coding agents (Claude Code and any other MCP client) eyes, ears and hands on a running JavaFX application: screenshots and scene-graph inspection, clicks and typing, logs and UI exceptions, "why" explanations for properties, styles and layout, and a fast edit loop (CSS and FXML live reload, Java HotSwap, restart with journal replay). The tooling is written in Kotlin; the apps it drives are ordinary Java/JavaFX projects built with Maven or Gradle.
+FXLoop is an MCP server plus an in-JVM agent that gives coding agents (Claude Code and any other MCP client) eyes, ears and hands on a running JavaFX application: screenshots and scene-graph inspection, clicks and typing, logs and UI exceptions, "why" explanations for properties, styles and layout (rule-level CSS cascade with `file:line`, override suggestions, and a browser CSS inspector opened from the dev bar's **Inspect CSS** button or `fx_open_inspector`), and a fast edit loop (CSS and FXML live reload, Java HotSwap, restart with journal replay). The tooling is written in Kotlin; the apps it drives are ordinary Java/JavaFX projects built with Maven or Gradle.
 
 **Status:** `1.0.0-SNAPSHOT`, built from source (not yet on Maven Central). See [docs/05-implementation-tracking.md](docs/05-implementation-tracking.md) for per-feature status. Publishing, macOS/Windows CI runs and soak tests are CI/human steps.
 
