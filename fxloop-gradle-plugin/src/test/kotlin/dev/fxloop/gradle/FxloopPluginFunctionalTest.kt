@@ -172,6 +172,35 @@ class FxloopPluginFunctionalTest {
     }
 
     @Test
+    fun `fxloopRun starts the main class with the agent, dev bar and extra args`() {
+        write("settings.gradle.kts", "rootProject.name = \"fixture\"\n")
+        write(
+            "build.gradle.kts",
+            "plugins {\n    java\n    id(\"dev.fxloop\")\n}\n" +
+                "repositories { mavenLocal(); mavenCentral() }\n$fxDeps\nfxloop {\n    mainClass = \"demo.Probe\"\n" +
+                "    appArgs = listOf(\"--seed\")\n}\n",
+        )
+        // no JavaFX toolkit starts, so the agent stays idle and the JVM exits after main
+        write(
+            "src/main/java/demo/Probe.java",
+            """
+            package demo;
+            public class Probe {
+                public static void main(String[] args) {
+                    String agent = java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
+                        .filter(a -> a.startsWith("-javaagent:")).findFirst().orElse("");
+                    System.out.println("probe agent=" + agent.contains("fxloop-agent") + " bar=" + agent.contains(",bar=on")
+                        + " handshake=" + agent.contains("handshake=") + " args=" + java.util.Arrays.toString(args));
+                }
+            }
+            """.trimIndent(),
+        )
+        val out = runner("fxloopRun", "--args=--de --rtl").build().output
+        assertThat(out).contains("probe agent=true bar=true handshake=true args=[--seed, --de, --rtl]")
+        assertThat(project.resolve("build/fxloop/handshake.json")).doesNotExist()
+    }
+
+    @Test
     fun `extension overrides everything and passes args`() {
         buildFile(
             """

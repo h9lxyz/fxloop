@@ -11,7 +11,7 @@ FXLoop is an MCP server plus an in-JVM agent that gives coding agents (Claude Co
 cp -r fxloop-skills/skills/fxloop-* ~/.claude/skills/ # or your agent's skills directory
 ```
 
-Then, in your app's project, ask your agent: "connect FXLoop to this project and show me the app". The `fxloop-connect` skill registers the MCP server for your agent (Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI or any stdio MCP client), adds the build plugin and a production guard, asks you to reload the agent's MCP servers once, then launches your app and shows a screenshot. Nine more [skills](fxloop-skills/README.md) cover UI review, layout, styling, accessibility, responsiveness, flows, forms, consistency and regression tests; they trigger from plain requests.
+Then, in your app's project, ask your agent: "connect FXLoop to this project and show me the app". The `fxloop-connect` skill registers the MCP server for your agent (Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI or any stdio MCP client), adds the build plugin and a production guard, asks you to reload the agent's MCP servers once, then launches your app and shows a screenshot. To explore the app yourself first, run it with `mvn fxloop:run` (or `gradle fxloopRun`): it starts with the dev bar, and your agent connects to it whenever you ask ([details](docs/configuration.md#running-the-app-yourself)). Nine more [skills](fxloop-skills/README.md) cover UI review, layout, styling, accessibility, responsiveness, flows, forms, consistency and regression tests; they trigger from plain requests.
 
 ## Quickstart (manual MCP setup)
 

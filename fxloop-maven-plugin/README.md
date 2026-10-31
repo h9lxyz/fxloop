@@ -1,6 +1,7 @@
 # fxloop-maven-plugin
 
-Provides `fxloop:prepare`, which writes `target/fxloop/launch.json` (a `LaunchDescriptor` from `fxloop-protocol`)
+Provides `fxloop:run`, which runs your app with the FXLoop agent and dev bar so you can explore it and bring in an
+agent whenever you want, and `fxloop:prepare`, which writes `target/fxloop/launch.json` (a `LaunchDescriptor` from `fxloop-protocol`)
 so the FXLoop server can launch the app without any manual configuration. The goal has no default phase; invoke it
 explicitly after `compile`:
 
@@ -23,6 +24,31 @@ Optional explicit configuration:
   </configuration>
 </plugin>
 ```
+
+## Run the app yourself: `fxloop:run`
+
+```sh
+mvn fxloop:run                                  # with <pluginGroup>dev.fxloop</pluginGroup>, or the plugin in the pom
+mvn fxloop:run -Dfxloop.appArgs=--de,--rtl      # extra program args for this run
+```
+
+It compiles, writes `launch.json` like `prepare`, and runs the app in the foreground with the FXLoop agent. The dev bar
+shows from the start (`FXLoop · no agent connected`): click around, use **Pick** to mark a node, and ask your agent
+whenever you like. The FXLoop MCP server finds the running app by itself on its first call (`fx_get_app_status`) and
+connects to it instead of launching another copy; your pick is then available as `fx_get_picked`. Close the app or
+press Ctrl+C to stop.
+
+Compared with letting the agent launch the app, everything works except restart: CSS, FXML and Java reloads (also for
+edits you made before the agent connected), inspection, input, screenshots and the CSS inspector. Restarting means
+re-running the goal.
+
+| Parameter | Property | Default | Description |
+|---|---|---|---|
+| `bar` | `fxloop.bar` | `on` | Dev bar before an agent connects: `on`, `pill` or `off`. |
+| `agentJar` | `fxloop.agentJar` | `dev.fxloop:fxloop-agent` at the plugin's version | Agent jar override. |
+| `javaHome` | `fxloop.javaHome` | the JDK running Maven | JDK that runs the app. |
+
+`fxloop:run` also takes every `prepare` parameter below.
 
 ## Parameters
 

@@ -86,6 +86,13 @@ class DevBar(private val rt: AgentRuntime) {
         describe()
     }
 
+    /** Bar shown while no server is connected (`fxloop:run`): the developer explores, picks, and asks an agent later. */
+    internal fun standalone(bar: String) {
+        applyState(Json.obj().put("bar", bar).put("standalone", true).put("control", "shared"))
+    }
+
+    private fun isStandalone(): Boolean = state.path("standalone").asBoolean(false)
+
     /** Called by [HumanInput] when a robot bracket opens/closes; shows the driving text for its duration. Any thread. */
     fun agentInput(active: Boolean) {
         synchronized(lock) {
@@ -122,8 +129,15 @@ class DevBar(private val rt: AgentRuntime) {
         if (driving()) "Agent is driving — hands off" else "Agent mode"
     }
 
-    private fun sessionText(): String =
-        state.path("mode").asText("dev loop") + " · " + controlText() + " · watch: " + state.path("watch").asText("css-only")
+    private fun sessionText(): String = if (isStandalone()) "FXLoop · no agent connected · pick a node, then ask your agent" else
+        state.path("mode").asText("dev loop") + " · " + controlText() + " · " + watchText(state.path("watch").asText("css-only"))
+
+    /** What a save does in the server's watch mode, in the developer's words. */
+    private fun watchText(mode: String): String = when (mode) {
+        "all" -> "Saves apply CSS, FXML and code"
+        "off" -> "Saves apply on reload"
+        else -> "Saves apply CSS live"
+    }
 
     private fun recordControlText() {
         val t = controlText()
@@ -369,10 +383,11 @@ class DevBar(private val rt: AgentRuntime) {
                         "copy" -> kids.add(button("Copy reason") { copy(if (a.kind == "rebuildFailed") a.next else a.reason) })
                     }
                 }
-                kids.add(button("Inspect CSS") { requestInspector(stage) })
+                val standalone = synchronized(lock) { isStandalone() }
+                if (!standalone) kids.add(button("Inspect CSS") { requestInspector(stage) }) // needs the server's viewer
                 kids.add(button("Pick") { rt.pick.toggle(stage) })
                 val shared = synchronized(lock) { control == "shared" }
-                kids.add(button(if (shared) "Hand back to agent" else "Let me drive") { toggleControl() })
+                if (!standalone) kids.add(button(if (shared) "Hand back to agent" else "Let me drive") { toggleControl() })
                 kids.add(button("⌄") { toggleCollapsed() })
             }
             pill = expandable

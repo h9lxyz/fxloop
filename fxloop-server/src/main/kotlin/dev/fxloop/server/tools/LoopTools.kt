@@ -110,7 +110,8 @@ object LoopTools {
         }
 
         reg.tool("fx_connect_existing", "Connect existing", Kind.WRITE,
-            "Connect to an app started outside fxloop (e.g. from the IDE) that called FxLoopDev.install(); reads its " +
+            "Connect to an app started outside fxloop: mvn fxloop:run, gradle fxloopRun, or an IDE launch that called " +
+                "FxLoopDev.install(). fx_get_app_status finds these by itself; use this for a non-default handshake. Reads its " +
                 "owner-only handshake file. No supervision: restart is unavailable in this mode.",
             Schema.obj().str("handshakePath", "Handshake file (default target/fxloop/handshake.json)")) { a ->
             val p = ctx.visuals.confine(a.path("handshakePath").asText("target/fxloop/handshake.json"))

@@ -1,6 +1,6 @@
 ---
 name: fxloop-connect
-description: Connect FXLoop to a JavaFX project (Java or Kotlin, Maven or Gradle) so the agent can see, drive and live-reload the running app. Registers the FXLoop MCP server with the agent, adds the FXLoop build plugin and a production guard, launches the app and shows a first screenshot. Use when the developer says "connect FXLoop", "set up fxloop", "show me my app", "can you see my JavaFX app", or when any other fxloop skill finds no working fxloop setup. Idempotent; safe to re-run.
+description: Connect FXLoop to a JavaFX project (Java or Kotlin, Maven or Gradle) so the agent can see, drive and live-reload the running app. Registers the FXLoop MCP server with the agent, adds the FXLoop build plugin and a production guard, launches the app and shows a first screenshot. Use when the developer says "connect FXLoop", "set up fxloop", "show me my app", "can you see my JavaFX app", "connect to my running app", or when any other fxloop skill finds no working fxloop setup. Idempotent; safe to re-run.
 metadata:
   fxloop-version: 1.0.0-SNAPSHOT
 ---
@@ -83,7 +83,10 @@ flags (`app-args=--seed`), `webview=true` for apps with a WebView, `external-com
 0. If the `fx_*` tools still aren't available (step 0 just wrote the config, or `fxloop.properties` changed), stop
    here. Tell the developer the one reload action for their agent, and that saying "continue" afterwards finishes
    the setup. Re-running this skill then skips everything already in place.
-1. `fx_get_app_status`. The first call builds (prepare goal), launches with the agent and connects. A
+1. `fx_get_app_status`. The first call builds (prepare goal), launches with the agent and connects. If the developer
+   already runs the app themselves (`mvn fxloop:run`, `gradle fxloopRun`, or an IDE launch with `FxLoopDev.install()`),
+   it connects to that window instead (`mode: embedded`). Don't stop it; restart isn't available there, so ask them
+   to re-run when a change needs one. A
    `--seed`-style flag in `app-args` applies here.
 2. `fx_take_screenshot label=connect-first-look` and show it. Cite the PNG path.
 3. If something fails, use the table below. Fix it, then `fx_start_app` (or `fx_restart_app` if it's running).
@@ -120,7 +123,9 @@ Finish with:
 4. Optional `fxloop.properties` lines that would help (demo flags, `webview=true`) with a one-line reason each.
 5. Language/loop notes that apply: Kotlin (`.kt` → build-tool compile + HotSwap, `external-compile=true` with IDE
    auto-build for speed), annotation processors (slower reloads), headless.
-6. Three things to try next, e.g. "review the main window", "the dialog looks cramped, fix the layout", "add a dark
+6. How to run it themselves with the dev bar and bring you in later: `./mvnw fxloop:run` or `./gradlew fxloopRun`
+   (Pick a node, then ask). Needs the build plugin from step 2, which is now in place.
+7. Three things to try next, e.g. "review the main window", "the dialog looks cramped, fix the layout", "add a dark
    mode".
 
 Edits stay unstaged. Don't commit unless asked.

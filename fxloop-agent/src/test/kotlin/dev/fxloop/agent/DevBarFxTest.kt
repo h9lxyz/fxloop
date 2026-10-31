@@ -65,7 +65,7 @@ class DevBarFxTest {
         }
         assertThat(d.path("rendered").asInt()).isGreaterThanOrEqualTo(1)
         assertThat(d.path("texts").path("actionNeeded")[0].asText()).isEqualTo("fields added in EditForm")
-        assertThat(d.path("texts").path("session").asText()).isEqualTo("headless (monocle) · Agent mode · watch: all")
+        assertThat(d.path("texts").path("session").asText()).isEqualTo("headless (monocle) · Agent mode · Saves apply CSS, FXML and code")
         val after = fx {
             assertThat(Windows.showing().none { Overlays.isOverlay(it) }).isTrue()
             assertThat(Window.getWindows().any { Overlays.isOverlay(it) }).isTrue()
@@ -75,6 +75,20 @@ class DevBarFxTest {
         val off = fx { rt.bar.applyState(state("off")) }
         assertThat(off.path("rendered").asInt()).isEqualTo(0)
         assertThat(fx { Window.getWindows().none { Overlays.isOverlay(it) } }).isTrue()
+    }
+
+    @Test
+    fun standaloneBarShowsBeforeAnyServer() {
+        val d = fx {
+            rt.bar.standalone("on")
+            rt.bar.describe()
+        }
+        assertThat(d.path("bar").asText()).isEqualTo("on")
+        assertThat(d.path("rendered").asInt()).isGreaterThanOrEqualTo(1)
+        assertThat(d.path("texts").path("session").asText()).startsWith("FXLoop · no agent connected")
+        // a server state replaces it
+        val connected = fx { rt.bar.applyState(state("on", "shared")) }
+        assertThat(connected.path("texts").path("session").asText()).isEqualTo("headless (monocle) · You can interact · Saves apply CSS, FXML and code")
     }
 
     @Test

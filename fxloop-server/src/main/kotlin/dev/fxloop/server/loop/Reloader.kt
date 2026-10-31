@@ -56,10 +56,11 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
 
     /** Re-baselines change detection; called after launch and after each reload. */
     @Synchronized
-    fun checkpoint() {
+    /** @param sinceMs for an app started outside fxloop: its start time, so edits made before connecting still reload */
+    fun checkpoint(sinceMs: Long? = null) {
         val d = session.descriptor ?: return
-        sources.checkpoint(watchedRoots(d))
-        outputs.checkpoint(listOf(Path.of(d.outputDir)))
+        sources.checkpoint(watchedRoots(d), sinceMs)
+        outputs.checkpoint(listOf(Path.of(d.outputDir)), sinceMs)
     }
 
     fun watchedRoots(d: LaunchDescriptor): List<Path> =

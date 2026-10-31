@@ -47,6 +47,13 @@ Per demo, work on a copy. Connecting edits `pom.xml` and adds an MCP config, and
 Open the agent in `~/demo/ticket-desk`, ask the S0 prompt below, reload the MCP servers when it asks, say "continue",
 then work down the table. Score the run against [ISSUES.md](ISSUES.md) here.
 
+To explore first and bring the agent in later, connect once (above), then run the app yourself:
+
+    ./mvnw fxloop:run                          # add -Dfxloop.appArgs=--de for German
+
+Click around, **Pick** something that looks off in the dev bar, then ask the agent, e.g. "the picked button is
+squashed, fix it". It connects to the running window instead of starting another one.
+
 ## Demo prompts
 
 | Skill | Ask |

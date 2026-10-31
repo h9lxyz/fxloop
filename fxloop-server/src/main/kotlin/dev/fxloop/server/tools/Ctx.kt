@@ -92,7 +92,8 @@ class Ctx(val config: Config) {
             live.push()
         }
         session.onConnected {
-            reloader.checkpoint()
+            reloader.checkpoint(session.startedAt.takeIf { session.mode == AppSession.Mode.EMBEDDED })
+            if (session.mode == AppSession.Mode.EMBEDDED) live.developerOwnsApp()
             live.push()
         }
         session.onAgentEvent(::onAgentEvent)

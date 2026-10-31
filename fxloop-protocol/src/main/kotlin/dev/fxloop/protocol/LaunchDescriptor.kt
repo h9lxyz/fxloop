@@ -3,6 +3,7 @@ package dev.fxloop.protocol
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -41,6 +42,32 @@ data class LaunchDescriptor(
     fun writeTo(file: Path) {
         file.toAbsolutePath().parent?.let { Files.createDirectories(it) }
         Files.writeString(file, Json.pretty(this))
+    }
+
+    /**
+     * The command line that runs the app with [javaAgent] (`<jar>=<args>`), as `fxloop:run` / `fxloopRun` start it:
+     * descriptor JVM args, the agent, classpath or module path, main class, descriptor app args, then [extraAppArgs].
+     */
+    fun runCommand(java: String, javaAgent: String, extraAppArgs: List<String> = emptyList()): List<String> = buildList {
+        add(java)
+        addAll(jvmArgs)
+        add("-javaagent:$javaAgent")
+        val cp = buildList {
+            if (mainModule == null) add(outputDir)
+            addAll(classpath)
+        }
+        if (modulePath.isNotEmpty()) addAll(listOf("--module-path", modulePath.joinToString(File.pathSeparator)))
+        if (addModules.isNotEmpty()) addAll(listOf("--add-modules", addModules.joinToString(",")))
+        if (cp.isNotEmpty()) addAll(listOf("-cp", cp.joinToString(File.pathSeparator)))
+        if (mainModule != null) addAll(listOf("-m", "$mainModule/$mainClass")) else add(mainClass)
+        addAll(appArgs)
+        addAll(extraAppArgs)
+    }
+
+    /** Agent arguments for a developer-run app: self-generated token in [handshake], optional standalone dev bar. */
+    fun runAgentArgs(handshake: Path, bar: String?): String {
+        val b = bar?.trim()?.lowercase()?.takeIf { it == "on" || it == "pill" }
+        return "handshake=$handshake,state=${handshake.resolveSibling("state.json")},logs=true" + (b?.let { ",bar=$it" } ?: "")
     }
 
     companion object {

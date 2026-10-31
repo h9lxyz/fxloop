@@ -63,6 +63,7 @@ class AgentRuntime private constructor(
         }
         options.stateFile?.let { GeometryStore(it).install() }
         human.install() // hotkeys work even when recording is off (options.recordHuman)
+        if (options.bar != null) bar.standalone(options.bar)
         Thread(::listen, "fxloop-agent-listen").apply { isDaemon = true }.start()
     }
 
@@ -80,6 +81,12 @@ class AgentRuntime private constructor(
         } catch (e: Exception) {
             AgentLog.warn("FCP listener failed", e)
         }
+    }
+
+    /** The server connection ended: a `bar=` agent falls back to its standalone bar instead of a stale server state. */
+    internal fun onDisconnected() {
+        val b = options.bar ?: return
+        Platform.runLater { bar.standalone(b) }
     }
 
     /** Sends an unsolicited event to the connected server; dropped when none is connected. */

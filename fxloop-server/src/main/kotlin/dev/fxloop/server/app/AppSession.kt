@@ -53,7 +53,8 @@ class AppSession(val config: Config) {
     /** The launched tree as seen right after the handshake (wrapper children + app JVM), see [killProcess]. */
     @Volatile private var launchedTree: List<ProcessHandle> = emptyList()
     @Volatile private var fcp: FcpClient? = null
-    @Volatile private var startedAt = 0L
+    @Volatile var startedAt = 0L
+        private set
     @Volatile private var exitCode: Int? = null
     private var launchCounter = 0L
 
@@ -105,6 +106,11 @@ class AppSession(val config: Config) {
     fun start() {
         if (state == State.RUNNING || state == State.STARTING) {
             throw ToolException("ALREADY_RUNNING", "the application is already running (pid $pid)", "use fx_restart_app to relaunch")
+        }
+        runningOutside()?.let { hs ->
+            log.info("connecting to the app already running from this project (pid {}, {})", hs.second.pid, hs.second.mode)
+            connectExisting(hs.first, Mode.EMBEDDED)
+            return
         }
         val t0 = System.currentTimeMillis()
         killProcess() // leftovers of a crashed launch (wrapper gone, children alive) are reaped before relaunching
@@ -327,6 +333,24 @@ class AppSession(val config: Config) {
         }
     }
 
+    /**
+     * The handshake of an app started from this project outside fxloop (`fxloop:run`, `FxLoopDev.install()`), when its
+     * JVM is still alive. Supervised launches write no token into the handshake, so they never match.
+     */
+    private fun runningOutside(): Pair<Path, Handshake>? {
+        val file = fxloopDir.resolve("handshake.json")
+        val hs = try {
+            if (!Files.isRegularFile(file)) return null
+            Handshake.readFrom(file)
+        } catch (e: IOException) {
+            return null
+        } catch (e: RuntimeException) {
+            return null
+        }
+        if (hs.token == null || ProcessHandle.of(hs.pid).map { it.isAlive }.orElse(false) != true) return null
+        return file to hs
+    }
+
     /** Connects to an embedded (`FxLoopDev.install()`) or attached agent via its handshake file. */
     @Synchronized
     fun connectExisting(handshakeFile: Path, newMode: Mode): ObjectNode {
@@ -344,7 +368,13 @@ class AppSession(val config: Config) {
             connect(hs.port, token)
             mode = newMode
             // embedded apps are built from this project: reload tiers need its source roots and output dir (attach has none)
-            if (newMode == Mode.EMBEDDED && descriptor == null) descriptor = try { build.prepare() } catch (e: RuntimeException) { null }
+            // fxloop:run leaves its launch.json next to the handshake: reuse it instead of building again
+            if (newMode == Mode.EMBEDDED && descriptor == null) descriptor = try {
+                handshakeFile.resolveSibling(LaunchDescriptor.FILE_NAME).takeIf { Files.isRegularFile(it) }
+                    ?.let(LaunchDescriptor::readFrom) ?: build.prepare()
+            } catch (e: RuntimeException) {
+                null
+            }
             state = State.RUNNING
             pid = hs.pid
             startedAt = hs.startedAt

@@ -24,7 +24,8 @@ object CoreTools {
 
         reg.tool("fx_get_app_status", "App status", Kind.READ,
             "Application state (starting/running/exited/stopped), pid, uptime, mode, FCP connection, showing windows " +
-                "(index, title, type STAGE|POPUP|DIALOG) and the FXML load registry. Auto-starts a never-started app.",
+                "(index, title, type STAGE|POPUP|DIALOG) and the FXML load registry. Auto-starts a never-started app, or connects " +
+                "to the one the developer already runs from this project (mvn fxloop:run, gradle fxloopRun, FxLoopDev.install()).",
             Schema.obj()) {
             val started = s.ensureStarted()
             val st = s.status()
@@ -35,7 +36,12 @@ object CoreTools {
             listOf("control", "controlSetting", "human", "actionNeeded").forEach { k -> st.set<JsonNode>(k, live[k]) }
             val windows = st.path("windows").joinToString("; ") { "#${it["index"]} ${it.path("type").asText()} '${it.path("title").asText("")}'" }
             val needed = live.path("actionNeeded").joinToString(", ") { "${it.path("reason").asText()} · ${it.path("next").asText()}" }
-            ok((if (started) "(app auto-started) " else "") + "${st["state"].asText()} pid=${st.path("pid").asText("-")} " +
+            val how = when {
+                !started -> ""
+                s.mode == dev.fxloop.server.app.AppSession.Mode.EMBEDDED -> "(connected to the app the developer is running) "
+                else -> "(app auto-started) "
+            }
+            ok(how + "${st["state"].asText()} pid=${st.path("pid").asText("-")} " +
                 "windows=[${windows}] uiErrors=${st.path("uiErrors").asInt()}\n" +
                 "control=${live["control"].asText()} actionNeeded=[$needed]", st)
         }
@@ -53,9 +59,11 @@ object CoreTools {
 
         reg.tool("fx_start_app", "Start app", Kind.WRITE,
             "Build (compile + launch descriptor) and launch the app with the fxloop agent; waits for the FCP handshake. " +
-                "Error if already running.", Schema.obj()) {
+                "When the developer already runs it from this project (fxloop:run, fxloopRun, FxLoopDev.install()), connects " +
+                "to that instead (no restart in that mode). Error if already running.", Schema.obj()) {
             s.start()
-            ok("started in ${s.lastStartupMs} ms", s.status().put("startupMs", s.lastStartupMs))
+            if (s.mode == dev.fxloop.server.app.AppSession.Mode.EMBEDDED) ok("connected to the app the developer is running (pid ${s.pid})", s.status())
+            else ok("started in ${s.lastStartupMs} ms", s.status().put("startupMs", s.lastStartupMs))
         }
 
         reg.tool("fx_restart_app", "Restart app", Kind.DESTRUCTIVE,

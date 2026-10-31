@@ -43,7 +43,7 @@ _Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-ref
 
 ## fx_get_app_status
 
-Application state (starting/running/exited/stopped), pid, uptime, mode, FCP connection, showing windows (index, title, type STAGE|POPUP|DIALOG) and the FXML load registry. Auto-starts a never-started app.
+Application state (starting/running/exited/stopped), pid, uptime, mode, FCP connection, showing windows (index, title, type STAGE|POPUP|DIALOG) and the FXML load registry. Auto-starts a never-started app, or connects to the one the developer already runs from this project (mvn fxloop:run, gradle fxloopRun, FxLoopDev.install()).
 
 _No parameters._
 
@@ -57,7 +57,7 @@ Who may drive the UI: agent (the agent owns mouse and keyboard; human input duri
 
 ## fx_start_app
 
-Build (compile + launch descriptor) and launch the app with the fxloop agent; waits for the FCP handshake. Error if already running.
+Build (compile + launch descriptor) and launch the app with the fxloop agent; waits for the FCP handshake. When the developer already runs it from this project (fxloop:run, fxloopRun, FxLoopDev.install()), connects to that instead (no restart in that mode). Error if already running.
 
 _No parameters._
 
@@ -365,7 +365,7 @@ Static FXML check against compiled controllers (works before the app starts): mi
 
 ## fx_connect_existing
 
-Connect to an app started outside fxloop (e.g. from the IDE) that called FxLoopDev.install(); reads its owner-only handshake file. No supervision: restart is unavailable in this mode.
+Connect to an app started outside fxloop: mvn fxloop:run, gradle fxloopRun, or an IDE launch that called FxLoopDev.install(). fx_get_app_status finds these by itself; use this for a non-default handshake. Reads its owner-only handshake file. No supervision: restart is unavailable in this mode.
 
 | Param | Type | Required | Description |
 |---|---|---|---|

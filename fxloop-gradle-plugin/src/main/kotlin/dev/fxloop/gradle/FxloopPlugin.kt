@@ -10,8 +10,9 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.jvm.toolchain.JavaToolchainService
 
-/** Registers the `fxloop` extension and the `fxloopPrepare` task. */
+/** Registers the `fxloop` extension and the `fxloopPrepare` and `fxloopRun` tasks. */
 class FxloopPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         project.pluginManager.apply(JavaPlugin::class.java)
@@ -54,6 +55,23 @@ class FxloopPlugin : Plugin<Project> {
                 javafxArtifacts.map { l -> l.map { (it.id.componentIdentifier as ModuleComponentIdentifier).module } },
             )
             t.outputFile.convention(project.layout.buildDirectory.file("fxloop/launch.json"))
+        }
+
+        val agent = project.configurations.create(AGENT_CONFIGURATION) { c ->
+            c.isCanBeConsumed = false
+            c.isTransitive = false
+            c.description = "The FXLoop agent jar used by fxloopRun"
+        }
+        project.dependencies.add(AGENT_CONFIGURATION, "dev.fxloop:fxloop-agent:$VERSION")
+        val toolchains = project.extensions.getByType(JavaToolchainService::class.java)
+        val javaExt = project.extensions.getByType(JavaPluginExtension::class.java)
+        project.tasks.register(RUN_TASK_NAME, FxloopRunTask::class.java) { t ->
+            t.group = "fxloop"
+            t.description = "Runs the app with the FXLoop agent and dev bar; any agent session can connect to it later."
+            t.launchFile.convention(task.flatMap { it.outputFile })
+            t.agentJar.from(agent)
+            t.javaLauncher.convention(toolchains.launcherFor(javaExt.toolchain))
+            t.bar.convention(project.providers.gradleProperty("fxloop.bar").orElse("on"))
         }
 
         // Values that need the finished build model; resolved to plain strings so nothing captures the Project
@@ -104,5 +122,14 @@ class FxloopPlugin : Plugin<Project> {
     companion object {
         const val EXTENSION_NAME = "fxloop"
         const val TASK_NAME = "fxloopPrepare"
+        const val RUN_TASK_NAME = "fxloopRun"
+        const val AGENT_CONFIGURATION = "fxloopAgent"
+
+        /** This plugin's version (from the generated `fxloop.properties`); the agent jar is pinned to it. */
+        val VERSION: String by lazy {
+            java.util.Properties().apply {
+                FxloopPlugin::class.java.getResourceAsStream("fxloop.properties")?.use { load(it) }
+            }.getProperty("version") ?: error("fxloop.properties missing from the FXLoop Gradle plugin")
+        }
     }
 }

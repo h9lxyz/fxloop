@@ -20,6 +20,20 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+// The plugin pins the agent jar to its own version: generated resource dev/fxloop/gradle/fxloop.properties
+val versionResource = tasks.register("fxloopVersionResource") {
+    val out = layout.buildDirectory.dir("generated/fxloop-resources")
+    val v = project.version.toString()
+    inputs.property("version", v)
+    outputs.dir(out)
+    doLast {
+        val f = out.get().file("dev/fxloop/gradle/fxloop.properties").asFile
+        f.parentFile.mkdirs()
+        f.writeText("version=$v\n")
+    }
+}
+sourceSets.main { resources.srcDir(versionResource) }
+
 tasks.withType<JavaCompile>().configureEach {
     options.release.set(17)
     options.encoding = "UTF-8"

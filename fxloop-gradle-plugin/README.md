@@ -24,3 +24,16 @@ Main class resolution: `fxloop.mainClass` -> `javafx { mainClass }` (org.openjfx
 ambiguity fails and lists candidates. `auto` launches on the module path only when `module-info.java` exists.
 Publishing to the Plugin Portal is configured (`com.gradle.plugin-publish`) but not executed. Compiles with `--release 17`
 on any JDK >= 17 (no toolchain required).
+
+## Run the app yourself: `fxloopRun`
+
+```sh
+./gradlew fxloopRun                       # app with the FXLoop agent and the dev bar
+./gradlew fxloopRun --args="--de --rtl"   # extra program args for this run
+./gradlew fxloopRun -Pfxloop.bar=pill     # dev bar as a corner pill (on|pill|off)
+```
+
+Runs the app in the foreground from `launch.json` with the agent (`dev.fxloop:fxloop-agent` at the plugin's version,
+resolved from the project's repositories: a SNAPSHOT needs `mavenLocal()`). The dev bar shows before any agent
+connects; the FXLoop server finds the running app on its first call and connects instead of launching another copy.
+Everything but restart works (re-run the task). Uses the project's Java toolchain when one is configured.

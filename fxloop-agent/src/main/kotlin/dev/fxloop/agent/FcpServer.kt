@@ -138,7 +138,7 @@ internal class FcpServer(private val runtime: AgentRuntime) {
         } catch (e: IOException) {
             AgentLog.debug("FCP connection closed: ${e.message}")
         } finally {
-            current.compareAndSet(conn, null)
+            if (current.compareAndSet(conn, null)) runtime.onDisconnected()
             closeQuietly(socket)
         }
     }

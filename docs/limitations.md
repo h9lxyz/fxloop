@@ -69,6 +69,8 @@ Existing instances keep their state; code in constructors or static initialisers
 
 * **Attach** (`fx_attach`): no reload tiers and no restart/stop (the JVM is not ours); input, inspection and screenshots work. JDK 21+ prints a dynamic-agent warning unless the target runs with `-XX:+EnableDynamicAgentLoading`.
 * **Embedded** (`FxLoopDev.install()` + `fx_connect_existing`): same as attach regarding restart.
+* **Developer-run** (`fxloop:run`, `fxloopRun`): no restart or stop (the build tool owns the JVM); reloads, input,
+  inspection and screenshots work. Connected automatically on the server's first call.
 
 ## Dev bar and overlays
 

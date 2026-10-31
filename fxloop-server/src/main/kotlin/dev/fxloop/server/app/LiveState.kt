@@ -76,6 +76,14 @@ class LiveState(private val config: Config, private val session: AppSession) {
     }
 
     /** A `humanPick` event arrived (remembered for `status`). */
+    /** Connected to an app the developer started (`fxloop:run`, IDE): `FXLOOP_CONTROL=auto` starts out shared. */
+    fun developerOwnsApp() {
+        if (!autoLocked && control == Control.AGENT) {
+            autoLocked = true
+            setControl(Control.SHARED, "auto")
+        }
+    }
+
     fun onHumanPick(payload: JsonNode) {
         lastPickMs = payload.path("ts").asLong(System.currentTimeMillis())
         lastPickTarget = payload["target"]

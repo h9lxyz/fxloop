@@ -15,9 +15,10 @@ class ChangeScanner {
 
     private var baseline: Map<Path, Long> = emptyMap()
 
+    /** @param sinceMs files modified after this time stay pending (an app started outside fxloop at that time) */
     @Synchronized
-    fun checkpoint(roots: List<Path>) {
-        baseline = scan(roots)
+    fun checkpoint(roots: List<Path>, sinceMs: Long? = null) {
+        baseline = if (sinceMs == null) scan(roots) else scan(roots).filterValues { it <= sinceMs }
     }
 
     @Synchronized

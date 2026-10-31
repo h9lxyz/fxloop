@@ -127,6 +127,7 @@ app-args=--seed
 The app runs under FXLoop (MCP server `fxloop`); the agent can screenshot, click, inspect and live-reload it.
 
 - Launch: `fx_get_app_status` builds (`<prepare command>`) and starts `<main class>`<, with `<app-args>`>.
+- Run it yourself with the dev bar: `<./mvnw fxloop:run | ./gradlew fxloopRun>`; the agent connects to that window when asked.
 - Demo data: `<flags and what they do>` (set in `fxloop.properties` → `app-args`).
 - Screenshots: `<target|build>/fxloop/screens/` (gallery: `index.html` there).
 - Reloads: CSS and FXML live; Java hot-swaps<; Kotlin `.kt` compiles through <Maven|Gradle> then hot-swaps>.
