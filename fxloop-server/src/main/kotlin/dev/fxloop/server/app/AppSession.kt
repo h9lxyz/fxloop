@@ -107,6 +107,7 @@ class AppSession(val config: Config) {
 
     @Synchronized
     fun start() {
+        refreshExit()
         if (state == State.RUNNING || state == State.STARTING) {
             throw ToolException("ALREADY_RUNNING", "the application is already running (pid $pid)", "use fx_restart_app to relaunch")
         }
@@ -329,7 +330,17 @@ class AppSession(val config: Config) {
     }.filter { it.fileName.toString().startsWith("xvfb-run.") }
 
     private fun refreshExit() {
-        val p = process ?: return
+        val p = process
+        if (p == null) {
+            // embedded/attached: nothing to wait on, so a JVM that died (window closed, build killed) still reads RUNNING
+            if (mode != Mode.LAUNCHED && state == State.RUNNING && pid > 0 &&
+                ProcessHandle.of(pid).map { it.isAlive }.orElse(false) != true) {
+                fcp?.close()
+                fcp = null
+                state = State.EXITED
+            }
+            return
+        }
         // a dead wrapper with a live app (still connected) is not "exited": its tree must still be reaped by stop
         if (!p.isAlive && mode == Mode.LAUNCHED && launchedTree.none { it.isAlive }) {
             exitCode = p.exitValue()
