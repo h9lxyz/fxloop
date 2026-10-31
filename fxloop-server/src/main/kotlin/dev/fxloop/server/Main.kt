@@ -86,6 +86,7 @@ fun main(args: Array<String>) {
         val viewer = Viewer(port, Tokens.generate(), ctx.visuals.store)
         viewer.start()
         ctx.viewer = viewer
+        ctx.live.push()
         log.info("live viewer: {}", viewer.url())
     }
     val reg = registry(ctx)

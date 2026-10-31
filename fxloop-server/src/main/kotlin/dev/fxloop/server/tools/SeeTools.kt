@@ -3,7 +3,9 @@ package dev.fxloop.server.tools
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import dev.fxloop.protocol.Fcp
+import dev.fxloop.protocol.FcpException
 import dev.fxloop.protocol.Json
+import dev.fxloop.server.mcp.ToolException
 import dev.fxloop.server.mcp.Schema
 import dev.fxloop.server.mcp.ToolDef.Kind
 import dev.fxloop.server.mcp.ToolRegistry
@@ -36,6 +38,25 @@ object SeeTools {
                 (c.meta["legend"]?.let { l -> "\nlegend:" + l.joinToString("") { "\n  [${it["n"]}] ${it["path"].asText()}" +
                     (it["text"]?.let { t -> " '${t.asText()}'" } ?: "") } } ?: ""), c.meta)
             if (include) result.image(c.png) else result
+        }
+
+        reg.tool("fx_get_picked", "Get picked node", Kind.READ,
+            "The node the developer picked in the running app (dev bar pick button / pick hotkey): target, property " +
+                "details, a short explanation and a screenshot of the node (persisted like fx_take_screenshot). Other tools " +
+                "accept picked:true as a target. Fails with PICK_STALE when nothing recent is picked — ask the developer to pick again.",
+            Schema.obj().bool("includeImage", "Return the image block (default true)")) { a ->
+            ctx.session.ensureStarted()
+            val r = try {
+                ctx.session.call(Fcp.Method.GET_PICKED, Json.obj(), 15_000) as ObjectNode
+            } catch (e: FcpException) {
+                if (e.code != Fcp.Error.PICK_STALE) throw e
+                throw ToolException(Fcp.Error.PICK_STALE, e.message.orEmpty(), "ask the developer to pick again (dev bar pick button)")
+            }
+            val c = v.persistNodeShot(r, "picked-" + r.path("target").path("fxId").asText("node"))
+            val t = r.path("target")
+            val result = ok("picked ${t.path("path").asText("?")} (${r.path("ageMs").asLong()} ms ago); " +
+                "saved ${c.meta["file"].asText()}" + (r.path("explain").asText(null)?.let { "\n$it" } ?: ""), c.meta)
+            if (a.path("includeImage").asBoolean(true)) result.image(c.png) else result
         }
 
         reg.tool("fx_get_screenshot", "Get screenshot", Kind.READ,

@@ -7,6 +7,7 @@ import dev.fxloop.protocol.FcpException
 import dev.fxloop.protocol.Json
 import dev.fxloop.server.Config
 import dev.fxloop.server.app.AppSession
+import dev.fxloop.server.app.ActionNeeded
 import dev.fxloop.server.app.LiveState
 import dev.fxloop.server.loop.Journal
 import dev.fxloop.server.loop.JournalEntry
@@ -18,6 +19,8 @@ import dev.fxloop.server.see.ScreenStore
 import dev.fxloop.server.see.Viewer
 import dev.fxloop.server.see.Visuals
 import org.slf4j.LoggerFactory
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.thread
 
 /** Shared services behind the tool surface: session, visuals, journal, reload, effects, replay. */
 class Ctx(val config: Config) {
@@ -28,16 +31,74 @@ class Ctx(val config: Config) {
     val live = LiveState(config, session)
     val reloader = Reloader(session, visuals, live)
     val watch: WatchMode = WatchMode { files ->
-        reloader.reload(Reloader.Options(files = files, allowRestart = false, replay = false, visualDiff = false,
+        val seq = live.reloadCount()
+        val r = reloader.reload(Reloader.Options(files = files, allowRestart = false, replay = false, visualDiff = false,
             javaTier = watchModeName() == "all", consume = false)) { Json.obj() }
+        if (live.reloadCount() == seq) {
+            val tiers = r.path("tiersApplied").map { it.asText() }
+            live.reloaded("watch: " + tiers.joinToString(", ").ifEmpty { "no change" }, true, live.actionItems())
+        }
+        r
     }
     var viewer: Viewer? = null
+    private val restarting = AtomicBoolean(false)
 
     init {
+        live.watchMode = { watch.mode }
+        live.statusSink = { viewer?.publishStatus(it) }
         session.onLaunched {
             reloader.checkpoint()
             applyWatchMode(watch.mode.takeIf { it != "off" } ?: config.watchMode)
+            live.push()
         }
+        session.onConnected { live.push() }
+        session.onAgentEvent(::onAgentEvent)
+    }
+
+    private fun onAgentEvent(event: String, payload: JsonNode) {
+        when (event) {
+            Fcp.Event.HUMAN_ACTION -> {
+                if (config.recordHuman && payload.hasNonNull("tool")) {
+                    val args = (payload["args"] as? ObjectNode)?.deepCopy() ?: Json.obj()
+                    journal.record(payload["tool"].asText(), args, (payload["target"] as? ObjectNode)?.deepCopy(), null, "",
+                        source = "human", redacted = payload.path("redacted").asBoolean(false))
+                }
+                live.onHumanAction(payload)
+            }
+            Fcp.Event.HUMAN_PICK -> live.onHumanPick(payload)
+            Fcp.Event.CONTROL_MODE_CHANGED -> {
+                val mode = if (payload.path("mode").asText() == "shared") LiveState.Control.SHARED else LiveState.Control.AGENT
+                live.setControl(mode, "bar")
+            }
+            Fcp.Event.HUMAN_RESTART_REQUEST -> humanRestart()
+        }
+    }
+
+    private fun humanRestart() {
+        if (session.mode != AppSession.Mode.LAUNCHED) {
+            live.setActionNeeded(live.actionItems().filter { it.kind != "restart" } + ActionNeeded("rebuildIde",
+                "restart requested from the dev bar, but fxloop did not launch this JVM",
+                "Rebuild and restart the app from your IDE", "copy"))
+            return
+        }
+        if (!restarting.compareAndSet(false, true)) return
+        thread(isDaemon = true, name = "fxloop-human-restart") {
+            try {
+                restartWithReplay(true)
+                clearRestartNeeded()
+            } catch (e: RuntimeException) {
+                log.warn("restart requested from the dev bar failed: {}", e.message)
+                live.setActionNeeded(live.actionItems().filter { it.kind != "restart" } + ActionNeeded("rebuildFailed",
+                    "restart failed: ${e.message}", "Check fx_get_logs, fix the cause, then restart", "copy"))
+            } finally {
+                restarting.set(false)
+            }
+        }
+    }
+
+    /** Drops the "restart needed" entries of the action-needed list (after any restart) and pushes. */
+    fun clearRestartNeeded() {
+        live.setActionNeeded(live.actionItems().filter { it.kind != "restart" })
     }
 
     private fun watchModeName() = watch.mode
@@ -67,6 +128,7 @@ class Ctx(val config: Config) {
         val withEffects = args.path("effects").asBoolean(true)
         args.remove("effects")
         val before = if (withEffects) snapshot() else null
+        if (live.control == LiveState.Control.SHARED && !args.has("mode") && tool in SHARED_EVENT_TOOLS) args.put("mode", "event")
         val r = session.call(method, args, 15_000) as ObjectNode
         val target = r["target"] as? ObjectNode
         var effects: ObjectNode? = null
@@ -75,7 +137,9 @@ class Ctx(val config: Config) {
             r.set<JsonNode>("effects", effects)
         }
         journal.record(tool, replayable(args, target), target?.deepCopy()?.apply { remove("h") }, effects, fingerprint(before))
-        val text = (if (started) "(app auto-started) " else "") + describe(r) + (effects?.let { "\n" + SceneDiff.summary(it) } ?: "")
+        val conflicts = r.path("conflicts").let { if (it.isArray) it.size() else it.asInt(0) }
+        val text = (if (started) "(app auto-started) " else "") + describe(r) +
+            (if (conflicts > 0) " [$conflicts human input conflict(s): the developer was interacting at the same time]" else "") + (effects?.let { "\n" + SceneDiff.summary(it) } ?: "")
         return ToolResult.ok(text, r)
     }
 
@@ -91,8 +155,22 @@ class Ctx(val config: Config) {
 
     /** Re-executes journal entries whose target path resolves; stops at the first failure (PRD 02 §5). */
     fun replay(entries: List<JournalEntry>): ObjectNode {
+        var skipped = 0
+        live.driving(true)
+        try {
+            return replayEntries(entries) { skipped++ }.also { if (skipped > 0) it.put("skippedRedacted", skipped) }
+        } finally {
+            live.driving(false)
+        }
+    }
+
+    private fun replayEntries(entries: List<JournalEntry>, onRedacted: () -> Unit): ObjectNode {
         var replayed = 0
         for (e in entries) {
+            if (e.redacted) {
+                onRedacted()
+                continue
+            }
             val method = METHODS[e.tool] ?: continue
             val path = e.args.path("path").asText(null)
             if (path != null && !awaitVisible(path)) {
@@ -139,6 +217,8 @@ class Ctx(val config: Config) {
     }
 
     companion object {
+        private val SHARED_EVENT_TOOLS = setOf("fx_click_node", "fx_type_keys")
+
         val METHODS = mapOf(
             "fx_click_node" to Fcp.Method.CLICK,
             "fx_type_keys" to Fcp.Method.TYPE_KEYS,

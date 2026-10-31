@@ -24,6 +24,16 @@ class Viewer(private val requestedPort: Int, private val token: String, private 
     @Volatile
     private var closed = false
 
+    @Volatile
+    private var lastStatus: String? = null
+
+    /** Publishes the compact bar-state JSON as an SSE `status` event and keeps it for new subscribers. */
+    fun publishStatus(json: String) {
+        lastStatus = json
+        val msg = "event: status\ndata: $json\n\n"
+        for (q in subscribers) q.offer(msg)
+    }
+
     /** Bound port; valid after [start]. */
     val port: Int get() = server!!.address.port
 
@@ -122,6 +132,7 @@ class Viewer(private val requestedPort: Int, private val token: String, private 
             ex.sendResponseHeaders(200, 0)
             val os = ex.responseBody
             os.write(": connected\n\n".toByteArray(StandardCharsets.UTF_8))
+            lastStatus?.let { os.write("event: status\ndata: $it\n\n".toByteArray(StandardCharsets.UTF_8)) }
             os.flush()
             while (!closed) {
                 var msg = q.poll(15, TimeUnit.SECONDS)
@@ -141,12 +152,19 @@ class Viewer(private val requestedPort: Int, private val token: String, private 
         val t = token
         return "<!doctype html><html><head><meta charset=\"utf-8\"><title>FXLoop viewer</title>" +
             "<style>body{font:14px system-ui,sans-serif;margin:0;background:#1e1f22;color:#ddd;text-align:center}" +
-            "img{max-width:100%;margin-top:8px;border:1px solid #444}a{color:#8ab4f8}</style></head><body>" +
+            "img{max-width:100%;margin-top:8px;border:1px solid #444}a{color:#8ab4f8}" +
+            "#st{padding:6px 8px;background:#2b2d30;color:#bbb;font-size:13px}#st.warn{color:#f0b429}</style></head><body>" +
+            "<div id=\"st\">connecting…</div>" +
             "<div style=\"padding:8px\"><a href=\"/index?t=$t\">gallery</a></div>" +
             "<img id=\"f\" src=\"/latest.png?t=$t\" alt=\"latest frame\">" +
             "<script>var t=${jsString(t)};var img=document.getElementById('f');" +
             "var es=new EventSource('/sse?t='+encodeURIComponent(t));" +
             "es.addEventListener('frame',function(){img.src='/latest.png?t='+encodeURIComponent(t)+'&r='+Date.now();});" +
+            "var st=document.getElementById('st');" +
+            "es.addEventListener('status',function(e){try{var s=JSON.parse(e.data);var a=s.actionNeeded||[];" +
+            "var txt=(s.mode||'')+' \\u00b7 control: '+(s.control||'')+(s.driving?' \\u00b7 agent driving':'')+" +
+            "' \\u00b7 '+(a.length?'action needed: '+a.map(function(x){return x.reason+' \\u2192 '+x.next;}).join('; '):'no action needed');" +
+            "st.textContent=txt;st.className=a.length?'warn':'';}catch(x){}});" +
             "</script></body></html>"
     }
 

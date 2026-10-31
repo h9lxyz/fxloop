@@ -19,9 +19,10 @@ import kotlin.streams.asSequence
 object ActTools {
     fun register(reg: ToolRegistry, ctx: Ctx) {
         reg.tool("fx_click_node", "Click node", Kind.WRITE,
-            "Click a node (handle/path/query) or screen point (x,y). mode=robot (default) moves the real mouse via " +
+            "Click a node (handle/path/query) or screen point (x,y). mode=robot (default in agent control) moves the real mouse via " +
                 "javafx Robot — picking, hover and focus behave like a user; enclosing tabs/scroll panes are brought into " +
-                "view first. mode=event fires synthetic events (no real input). Returns effects (scene diff).",
+                "view first. mode=event (default when control is shared) fires synthetic events (no real input, leaves the developer's mouse alone). " +
+                "Returns effects (scene diff), mode and conflicts (human input during the action).",
             Schema.obj().target().number("x", "Screen x (instead of a target)").number("y", "Screen y")
                 .strEnum("button", "Mouse button (default primary)", "primary", "secondary", "middle")
                 .integer("clickCount", "1 or 2 (default 1)", 1, 3).strEnum("mode", "robot (default) or event", "robot", "event")
@@ -32,13 +33,16 @@ object ActTools {
         }
 
         reg.tool("fx_type_keys", "Type keys", Kind.WRITE,
-            "Press key codes via Robot (FX KeyCode names: ENTER, TAB, ESCAPE, DOWN, A, DIGIT1 …; modifiers SHIFT, CONTROL, " +
-                "ALT, META, SHORTCUT). For free text use fx_set_text (layout-independent).",
+            "Press key codes (FX KeyCode names: ENTER, TAB, ESCAPE, DOWN, A, DIGIT1 …; modifiers SHIFT, CONTROL, " +
+                "ALT, META, SHORTCUT). mode=robot (default in agent control) uses the real keyboard via Robot; mode=event " +
+                "(default when control is shared) fires synthetic key events. For free text use fx_set_text (layout-independent).",
             Schema.obj().array("keys", "Key presses in order", mapOf("type" to "object", "properties" to mapOf(
                 "code" to mapOf("type" to "string"), "modifiers" to mapOf("type" to "array", "items" to mapOf("type" to "string"))),
-                "required" to listOf("code"))).target().effects().required("keys")) { a ->
+                "required" to listOf("code"))).target().strEnum("mode", "robot or event (default follows the control mode)", "robot", "event")
+                .effects().required("keys")) { a ->
             ctx.action("fx_type_keys", Fcp.Method.TYPE_KEYS, a) { r ->
-                "typed ${r.path("typed").asInt()} key(s); focus now ${r.path("focusedAfter").path("path").asText("-")}"
+                "typed ${r.path("typed").asInt()} key(s)" + (r.path("mode").asText(null)?.let { " ($it)" } ?: "") +
+                    "; focus now ${r.path("focusedAfter").path("path").asText("-")}"
             }
         }
 
@@ -61,7 +65,9 @@ object ActTools {
         }
 
         reg.tool("fx_get_journal", "Get journal", Kind.READ,
-            "The ordered log of successful actions (replayed after restarts and exported as tests).",
+            "The ordered log of successful actions (replayed after restarts and exported as tests). Each entry has " +
+                "source: agent (an MCP action tool) or human (the developer's own input in the app; redacted:true for " +
+                "password fields, whose value is never recorded).",
             Schema.obj().integer("limit", "Newest N entries (default 50)", 1, 500)) { a ->
             val entries = ctx.journal.entries().takeLast(a.path("limit").asInt(50))
             val arr = Json.array()
@@ -69,13 +75,15 @@ object ActTools {
                 arr.addObject().apply {
                     put("seq", e.seq)
                     put("tool", e.tool)
+                    put("source", e.source)
+                    if (e.redacted) put("redacted", true)
                     set<JsonNode>("args", e.args)
                     e.target?.let { set<JsonNode>("target", it) }
                     e.effects?.let { set<JsonNode>("effects", it) }
                     put("ts", e.ts)
                 }
             }
-            ok(entries.joinToString("\n") { "#${it.seq} ${it.tool} ${it.args}" }.ifEmpty { "journal is empty" },
+            ok(entries.joinToString("\n") { "#${it.seq} [${it.source}] ${it.tool} ${it.args}" + (if (it.redacted) " (redacted)" else "") }.ifEmpty { "journal is empty" },
                 Json.obj { set<JsonNode>("entries", arr); put("count", entries.size) })
         }
 
@@ -84,13 +92,19 @@ object ActTools {
                 "synthesized from recorded effects; unclear spots get TODO(fxloop) markers. Generated draft — review it.",
             Schema.obj().str("name", "Test name, e.g. AddContact → AddContactGeneratedTest").str("package", "Java package (default: main class package)")
                 .integer("fromSeq", "First journal seq").integer("toSeq", "Last journal seq")
+                .strArray("sources", "Which entries to export: agent, human (default both)")
                 .bool("write", "Write files (default true); false returns the source only").required("name")) { a ->
             val d = ctx.session.descriptor ?: throw ToolException("NO_DESCRIPTOR", "the app has not been built yet", "call fx_start_app first")
             val name = a["name"].asText()
             if (!name.matches(Regex("[A-Z][A-Za-z0-9_]*"))) throw ToolException("BAD_REQUEST", "name must be a Java identifier", "e.g. AddContact")
             val pkg = a.path("package").asText(d.mainClass.substringBeforeLast('.', ""))
             if (!pkg.matches(Regex("([a-z_][a-z0-9_]*(\\.[a-z_][a-z0-9_]*)*)?"))) throw ToolException("BAD_REQUEST", "invalid package $pkg", "use a.b.c")
+            val sources = a.path("sources").map { it.asText() }.ifEmpty { listOf("agent", "human") }
+            sources.firstOrNull { it != "agent" && it != "human" }?.let {
+                throw ToolException("BAD_REQUEST", "unknown source '$it'", "use agent and/or human")
+            }
             val entries = ctx.journal.range(a.path("fromSeq").asLong(0), a.path("toSeq").asLong(Long.MAX_VALUE))
+                .filter { it.source in sources }
             if (entries.isEmpty()) throw ToolException("EMPTY_JOURNAL", "no journal entries in range", "perform actions first (fx_click_node …)")
             val appClass = applicationClass(Path.of(d.outputDir))
                 ?: throw ToolException("NO_APPLICATION", "no javafx.application.Application subclass found in ${d.outputDir}", "compile the app")

@@ -58,6 +58,27 @@ class ViewerTest {
     }
 
     @Test
+    fun sseSendsLastStatusImmediatelyAndEveryPublish(@TempDir dir: Path) {
+        Viewer(0, "tok", ScreenStore(dir, 10)).use { v ->
+            v.start()
+            v.publishStatus("{\"control\":\"agent\"}")
+            val conn = URI.create("http://127.0.0.1:${v.port}/sse?t=tok").toURL().openConnection() as HttpURLConnection
+            conn.readTimeout = 10_000
+            val reader = BufferedReader(InputStreamReader(conn.inputStream))
+            val lines = ArrayList<String>()
+            while (lines.size < 4) lines += reader.readLine()
+            assertThat(lines).contains("event: status", "data: {\"control\":\"agent\"}")
+            v.publishStatus("{\"control\":\"shared\"}")
+            var line: String
+            do line = reader.readLine() while (!line.startsWith("data: {\"control\":\"shared"))
+            conn.disconnect()
+            val page = http.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:${v.port}/?t=tok")).build(),
+                HttpResponse.BodyHandlers.ofString()).body()
+            assertThat(page).contains("addEventListener('status'").doesNotContain("<button")
+        }
+    }
+
+    @Test
     fun sseDeliversEvent(@TempDir dir: Path) {
         val store = ScreenStore(dir, 10)
         Viewer(0, "tok", store).use { v ->
