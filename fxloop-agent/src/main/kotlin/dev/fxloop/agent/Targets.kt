@@ -8,9 +8,10 @@ import javafx.scene.Node
 
 /** Resolves the common target params `handle | path | query (+windowIndex)` to one node. FX thread only. */
 internal object Targets {
-    fun hasTarget(p: ObjectNode): Boolean = p.hasNonNull("handle") || p.hasNonNull("path") || p.hasNonNull("query")
+    fun hasTarget(p: ObjectNode): Boolean = p.path("picked").asBoolean(false) || p.hasNonNull("handle") || p.hasNonNull("path") || p.hasNonNull("query")
 
     fun resolve(p: ObjectNode): Node {
+        if (p.path("picked").asBoolean(false)) return AgentRuntime.current().pick.picked()
         if (p.hasNonNull("handle")) {
             val n = AgentRuntime.current().handles.resolve(p.get("handle").asInt())
             if (n == null || n.scene == null) {
