@@ -1,0 +1,6 @@
+/* Distinct per-state styles for #stateBtn. */
+#stateBtn { -fx-background-color: #3366cc; -fx-text-fill: white; }
+#stateBtn:hover { -fx-background-color: #ff9900; -fx-text-fill: black; }
+#stateBtn:focused { -fx-border-color: #00aa00; -fx-border-width: 3; }
+#stateBtn:pressed { -fx-background-color: #cc0000; -fx-text-fill: white; }
+#stateBtn:disabled { -fx-background-color: #999999; -fx-text-fill: #dddddd; -fx-opacity: 0.6; }
