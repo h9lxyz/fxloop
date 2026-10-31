@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import dev.fxloop.protocol.Fcp
 import dev.fxloop.protocol.Json
 import dev.fxloop.protocol.Paging
+import dev.fxloop.server.app.LiveState
 import dev.fxloop.server.mcp.Schema
 import dev.fxloop.server.mcp.ToolDef
 import dev.fxloop.server.mcp.ToolDef.Kind
@@ -30,9 +31,24 @@ object CoreTools {
             ctx.viewer?.let { v -> st.put("viewerUrl", v.url()) }
             st.put("watchMode", ctx.watch.mode)
             st.put("screensDir", ctx.visuals.relative(ctx.visuals.store.dir))
+            val live = ctx.live.status(st["human"])
+            listOf("control", "controlSetting", "human", "actionNeeded").forEach { k -> st.set<JsonNode>(k, live[k]) }
             val windows = st.path("windows").joinToString("; ") { "#${it["index"]} ${it.path("type").asText()} '${it.path("title").asText("")}'" }
+            val needed = live.path("actionNeeded").joinToString(", ") { "${it.path("reason").asText()} · ${it.path("next").asText()}" }
             ok((if (started) "(app auto-started) " else "") + "${st["state"].asText()} pid=${st.path("pid").asText("-")} " +
-                "windows=[${windows}] uiErrors=${st.path("uiErrors").asInt()}", st)
+                "windows=[${windows}] uiErrors=${st.path("uiErrors").asInt()}\n" +
+                "control=${live["control"].asText()} actionNeeded=[$needed]", st)
+        }
+
+        reg.tool("fx_set_control_mode", "Set control mode", Kind.IDEMPOTENT_WRITE,
+            "Who may drive the UI: agent (the agent owns mouse and keyboard; human input during an action is a conflict) or " +
+                "shared (human and agent interleave; agent clicks/keys use synthetic events and restarts wait for the developer). " +
+                "Ask the developer before switching to agent while they are present. Returns the status.",
+            Schema.obj().strEnum("mode", "agent or shared", "agent", "shared").required("mode")) { a ->
+            val mode = if (a["mode"].asText() == "shared") LiveState.Control.SHARED else LiveState.Control.AGENT
+            val r = ctx.live.setControl(mode, "tool")
+            r.setAll<JsonNode>(ctx.live.status(s.status().path("human")))
+            ok("control: ${r["previous"].asText()} → ${r["control"].asText()}", r)
         }
 
         reg.tool("fx_start_app", "Start app", Kind.WRITE,
@@ -47,6 +63,7 @@ object CoreTools {
                 "(restart-and-restore). Stage geometry is restored automatically.",
             Schema.obj().bool("replay", "Replay the action journal after restart (default false)")) { a ->
             val r = ctx.restartWithReplay(a.path("replay").asBoolean(false))
+            ctx.clearRestartNeeded()
             r.setAll<JsonNode>(s.status())
             ok("restarted in ${r["startupMs"]} ms" + (r["replay"]?.let { "; replay $it" } ?: ""), r)
         }
@@ -149,6 +166,26 @@ object CoreTools {
                 "TEST ONLY: blocks the FX thread for ms milliseconds to exercise FX_TIMEOUT handling.",
                 Schema.obj().integer("ms", "Block duration (default 8000)")) { a ->
                 ok("blocking", s.call(Fcp.Method.BLOCK_FX_THREAD, a) as ObjectNode)
+            }
+
+            reg.tool("fx_test_human_input", "Inject human input (test)", Kind.WRITE,
+                "TEST ONLY: fires synthetic events outside the agent-action bracket, as if the developer clicked (kind=click, " +
+                    "target), typed text into a field (kind=text, target, text, commit) or pressed keys (kind=keys, keys).",
+                Schema.obj().strEnum("kind", "click | text | keys", "click", "text", "keys").target().str("text", "Text for kind=text")
+                    .any("keys", "Key presses for kind=keys, as in fx_type_keys").bool("commit", "Press Enter after typing (kind=text)")
+                    .required("kind")) { a ->
+                ok("injected human ${a["kind"].asText()}", s.call(Fcp.Method.TEST_HUMAN_INPUT, a) as ObjectNode)
+            }
+
+            reg.tool("fx_test_get_bar_state", "Get dev bar state (test)", Kind.READ,
+                "TEST ONLY: what the dev bar currently renders (bar mode, texts, windows, control history).", Schema.obj()) {
+                ok("bar state", s.call(Fcp.Method.GET_BAR_STATE) as ObjectNode)
+            }
+
+            reg.tool("fx_test_set_pick_mode", "Set pick mode (test)", Kind.WRITE,
+                "TEST ONLY: turns the agent's pick mode on or off, as the dev bar's pick button does.",
+                Schema.obj().bool("on", "Pick mode on/off").integer("windowIndex", "Window to pick in").required("on")) { a ->
+                ok("pick mode ${if (a["on"].asBoolean()) "on" else "off"}", s.call(Fcp.Method.SET_PICK_MODE, a) as ObjectNode)
             }
         }
     }

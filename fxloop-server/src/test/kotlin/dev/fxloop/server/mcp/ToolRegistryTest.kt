@@ -38,7 +38,10 @@ class ToolRegistryTest {
             "fx_set_property", "fx_take_screenshot", "fx_reload", "fx_reload_fxml", "fx_get_journal", "fx_describe_at",
             "fx_lint_fxml", "fx_get_node_details", "fx_connect_existing", "fx_set_watch_mode", "fx_compare_screenshots",
             "fx_get_screenshot", "fx_lint_visual", "fx_attach", "fx_export_test", "fx_explain_property", "fx_explain_style",
-            "fx_explain_layout", "fx_eval_js", "fx_capture_states")
+            "fx_explain_layout", "fx_eval_js", "fx_capture_states", "fx_set_control_mode", "fx_get_picked",
+            "fx_test_human_input", "fx_test_get_bar_state", "fx_test_set_pick_mode")
+        assertThat(reg.all().first { it.name == "fx_get_picked" }.kind).isEqualTo(ToolDef.Kind.READ)
+        assertThat(reg.all().first { it.name == "fx_set_control_mode" }.kind).isEqualTo(ToolDef.Kind.IDEMPOTENT_WRITE)
         val specs = reg.toMcp()
         assertThat(specs).allSatisfy { assertThat(it.tool().annotations().openWorldHint()).isFalse() }
         assertThat(specs.first { it.tool().name() == "fx_get_scene_graph" }.tool().annotations().readOnlyHint()).isTrue()
@@ -49,7 +52,8 @@ class ToolRegistryTest {
     @Test
     fun `eval_js is not registered unless enabled`(@TempDir dir: Path) {
         val reg = registry(Ctx(Config(projectDir = dir)))
-        assertThat(reg.all().map { it.name }).doesNotContain("fx_eval_js", "fx_test_block_fx_thread")
+        assertThat(reg.all().map { it.name }).doesNotContain("fx_eval_js", "fx_test_block_fx_thread",
+            "fx_test_human_input", "fx_test_get_bar_state", "fx_test_set_pick_mode")
     }
 
     @Test

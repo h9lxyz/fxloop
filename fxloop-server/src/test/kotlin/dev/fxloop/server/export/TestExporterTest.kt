@@ -116,6 +116,28 @@ class TestExporterTest {
     }
 
     @Test
+    fun exportsHumanEntriesAndSkipsRedactedOnes() {
+        val entries = listOf(
+            JournalEntry(
+                1, "fx_set_text", o("{\"path\":\"Stage[0]/Scene/TextField#nameField\",\"text\":\"Bob\"}"),
+                o("{\"path\":\"Stage[0]/Scene/TextField#nameField\",\"type\":\"TextField\",\"fxId\":\"nameField\"}"),
+                null, "", 1, "human",
+            ),
+            JournalEntry(
+                2, "fx_set_text", o("{\"path\":\"Stage[0]/Scene/PasswordField#pw\",\"text\":\"\"}"),
+                o("{\"path\":\"Stage[0]/Scene/PasswordField#pw\",\"type\":\"PasswordField\",\"fxId\":\"pw\"}"),
+                null, "", 2, "human", true,
+            ),
+        )
+        val ex = TestExporter.export("H", "", "a.B", entries)
+        assertThat(ex.testSource).contains("setText(\"Bob\")").contains("recorded from the developer's own input")
+            .contains("// TODO(fxloop): step 2 edited a password field")
+            .doesNotContain("#pw\"")
+        assertThat(ex.todos).isEqualTo(1)
+        assertThat(ex.steps).isEqualTo(2)
+    }
+
+    @Test
     fun fallsBackToFxPathAndEscapes() {
         val entries = listOf(
             JournalEntry(
