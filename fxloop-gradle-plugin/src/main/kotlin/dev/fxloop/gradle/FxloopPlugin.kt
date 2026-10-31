@@ -63,6 +63,12 @@ class FxloopPlugin : Plugin<Project> {
             c.description = "The FXLoop agent jar used by fxloopRun"
         }
         project.dependencies.add(AGENT_CONFIGURATION, "dev.fxloop:fxloop-agent:$VERSION")
+        val server = project.configurations.create(SERVER_CONFIGURATION) { c ->
+            c.isCanBeConsumed = false
+            c.isTransitive = false
+            c.description = "The FXLoop server jar run by fxloopRun as the inspector helper"
+        }
+        project.dependencies.add(SERVER_CONFIGURATION, "dev.fxloop:fxloop-server:$VERSION:all")
         val toolchains = project.extensions.getByType(JavaToolchainService::class.java)
         val javaExt = project.extensions.getByType(JavaPluginExtension::class.java)
         project.tasks.register(RUN_TASK_NAME, FxloopRunTask::class.java) { t ->
@@ -72,6 +78,9 @@ class FxloopPlugin : Plugin<Project> {
             t.agentJar.from(agent)
             t.javaLauncher.convention(toolchains.launcherFor(javaExt.toolchain))
             t.bar.convention(project.providers.gradleProperty("fxloop.bar").orElse("on"))
+            t.inspector.convention(project.providers.gradleProperty("fxloop.inspector").map { it != "false" }.orElse(true))
+            t.serverJar.from(server)
+            t.projectDir.convention(project.layout.projectDirectory)
         }
 
         // Values that need the finished build model; resolved to plain strings so nothing captures the Project
@@ -124,6 +133,7 @@ class FxloopPlugin : Plugin<Project> {
         const val TASK_NAME = "fxloopPrepare"
         const val RUN_TASK_NAME = "fxloopRun"
         const val AGENT_CONFIGURATION = "fxloopAgent"
+        const val SERVER_CONFIGURATION = "fxloopServer"
 
         /** This plugin's version (from the generated `fxloop.properties`); the agent jar is pinned to it. */
         val VERSION: String by lazy {

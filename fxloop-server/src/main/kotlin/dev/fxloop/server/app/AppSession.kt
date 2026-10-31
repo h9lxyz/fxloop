@@ -239,8 +239,8 @@ class AppSession(val config: Config) {
             "Last log lines:\n${logTail(50)}", "check the main class / JavaFX startup; raise FXLOOP_STARTUP_TIMEOUT_MS if the app is slow")
     }
 
-    private fun connect(port: Int, token: String) {
-        val c = FcpClient.connect(port, token, ::onEvent)
+    private fun connect(port: Int, token: String, yieldToAgents: Boolean = false) {
+        val c = FcpClient.connect(port, token, ::onEvent, yieldToAgents)
         fcp?.close()
         fcp = c
         // pull anything raised before we connected
@@ -353,7 +353,7 @@ class AppSession(val config: Config) {
 
     /** Connects to an embedded (`FxLoopDev.install()`) or attached agent via its handshake file. */
     @Synchronized
-    fun connectExisting(handshakeFile: Path, newMode: Mode): ObjectNode {
+    fun connectExisting(handshakeFile: Path, newMode: Mode, yieldToAgents: Boolean = false): ObjectNode {
         if (mode == Mode.LAUNCHED && process != null) {
             // switching modes would drop the supervised app from supervision: stop it first
             fcp?.close()
@@ -365,7 +365,7 @@ class AppSession(val config: Config) {
             val hs = Handshake.readFrom(handshakeFile)
             val token = hs.token ?: throw ToolException("CONFIG", "handshake has no token (it belongs to a supervised launch)",
                 "use fx_start_app for supervised apps")
-            connect(hs.port, token)
+            connect(hs.port, token, yieldToAgents)
             mode = newMode
             // embedded apps are built from this project: reload tiers need its source roots and output dir (attach has none)
             // fxloop:run leaves its launch.json next to the handshake: reuse it instead of building again

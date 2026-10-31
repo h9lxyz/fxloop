@@ -122,6 +122,7 @@ class LiveState(private val config: Config, private val session: AppSession) {
     /** The full `setBarState` payload. */
     fun barState(): ObjectNode = Json.obj {
         put("bar", barSetting())
+        if (config.sidecar) put("sidecar", true) // the fxloop:run helper, not an agent session
         put("mode", modeText())
         put("control", control.name.lowercase())
         put("driving", drivingNow)

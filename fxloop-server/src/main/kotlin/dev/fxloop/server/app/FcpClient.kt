@@ -82,7 +82,8 @@ class FcpClient private constructor(private val socket: Socket, private val even
     companion object {
         const val DEFAULT_TIMEOUT_MS = 10_000L
 
-        fun connect(port: Int, token: String, events: (String, JsonNode?) -> Unit): FcpClient {
+        /** @param yieldToAgents connect as the `fxloop:run` helper: refused (BUSY) while an agent session is connected */
+        fun connect(port: Int, token: String, events: (String, JsonNode?) -> Unit, yieldToAgents: Boolean = false): FcpClient {
             val s = try {
                 Socket(InetAddress.getLoopbackAddress(), port).apply { tcpNoDelay = true }
             } catch (e: IOException) {
@@ -100,6 +101,7 @@ class FcpClient private constructor(private val socket: Socket, private val even
                     put("token", token)
                     put("fcpVersion", Fcp.VERSION)
                     put("maxFcpVersion", Fcp.VERSION)
+                    if (yieldToAgents) put("yield", true)
                 }, 5000) as ObjectNode
             } catch (e: Exception) {
                 c.close()

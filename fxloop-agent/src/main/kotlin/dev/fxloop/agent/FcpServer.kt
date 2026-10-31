@@ -39,6 +39,9 @@ internal class FcpServer(private val runtime: AgentRuntime) {
     private val current = java.util.concurrent.atomic.AtomicReference<Connection?>()
 
     private class Connection(val socket: Socket, val codec: FcpCodec) {
+        /** Set by `hello {yield: true}`: gives way to any agent session (see [Fcp.Method.HELLO]). */
+        @Volatile var yielding = false
+
         fun write(frame: FcpFrame) = codec.write(frame)
     }
 
@@ -171,6 +174,13 @@ internal class FcpServer(private val runtime: AgentRuntime) {
                 ),
             )
             return false
+        }
+        if (p.path("yield").asBoolean(false)) {
+            if (current.get()?.yielding == false) {
+                conn.write(FcpFrame.error(hello.id, FcpError(Fcp.Error.BUSY, "an agent session is connected")))
+                return false
+            }
+            conn.yielding = true
         }
         val result = Json.obj()
         result.put("fcpVersion", negotiated)

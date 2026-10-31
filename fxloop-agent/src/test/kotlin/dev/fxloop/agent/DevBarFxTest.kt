@@ -92,6 +92,13 @@ class DevBarFxTest {
     }
 
     @Test
+    fun inspectorHelperStateReadsAsNoAgent() {
+        val d = fx { rt.bar.applyState(state("on", "shared") { put("sidecar", true) }) }
+        assertThat(d.path("rendered").asInt()).isGreaterThanOrEqualTo(1)
+        assertThat(d.path("texts").path("session").asText()).startsWith("FXLoop · no agent connected")
+    }
+
+    @Test
     fun controlTextsAndHistory() {
         fx { rt.bar.applyState(state("on", "shared")) }
         rt.bar.agentInput(true)

@@ -2,15 +2,18 @@ package dev.fxloop.gradle
 
 import dev.fxloop.protocol.LaunchDescriptor
 import java.nio.file.Files
+import java.nio.file.Path
 import javax.inject.Inject
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.PathSensitive
@@ -31,6 +34,11 @@ abstract class FxloopRunTask : DefaultTask() {
     @get:InputFile @get:PathSensitive(PathSensitivity.ABSOLUTE) abstract val launchFile: RegularFileProperty
     @get:InputFiles @get:PathSensitive(PathSensitivity.ABSOLUTE) abstract val agentJar: ConfigurableFileCollection
     @get:Nested abstract val javaLauncher: Property<JavaLauncher>
+
+    /** Inspector helper (`-Pfxloop.inspector=false` turns it off): Inspect CSS works before an agent connects. */
+    @get:Input abstract val inspector: Property<Boolean>
+    @get:Internal abstract val serverJar: ConfigurableFileCollection
+    @get:Internal abstract val projectDir: DirectoryProperty
 
     /** Dev bar before an agent connects: `on`, `pill` or `off` (`-Pfxloop.bar=`). */
     @get:Input abstract val bar: Property<String>
@@ -55,6 +63,7 @@ abstract class FxloopRunTask : DefaultTask() {
             "${agent.absolutePath}=${d.runAgentArgs(handshake, bar.get())}", extra)
         logger.lifecycle("FXLoop: running ${d.mainClass} with the dev bar. To bring in your agent, ask it to " +
             "\"connect to my running app\" (handshake: $handshake). Ctrl+C stops the app.")
+        val helper = if (inspector.get()) startHelper(d, java = cmd.first(), log = launch.resolveSibling("inspector.log")) else null
         try {
             val result = execOperations.exec { spec ->
                 spec.commandLine(cmd)
@@ -63,7 +72,35 @@ abstract class FxloopRunTask : DefaultTask() {
             }
             if (result.exitValue != 0) throw GradleException("the app exited with code ${result.exitValue}")
         } finally {
+            helper?.takeIf { it.isAlive }?.destroy()
             Files.deleteIfExists(handshake) // a dead app must not be found by the next agent session
         }
+    }
+
+    /**
+     * Starts the inspector helper; it waits for the app's handshake and exits with the app. Its output goes to [log]
+     * (a daemon's child would print nowhere visible); the inspector URL is relayed once it appears.
+     */
+    private fun startHelper(d: LaunchDescriptor, java: String, log: Path): Process? {
+        val jar = runCatching { serverJar.files.singleOrNull { it.name.endsWith(".jar") } }.getOrNull()
+        if (jar == null) {
+            logger.warn("FXLoop: cannot resolve dev.fxloop:fxloop-server (all) for the inspector helper; Inspect CSS " +
+                "needs an agent session until it is available (a SNAPSHOT needs mavenLocal())")
+            return null
+        }
+        Files.deleteIfExists(log)
+        val p = ProcessBuilder(d.inspectorHelperCommand(java, jar.toPath(), projectDir.get().asFile.toPath(), bar.get()))
+            .directory(projectDir.get().asFile).redirectErrorStream(true).redirectOutput(log.toFile())
+            .apply { environment()["FXLOOP_LOG"] = "warn" }.start()
+        val deadline = System.currentTimeMillis() + 15_000
+        while (p.isAlive && System.currentTimeMillis() < deadline) {
+            val line = runCatching { Files.readAllLines(log) }.getOrDefault(emptyList()).firstOrNull { "CSS inspector:" in it }
+            if (line != null) {
+                logger.lifecycle(line.removePrefix("[fxloop] "))
+                break
+            }
+            Thread.sleep(200)
+        }
+        return p
     }
 }

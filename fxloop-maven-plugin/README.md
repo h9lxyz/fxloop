@@ -33,8 +33,10 @@ mvn fxloop:run -Dfxloop.appArgs=--de,--rtl      # extra program args for this ru
 ```
 
 It compiles, writes `launch.json` like `prepare`, and runs the app in the foreground with the FXLoop agent. The dev bar
-shows from the start (`FXLoop · no agent connected`): click around, use **Pick** to mark a node, and ask your agent
-whenever you like. The FXLoop MCP server finds the running app by itself on its first call (`fx_get_app_status`) and
+shows from the start (`FXLoop · no agent connected`): click around, use **Pick** to mark a node, open **Inspect CSS**
+(the browser CSS inspector, served by a small FXLoop helper started next to the app; its URL is printed), and ask your
+agent whenever you like. While an agent session is connected the helper steps aside and the session serves the
+inspector; when the session ends the helper takes over again. The FXLoop MCP server finds the running app by itself on its first call (`fx_get_app_status`) and
 connects to it instead of launching another copy; your pick is then available as `fx_get_picked`. Close the app or
 press Ctrl+C to stop.
 
@@ -45,7 +47,9 @@ re-running the goal.
 | Parameter | Property | Default | Description |
 |---|---|---|---|
 | `bar` | `fxloop.bar` | `on` | Dev bar before an agent connects: `on`, `pill` or `off`. |
+| `inspector` | `fxloop.inspector` | `true` | Start the inspector helper (Inspect CSS without an agent session). |
 | `agentJar` | `fxloop.agentJar` | `dev.fxloop:fxloop-agent` at the plugin's version | Agent jar override. |
+| `serverJar` | `fxloop.serverJar` | `dev.fxloop:fxloop-server:jar:all` at the plugin's version | Server jar for the inspector helper. |
 | `javaHome` | `fxloop.javaHome` | the JDK running Maven | JDK that runs the app. |
 
 `fxloop:run` also takes every `prepare` parameter below.

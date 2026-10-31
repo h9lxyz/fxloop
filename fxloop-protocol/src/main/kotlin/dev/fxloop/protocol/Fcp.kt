@@ -16,6 +16,11 @@ object Fcp {
 
     /** Request method names. Mirror the MCP tool surface 1:1 where applicable. */
     object Method {
+        /**
+         * First frame: `{token, fcpVersion, maxFcpVersion, yield?}`. A new connection replaces the current one, except
+         * that `yield: true` (the `fxloop:run` inspector helper) is refused with [Error.BUSY] while a non-yielding
+         * client (an agent session) is connected, and is itself replaced by any non-yielding client.
+         */
         const val HELLO = "hello"
         const val PING = "ping"
         const val STATUS = "status"
@@ -100,5 +105,8 @@ object Fcp {
         const val DISABLED = "DISABLED"
         const val INTERNAL = "INTERNAL"
         const val DISCONNECTED = "DISCONNECTED"
+
+        /** A yielding hello while an agent session is connected. */
+        const val BUSY = "BUSY"
     }
 }

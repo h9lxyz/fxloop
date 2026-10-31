@@ -64,6 +64,13 @@ data class LaunchDescriptor(
         addAll(extraAppArgs)
     }
 
+    /**
+     * The inspector helper started next to a developer-run app: the FXLoop server in sidecar mode (no MCP) for
+     * [projectDir], serving the viewer and CSS inspector while no agent session is connected.
+     */
+    fun inspectorHelperCommand(java: String, serverJar: Path, projectDir: Path, bar: String?): List<String> =
+        listOf(java, "-jar", serverJar.toString(), "--sidecar=true", "--project-dir=$projectDir", "--bar=${bar ?: "on"}")
+
     /** Agent arguments for a developer-run app: self-generated token in [handshake], optional standalone dev bar. */
     fun runAgentArgs(handshake: Path, bar: String?): String {
         val b = bar?.trim()?.lowercase()?.takeIf { it == "on" || it == "pill" }

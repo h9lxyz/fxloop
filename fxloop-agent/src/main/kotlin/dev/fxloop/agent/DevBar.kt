@@ -93,6 +93,9 @@ class DevBar(private val rt: AgentRuntime) {
 
     private fun isStandalone(): Boolean = state.path("standalone").asBoolean(false)
 
+    /** Connected to the `fxloop:run` inspector helper rather than an agent session. */
+    private fun isSidecar(): Boolean = state.path("sidecar").asBoolean(false)
+
     /** Called by [HumanInput] when a robot bracket opens/closes; shows the driving text for its duration. Any thread. */
     fun agentInput(active: Boolean) {
         synchronized(lock) {
@@ -129,7 +132,7 @@ class DevBar(private val rt: AgentRuntime) {
         if (driving()) "Agent is driving — hands off" else "Agent mode"
     }
 
-    private fun sessionText(): String = if (isStandalone()) "FXLoop · no agent connected · pick a node, then ask your agent" else
+    private fun sessionText(): String = if (isStandalone() || isSidecar()) "FXLoop · no agent connected · pick a node, then ask your agent" else
         state.path("mode").asText("dev loop") + " · " + controlText() + " · " + watchText(state.path("watch").asText("css-only"))
 
     /** What a save does in the server's watch mode, in the developer's words. */
@@ -387,7 +390,8 @@ class DevBar(private val rt: AgentRuntime) {
                 if (!standalone) kids.add(button("Inspect CSS") { requestInspector(stage) }) // needs the server's viewer
                 kids.add(button("Pick") { rt.pick.toggle(stage) })
                 val shared = synchronized(lock) { control == "shared" }
-                if (!standalone) kids.add(button(if (shared) "Hand back to agent" else "Let me drive") { toggleControl() })
+                val noAgent = standalone || synchronized(lock) { isSidecar() }
+                if (!noAgent) kids.add(button(if (shared) "Hand back to agent" else "Let me drive") { toggleControl() })
                 kids.add(button("⌄") { toggleCollapsed() })
             }
             pill = expandable

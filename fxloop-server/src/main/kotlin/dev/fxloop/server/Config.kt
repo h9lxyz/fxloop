@@ -44,6 +44,8 @@ data class Config(
     // CSS inspector (PRD 08)
     val editorUrl: String? = null,
     val browser: String = "auto",
+    /** `fxloop:run` helper (no MCP): serves the viewer and CSS inspector while no agent session is connected. */
+    val sidecar: Boolean = false,
 ) {
     /** Whether the server may open a browser for the inspector (`FXLOOP_BROWSER=none` disables). */
     val browserEnabled: Boolean get() = !"none".equals(browser, ignoreCase = true)
@@ -99,6 +101,7 @@ data class Config(
                 restartKey = str("FXLOOP_RESTART_KEY") ?: "Ctrl+Shift+F5",
                 editorUrl = str("FXLOOP_EDITOR_URL"),
                 browser = str("FXLOOP_BROWSER")?.lowercase() ?: "auto",
+                sidecar = bool("FXLOOP_SIDECAR"),
             )
         }
 

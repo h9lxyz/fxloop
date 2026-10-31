@@ -1,6 +1,8 @@
 package dev.fxloop.server
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import dev.fxloop.protocol.Handshake
+import dev.fxloop.server.app.AppSession
 import dev.fxloop.server.app.Versions
 import dev.fxloop.server.mcp.ToolRegistry
 import dev.fxloop.server.tools.ActTools
@@ -81,6 +83,7 @@ fun main(args: Array<String>) {
     }
     val log = LoggerFactory.getLogger("dev.fxloop.server")
     val ctx = Ctx(config)
+    if (config.sidecar) runSidecar(ctx)
     config.viewerPort?.let { port ->
         ctx.ensureViewer(port)
         ctx.live.push()
@@ -108,4 +111,46 @@ fun main(args: Array<String>) {
     done.await()
     log.info("MCP client is gone; shutting down")
     exitProcess(0)
+}
+
+/**
+ * `--sidecar=true`, started by `fxloop:run` / `fxloopRun` next to the app: no MCP. Keeps a yielding FCP connection to the
+ * developer-run app so the dev bar's Inspect CSS (the viewer and CSS inspector) works without an agent session. An
+ * agent session's server takes the app over; this reconnects once it is gone. Waits up to two minutes for the app's
+ * handshake (it starts alongside the app), then exits with the app or its parent.
+ */
+private fun runSidecar(ctx: Ctx): Nothing {
+    val log = LoggerFactory.getLogger("dev.fxloop.server.sidecar")
+    val handshake = ctx.session.fxloopDir.resolve("handshake.json")
+    ParentWatchdog.start { exitProcess(0) }
+    Runtime.getRuntime().addShutdownHook(Thread { ctx.shutdown() })
+    val viewer = ctx.ensureViewer(ctx.config.viewerPort ?: 0)
+    System.err.println("[fxloop] CSS inspector: ${viewer.inspectUrl()} (also via Inspect CSS in the dev bar)")
+    var yielded = false
+    var seen = false
+    val startDeadline = System.currentTimeMillis() + 120_000
+    while (true) {
+        val hs = runCatching { Handshake.readFrom(handshake) }.getOrNull()
+        val alive = hs != null && ProcessHandle.of(hs.pid).map { it.isAlive }.orElse(false)
+        if (!alive) {
+            if (seen || System.currentTimeMillis() > startDeadline) {
+                log.info("the app is gone; inspector helper exits")
+                exitProcess(0)
+            }
+            Thread.sleep(500)
+            continue
+        }
+        seen = true
+        if (!ctx.session.connected) {
+            try {
+                ctx.session.connectExisting(handshake, AppSession.Mode.EMBEDDED, yieldToAgents = true)
+                if (yielded) log.info("agent session ended; inspector helper is back")
+                yielded = false
+            } catch (e: Exception) { // BUSY while an agent session has the app, or the app is going away
+                if (!yielded) log.info("an agent session has the app; inspector helper waits ({})", e.message)
+                yielded = true
+            }
+        }
+        Thread.sleep(1500)
+    }
 }

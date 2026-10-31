@@ -197,6 +197,7 @@ class FxloopPluginFunctionalTest {
         )
         val out = runner("fxloopRun", "--args=--de --rtl").build().output
         assertThat(out).contains("probe agent=true bar=true handshake=true args=[--seed, --de, --rtl]")
+        assertThat(out).doesNotContain("cannot resolve dev.fxloop:fxloop-server")
         assertThat(project.resolve("build/fxloop/handshake.json")).doesNotExist()
     }
 

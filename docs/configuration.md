@@ -51,7 +51,8 @@ JVM system properties on the **server** (`-D` before `-jar`): `fxloop.attach=fal
 ## Running the app yourself
 
 `mvn fxloop:run` (Maven) or `gradle fxloopRun` (Gradle) runs the app in the foreground with the agent and the dev bar,
-without any agent session. Explore it, **Pick** nodes, then ask your agent: the server's first call finds the running
+without any agent session. Explore it, **Pick** nodes, open **Inspect CSS** (served by an inspector helper, the server in
+`--sidecar=true` mode, until an agent session connects; it steps aside while one is connected), then ask your agent: the server's first call finds the running
 app through `target|build/fxloop/handshake.json` (written with its own owner-only token) and connects instead of
 launching. Control starts out `shared`, so the agent uses synthetic events and never takes your mouse. Reloads work,
 and edits made after the app started are picked up even if you made them before the agent connected. Restart is not

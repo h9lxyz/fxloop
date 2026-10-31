@@ -49,6 +49,14 @@ class RunMojo : PrepareMojo() {
     @field:Parameter(property = "fxloop.agentJar")
     var agentJar: File? = null
 
+    /** Start the inspector helper so the dev bar's Inspect CSS works before an agent session connects. */
+    @field:Parameter(property = "fxloop.inspector", defaultValue = "true")
+    var inspector: Boolean = true
+
+    /** Server jar override for the inspector helper; default: `dev.fxloop:fxloop-server:jar:all` at this plugin's version. */
+    @field:Parameter(property = "fxloop.serverJar")
+    var serverJar: File? = null
+
     /** JDK to run the app with; default: the one running Maven. */
     @field:Parameter(property = "fxloop.javaHome")
     var javaHome: File? = null
@@ -59,12 +67,22 @@ class RunMojo : PrepareMojo() {
         val d = LaunchDescriptor.readFrom(outputFile.toPath())
         val handshake = outputFile.toPath().toAbsolutePath().resolveSibling("handshake.json")
         Files.deleteIfExists(handshake)
-        val cmd = d.runCommand(javaExecutable(), "${resolveAgent()}=${d.runAgentArgs(handshake, bar)}")
+        val java = javaExecutable()
+        val cmd = d.runCommand(java, "${resolve(agentJar, "dev.fxloop:fxloop-agent:${plugin.version}", "fxloop.agentJar")}=" +
+            d.runAgentArgs(handshake, bar))
+        val helperCmd = if (inspector) d.inspectorHelperCommand(java,
+            resolve(serverJar, "dev.fxloop:fxloop-server:jar:all:${plugin.version}", "fxloop.serverJar"),
+            project.basedir.toPath().toAbsolutePath(), bar) else null
         log.info("FXLoop: running ${d.mainClass} with the dev bar. To bring in your agent, ask it to " +
             "\"connect to my running app\" (handshake: $handshake). Ctrl+C stops the app.")
         val p = ProcessBuilder(cmd).directory(File(d.workingDir)).inheritIO().start()
+        // the helper waits for the app's handshake itself and exits with the app
+        val helper = helperCmd?.let {
+            ProcessBuilder(it).directory(project.basedir).inheritIO().apply { environment()["FXLOOP_LOG"] = "warn" }.start()
+        }
         val hook = Thread { // Ctrl+C / kill: take the app down with Maven and leave no handshake behind
             if (p.isAlive) p.destroy()
+            helper?.takeIf { it.isAlive }?.destroy()
             runCatching { Files.deleteIfExists(handshake) }
         }
         Runtime.getRuntime().addShutdownHook(hook)
@@ -75,6 +93,7 @@ class RunMojo : PrepareMojo() {
             Thread.currentThread().interrupt()
             throw MojoExecutionException("interrupted while the app was running", e)
         } finally {
+            helper?.takeIf { it.isAlive }?.destroy()
             runCatching { Runtime.getRuntime().removeShutdownHook(hook) }
             Files.deleteIfExists(handshake) // a dead app must not be found by the next agent session
         }
@@ -88,18 +107,18 @@ class RunMojo : PrepareMojo() {
         return exe.toString()
     }
 
-    private fun resolveAgent(): Path {
-        agentJar?.let {
-            if (!it.isFile) throw MojoFailureException("fxloop.agentJar does not exist: $it")
+    /** [override] when set, else the FXLoop artifact [coords] from the plugin repositories. */
+    private fun resolve(override: File?, coords: String, property: String): Path {
+        override?.let {
+            if (!it.isFile) throw MojoFailureException("$property does not exist: $it")
             return it.toPath().toAbsolutePath()
         }
-        val coords = "dev.fxloop:fxloop-agent:${plugin.version}"
         return try {
             val request = ArtifactRequest(DefaultArtifact(coords), pluginRepositories, null)
             repositorySystem.resolveArtifact(repositorySession, request).artifact.file.toPath().toAbsolutePath()
         } catch (e: ArtifactResolutionException) {
-            throw MojoExecutionException("cannot resolve the FXLoop agent $coords (a SNAPSHOT needs `./mvnw install` " +
-                "in the FXLoop repository; or set fxloop.agentJar)", e)
+            throw MojoExecutionException("cannot resolve $coords (a SNAPSHOT needs `./mvnw install` in the FXLoop " +
+                "repository; or set $property)", e)
         }
     }
 }
