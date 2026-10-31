@@ -63,7 +63,8 @@ abstract class FxloopRunTask : DefaultTask() {
             ?: throw GradleException("cannot resolve the FXLoop agent jar (a SNAPSHOT needs mavenLocal() in the project's repositories)")
         val extra = extraArgs.orNull.orEmpty().split(Regex("\\s+")).filter { it.isNotEmpty() }
         val cmd = d.runCommand(javaLauncher.get().executablePath.asFile.absolutePath,
-            "${agent.absolutePath}=${d.runAgentArgs(handshake, bar.get(), inspectorEdit.get())}", extra)
+            // owner = this (daemon) JVM: a killed daemon must not leave the app behind
+            "${agent.absolutePath}=${d.runAgentArgs(handshake, bar.get(), inspectorEdit.get(), ownerPid = ProcessHandle.current().pid())}", extra)
         logger.lifecycle("FXLoop: running ${d.mainClass} with the dev bar. To bring in your agent, ask it to " +
             "\"connect to my running app\" (handshake: $handshake). Ctrl+C stops the app.")
         val helper = if (inspector.get()) startHelper(d, java = cmd.first(), log = launch.resolveSibling("inspector.log")) else null

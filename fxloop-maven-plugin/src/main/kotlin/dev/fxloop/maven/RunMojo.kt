@@ -76,7 +76,7 @@ class RunMojo : PrepareMojo() {
         Files.deleteIfExists(handshake)
         val java = javaExecutable()
         val cmd = d.runCommand(java, "${resolve(agentJar, "dev.fxloop:fxloop-agent:${plugin.version}", "fxloop.agentJar")}=" +
-            d.runAgentArgs(handshake, bar, inspectorEdit))
+            d.runAgentArgs(handshake, bar, inspectorEdit, ownerPid = ProcessHandle.current().pid()))
         val helperCmd = if (inspector) d.inspectorHelperCommand(java,
             resolve(serverJar, "dev.fxloop:fxloop-server:jar:all:${plugin.version}", "fxloop.serverJar"),
             project.basedir.toPath().toAbsolutePath(), bar, inspectorEdit) else null

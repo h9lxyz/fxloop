@@ -3,8 +3,8 @@ package dev.fxloop.agent
 import javafx.application.Platform
 
 /**
- * Exits the application when the fxloop server that launched it is gone. A supervised app must never outlive its
- * supervisor: if the server is SIGKILLed (or its host app crashes) no shutdown hook runs there, so the child has to
+ * Exits the application when the process that launched it (the fxloop server, or the build for `fxloop:run`) is gone.
+ * An app must never outlive its launcher: if the launcher is SIGKILLed (or its host app crashes) no shutdown hook runs there, so the child has to
  * notice by itself — otherwise JavaFX JVMs (and their xvfb servers) pile up across sessions.
  */
 internal object OwnerWatchdog {
@@ -26,7 +26,7 @@ internal object OwnerWatchdog {
                     return@Thread
                 }
             }
-            AgentLog.info("fxloop server (pid $ownerPid) is gone; shutting the application down")
+            AgentLog.info("owner process (pid $ownerPid) is gone; shutting the application down")
             // arm the hard stop first: nothing the app does on exit may keep it alive past the grace period
             Thread({ Fx.sleep(GRACE_MS); halt() }, "fxloop-owner-halt").apply { isDaemon = true }.start()
             Thread({ runCatching { Platform.exit() } }, "fxloop-owner-exit").apply { isDaemon = true }.start()

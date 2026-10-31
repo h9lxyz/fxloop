@@ -9,7 +9,8 @@ import java.nio.file.Path
  * `handshake=<path>,tokenFile=<path>,state=<path>,logs=true,fxmlHook=true,ownerPid=<pid>,recordHuman=true,bar=on`.
  * `bar=on|pill` shows the dev bar before any server connects (`fxloop:run`); otherwise the server turns it on.
  * `inspectorEdit=true` (`fxloop:run`) is written into the handshake so a connecting server enables "Try it live".
- * `ownerPid` is the launching fxloop server: when it disappears (even SIGKILL) the app exits on its own. `tokenFile` (owner-only
+ * `ownerPid` is the launching fxloop server, or the build process for `fxloop:run`: when it disappears (even SIGKILL) the
+ * app exits on its own. `tokenFile` (owner-only
  * file written by the server) is preferred over `token=` because command lines are visible to other users.
  */
 data class AgentOptions(

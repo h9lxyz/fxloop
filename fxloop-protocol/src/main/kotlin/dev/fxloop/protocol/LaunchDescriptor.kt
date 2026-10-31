@@ -75,12 +75,14 @@ data class LaunchDescriptor(
 
     /**
      * Agent arguments for a developer-run app: self-generated token in [handshake], optional standalone dev bar, and
-     * [inspectorEdit] recorded in the handshake so an agent session that connects keeps "Try it live" on.
+     * [inspectorEdit] recorded in the handshake so an agent session that connects keeps "Try it live" on. [ownerPid] is
+     * the build process running the app: when it dies without its shutdown hook (SIGKILL, IDE hard stop) the app exits
+     * on its own instead of lingering as an orphan.
      */
-    fun runAgentArgs(handshake: Path, bar: String?, inspectorEdit: Boolean = false): String {
+    fun runAgentArgs(handshake: Path, bar: String?, inspectorEdit: Boolean = false, ownerPid: Long? = null): String {
         val b = bar?.trim()?.lowercase()?.takeIf { it == "on" || it == "pill" }
         return "handshake=$handshake,state=${handshake.resolveSibling("state.json")},logs=true" + (b?.let { ",bar=$it" } ?: "") +
-            (if (inspectorEdit) ",inspectorEdit=true" else "")
+            (if (inspectorEdit) ",inspectorEdit=true" else "") + (ownerPid?.let { ",ownerPid=$it" } ?: "")
     }
 
     companion object {
