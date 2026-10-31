@@ -64,13 +64,13 @@ class Ctx(val config: Config) {
     }
 
     /**
-     * An agent session that holds the app records its inspector in `<fxloopDir>/inspector.json` (owner-only, like the
-     * handshake), so the `fxloop:run` inspector helper, which yields the app to us, can send its open pages here: the
-     * Ask agent box then reaches the agent that is listening. The helper itself never advertises.
+     * An agent session records its inspector in `<fxloopDir>/inspector.json` (owner-only, like the handshake) so the
+     * `fxloop:run` inspector helper can reach it: it sends its pages here while we hold the app and forwards Ask agent
+     * prompts here while it does. The helper itself never advertises.
      */
     private fun advertiseInspector() {
         val v = viewer ?: return
-        if (config.sidecar || !session.connected) return
+        if (config.sidecar) return
         runCatching {
             dev.fxloop.protocol.OwnerOnly.write(session.fxloopDir.resolve(INSPECTOR_FILE),
                 Json.write(Json.obj { put("pid", ProcessHandle.current().pid()); put("url", v.inspectUrl()) }))

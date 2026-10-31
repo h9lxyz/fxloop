@@ -12,7 +12,12 @@ import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.URLDecoder
+import java.net.URI
 import java.net.URLEncoder
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.time.Duration
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
@@ -69,6 +74,63 @@ class Viewer(
         if (url == movedTo) return
         movedTo = url
         publish("moved", Json.obj { if (url != null) put("url", url) else putNull("url") })
+    }
+
+    private class Remote(val origin: String, val token: String)
+
+    @Volatile
+    private var remote: Remote? = null
+
+    @Volatile
+    private var remoteSnapshot: String? = null
+
+    private val http by lazy { HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build() }
+
+    /**
+     * The `fxloop:run` helper still holds the app, but an agent session's server is listening for prompts at
+     * [inspectUrl]: the prompt endpoints forward there (pending local prompts are handed over first) and
+     * [pollRemotePrompts] relays its queue to the pages. Null serves the local queue again.
+     */
+    fun setPromptsRemote(inspectUrl: String?) {
+        val r = inspectUrl?.let {
+            Remote(it.substringBefore("/inspect"), URLDecoder.decode(it.substringAfter("?t=").substringBefore('&'), StandardCharsets.UTF_8))
+        }
+        if (r?.origin == remote?.origin && r?.token == remote?.token) return
+        remote = r
+        remoteSnapshot = null
+        val queue = prompts ?: return
+        if (r == null) {
+            publish("prompts", queue.snapshot())
+            return
+        }
+        for (item in queue.snapshot().path("items")) {
+            if (item.path("status").asText() != Prompts.PENDING) continue
+            val body = Json.obj { put("text", item.path("text").asText()); setAll<JsonNode>(forwardable(item.path("context"))) }
+            if (runCatching { remoteCall(r, "POST", "prompt", "", body).first == 200 }.getOrDefault(false)) {
+                queue.cancel(item.path("id").asInt())
+            }
+        }
+        pollRemotePrompts()
+    }
+
+    /** Re-publishes the remote queue to the pages when it changed (no-op without a remote). */
+    fun pollRemotePrompts() {
+        val r = remote ?: return
+        val (code, body) = runCatching { remoteCall(r, "GET", "prompts", "", null) }.getOrNull() ?: return
+        if (code != 200 || body == remoteSnapshot) return
+        remoteSnapshot = body
+        val msg = "event: prompts\ndata: ${body.replace("\n", " ")}\n\n"
+        for (q in subscribers.keys) q.offer(msg)
+    }
+
+    /** `(status, body)` of a call to the remote viewer's prompt API. */
+    private fun remoteCall(r: Remote, method: String, name: String, query: String, json: JsonNode?): Pair<Int, String> {
+        val b = HttpRequest.newBuilder(URI.create("${r.origin}/api/$name?t=${URLEncoder.encode(r.token, StandardCharsets.UTF_8)}$query"))
+            .timeout(Duration.ofSeconds(5))
+        if (json != null) b.header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(Json.write(json)))
+        else b.method(method, HttpRequest.BodyPublishers.noBody())
+        val res = http.send(b.build(), HttpResponse.BodyHandlers.ofString())
+        return res.statusCode() to res.body()
     }
 
     /** Publishes the compact bar-state JSON as an SSE `status` event and keeps it for new subscribers. */
@@ -305,12 +367,21 @@ class Viewer(
     private fun prompt(ex: HttpExchange, name: String, queue: Prompts?) {
         fun json(code: Int, body: JsonNode) = send(ex, code, "application/json", Json.write(body).toByteArray())
         if (queue == null) return send(ex, 404, "text/plain", "not found".toByteArray())
+        val r = remote
+        // Forwarded to a listening agent session's server; if it cannot be reached, the local queue serves.
+        fun forward(method: String, query: String, body: JsonNode?): Boolean {
+            if (r == null) return false
+            val (code, text) = runCatching { remoteCall(r, method, name, query, body) }.getOrNull() ?: return false
+            send(ex, code, "application/json", text.toByteArray())
+            pollRemotePrompts()
+            return true
+        }
         when (name) {
-            "prompts" -> json(200, queue.snapshot())
+            "prompts" -> if (!forward("GET", "", null)) json(200, queue.snapshot())
             "prompt/cancel" -> {
                 val id = queryParam(ex.requestURI.rawQuery, "id")?.toIntOrNull()
                     ?: return json(400, error("BAD_REQUEST", "id is required"))
-                json(200, Json.obj { put("cancelled", queue.cancel(id)) })
+                if (!forward("POST", "&id=$id", null)) json(200, Json.obj { put("cancelled", queue.cancel(id)) })
             }
             "prompt" -> {
                 val type = ex.requestHeaders.getFirst("Content-Type").orEmpty().lowercase()
@@ -330,11 +401,17 @@ class Viewer(
                     for (k in CONTEXT_STRINGS) body.path(k).takeIf { it.isTextual }?.let { put(k, it.asText().take(MAX_CONTEXT_CHARS)) }
                     body.path("line").takeIf { it.isInt }?.let { put("line", it.asInt()) }
                 }
-                json(200, queue.toJson(queue.submit(text, context)))
+                if (!forward("POST", "", Json.obj { put("text", text); setAll<JsonNode>(forwardable(context)) })) {
+                    json(200, queue.toJson(queue.submit(text, context)))
+                }
             }
             else -> send(ex, 404, "text/plain", "not found".toByteArray())
         }
     }
+
+    /** Context for another server: `h` is a handle of this server's session and means nothing there; `path` stays. */
+    private fun forwardable(context: JsonNode): ObjectNode =
+        (context.deepCopy<JsonNode>() as? ObjectNode ?: Json.obj()).apply { remove("h") }
 
     private fun error(code: String, message: String): ObjectNode =
         Json.obj { putObject("error").put("code", code).put("message", message) }

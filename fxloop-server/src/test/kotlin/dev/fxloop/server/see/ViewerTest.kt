@@ -367,4 +367,43 @@ class ViewerTest {
             conn.disconnect()
         }
     }
+
+    @Test
+    fun helperForwardsPromptsToTheListeningAgentServer(@TempDir dir: Path) {
+        val local = Prompts()
+        val agent = Prompts()
+        Viewer(0, "agenttok", ScreenStore(dir.resolve("a"), 10), prompts = agent).use { a ->
+            Viewer(0, "helpertok", ScreenStore(dir.resolve("h"), 10), prompts = local).use { h ->
+                a.start()
+                h.start()
+                val hb = "http://127.0.0.1:${h.port}"
+                local.submit("sent before the agent appeared", Json.obj { put("h", 3); put("path", "Stage[0]//Button#ok") })
+                h.setPromptsRemote(a.inspectUrl())
+                assertThat(local.snapshot()["items"][0]["status"].asText()).isEqualTo(Prompts.CANCELLED)
+                val handed = agent.take(1000)!!
+                assertThat(handed.text).isEqualTo("sent before the agent appeared")
+                assertThat(handed.context.has("h")).isFalse()
+                assertThat(handed.context["path"].asText()).isEqualTo("Stage[0]//Button#ok")
+
+                val r = postJson("$hb/api/prompt?t=helpertok", "{\"text\":\"why grey?\",\"h\":5,\"path\":\"Stage[0]//Label\",\"property\":\"-fx-text-fill\"}")
+                assertThat(r.statusCode()).isEqualTo(200)
+                val p = agent.take(1000)!!
+                assertThat(p.text).isEqualTo("why grey?")
+                assertThat(p.context.has("h")).isFalse()
+                assertThat(p.context["property"].asText()).isEqualTo("-fx-text-fill")
+                agent.reply(p.id, "inline style wins", true)
+                val list = Json.parse(req("$hb/api/prompts?t=helpertok").body())
+                assertThat(list["items"].map { it["text"].asText() }).containsExactly("sent before the agent appeared", "why grey?")
+                assertThat(list["items"][1]["replies"][0]["text"].asText()).isEqualTo("inline style wins")
+
+                val third = Json.parse(postJson("$hb/api/prompt?t=helpertok", "{\"text\":\"never mind\"}").body())
+                assertThat(Json.parse(req("$hb/api/prompt/cancel?t=helpertok&id=${third["id"]}", "POST").body())["cancelled"].asBoolean()).isTrue()
+                assertThat(agent.take(50)).isNull()
+
+                h.setPromptsRemote(null)
+                postJson("$hb/api/prompt?t=helpertok", "{\"text\":\"local again\"}")
+                assertThat(local.take(1000)!!.text).isEqualTo("local again")
+            }
+        }
+    }
 }

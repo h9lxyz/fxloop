@@ -28,7 +28,8 @@ object PromptTools {
             ctx.ensureViewer() // advertises this session's inspector, so the fxloop:run helper's pages move here
             val inspectors = ctx.viewer?.subscriberCount("inspect") ?: 0
             val p = q.take(a.path("timeoutSec").asLong(120) * 1000)
-                ?: return@tool ok("no prompt yet" + (if (inspectors == 0) "; no inspector page is open (fx_open_inspector)" else "") +
+                ?: return@tool ok("no prompt yet" + (if (inspectors == 0) "; no inspector page is connected to this server " +
+                    "(fx_open_inspector; pages of the fxloop:run inspector helper forward their prompts here)" else "") +
                     "; call fx_wait_for_prompt again to keep listening",
                     Json.obj { putNull("prompt"); put("inspectorOpen", inspectors > 0) })
             val out = q.toJson(p)
@@ -73,7 +74,8 @@ object PromptTools {
      */
     private fun enrich(ctx: Ctx, c: ObjectNode, out: ObjectNode): ByteArray? {
         if (!ctx.session.connected) {
-            out.put("contextNote", "no app is connected; node context could not be resolved")
+            out.put("contextNote", "this session is not connected to the app, so node details and a screenshot are " +
+                "missing; attach with fx_connect_existing to inspect or change it")
             return null
         }
         val errors = out.putArray("contextErrors")

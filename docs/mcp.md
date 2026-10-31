@@ -148,8 +148,9 @@ Restarts wait while you are using the app. The details, including JetBrains Runt
   (`fx_wait_for_prompt`, a long poll it calls in a loop) receives your text, the node's path and a screenshot of it,
   plus any unapplied scratch CSS, and answers with `fx_reply_to_prompt`; answers appear under your prompt. The box
   shows whether an agent is listening right now; prompts sent while none is wait in the queue (in memory, last 50).
-  Under `fxloop:run` / `fxloopRun`, an inspector page opened from the run's own helper switches to the agent session's
-  inspector (same node) once an agent session has the app, so your prompts reach the agent that is listening.
+  Under `fxloop:run` / `fxloopRun`, the run's own inspector helper forwards your prompts to the agent session's server
+  (and shows its answers), even before that session attaches to the app; once it does, the page switches to the agent
+  session's inspector on the same node.
 - **Watching the agent.** The bar always says what the agent is doing ("Agent: clicking Button#save") and whether you
   have access. Before it clicks through the UI like a person, the agent can lock your input with `fx_lock_input`: your
   clicks and keys in the app are dropped, inspector editing pauses, and the bar reads "you're watching". **Take over**

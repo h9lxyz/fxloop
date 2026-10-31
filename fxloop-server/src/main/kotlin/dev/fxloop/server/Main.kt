@@ -154,8 +154,12 @@ private fun runSidecar(ctx: Ctx): Nothing {
                 yielded = true
             }
         }
-        // While an agent session has the app, open pages follow it to that session's inspector (Ask agent reaches it).
-        viewer.setMovedTo(if (ctx.session.connected) null else Ctx.advertisedInspector(ctx.session.fxloopDir.resolve(Ctx.INSPECTOR_FILE)))
+        // An agent session's inspector: while that session has the app, open pages move there; while we keep the app,
+        // Ask agent prompts are forwarded to it. Either way they reach the agent that is listening.
+        val agent = Ctx.advertisedInspector(ctx.session.fxloopDir.resolve(Ctx.INSPECTOR_FILE))
+        viewer.setMovedTo(if (yielded) agent else null)
+        viewer.setPromptsRemote(if (yielded) null else agent)
+        viewer.pollRemotePrompts()
         Thread.sleep(1500)
     }
 }
