@@ -1,6 +1,6 @@
 # fxloop-gauntlet-app
 
-Pure-Java JavaFX 21 robustness/perf target (no FXML). Run: `./mvnw -f fxloop-gauntlet-app/pom.xml javafx:run` (add `-Dfxloop.gauntlet.args=--big` or `-Djavafx.args=--big`-style program arg `--big` to pre-build 5000 nodes).
+Pure-Java JavaFX 21 robustness/perf target (no FXML). Run: `./mvnw -f sample-apps/fxloop-gauntlet-app/pom.xml javafx:run` (add `-Dfxloop.gauntlet.args=--big` or `-Djavafx.args=--big`-style program arg `--big` to pre-build 5000 nodes).
 Stage "FXLoop Gauntlet", 900x700, `TabPane #tabs`.
 
 | Tab | Ids |
@@ -14,4 +14,4 @@ Stage "FXLoop Gauntlet", 900x700, `TabPane #tabs`.
 | Big | bigTable (100000 rows), bigCol, buildBigBtn, bigPane |
 | RTL | rtlToggle, rtlLabel |
 
-Tab nodes have ids `tabDialogs`, `tabMenus`, ... Tests run headless on Monocle: `./mvnw -q -f fxloop-gauntlet-app/pom.xml test`.
+Tab nodes have ids `tabDialogs`, `tabMenus`, ... Tests run headless on Monocle: `./mvnw -q -f sample-apps/fxloop-gauntlet-app/pom.xml test`.

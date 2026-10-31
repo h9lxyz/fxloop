@@ -78,7 +78,7 @@ fxloop/
 ├── fxloop-server/               # MCP server (stdio). Deps: protocol, mcp-sdk, jackson.
 ├── fxloop-maven-plugin/         # (MVP) `fxloop:prepare` — emits target/fxloop/launch.json
 ├── fxloop-gradle-plugin/        # (Production) parity task `fxloopPrepare`
-├── fxloop-sample-app/           # PoC/MVP test target (spec in PRD-PoC §9)
+├── sample-apps/                 # test targets (Java): fxloop-sample-app (PRD-PoC §9), fxloop-gauntlet-app, fxloop-sample-app-gradle
 ├── evals/                       # per-stage eval XML + runner notes
 └── docs/
 ```

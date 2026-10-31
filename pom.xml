@@ -38,8 +38,8 @@
     <module>fxloop-dev</module>
     <module>fxloop-maven-plugin</module>
     <module>fxloop-server</module>
-    <module>fxloop-sample-app</module>
-    <module>fxloop-gauntlet-app</module>
+    <module>sample-apps/fxloop-sample-app</module>
+    <module>sample-apps/fxloop-gauntlet-app</module>
   </modules>
 
   <properties>

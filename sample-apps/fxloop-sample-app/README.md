@@ -15,7 +15,7 @@ Stage title `FXLoop Sample — Contacts`, scene 640x480.
 - `--broken-css`: also load `broken.css` (misaligned `helpBtn` overlapping its sibling, white-on-white `hintLabel`).
 
 ## Run
-    ../mvnw javafx:run
-    ../mvnw javafx:run -Djavafx.args="--seed --broken-css"
+    ../../mvnw javafx:run
+    ../../mvnw javafx:run -Djavafx.args="--seed --broken-css"
 
-Tests (headless via Monocle): `./mvnw -q -f fxloop-sample-app/pom.xml test` from the repo root.
+Tests (headless via Monocle): `./mvnw -q -f sample-apps/fxloop-sample-app/pom.xml test` from the repo root.
