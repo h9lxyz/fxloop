@@ -68,7 +68,7 @@ internal object CssInspect {
         val results = HashMap<String, Pair<PropertyView, Explainer.Result>>()
         for (v in PropertyView.all(node)) {
             val r = ex.resolve(v)
-            if (v.property.styleOrigin == null && r.winner == null && r.inheritedFrom == null) continue
+            if (r.winner == null && r.inheritedFrom == null && (v.property.styleOrigin == null || v.shorthand != null)) continue
             val o = Json.obj()
             o.put("cssProperty", v.cssProperty)
             if (v.shorthand != null) o.put("of", v.shorthand)
