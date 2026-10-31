@@ -30,8 +30,10 @@ class ErrorRing internal constructor(private val capacity: Int) {
     }
 
     @Synchronized
-    internal fun record(thread: Thread, ex: Throwable): ObjectNode {
-        // FX wraps handler exceptions rarely; report the outermost but keep the cause chain in frames.
+    internal fun record(thread: Thread, thrown: Throwable): ObjectNode {
+        // FXML event handlers are invoked reflectively, so the user's exception arrives wrapped in
+        // RuntimeException(InvocationTargetException(...)): report the root cause, name the wrapper.
+        val ex = rootCause(thrown)
         val top = if (ex.stackTrace.isNotEmpty()) ex.stackTrace[0].toString() else ""
         val now = System.currentTimeMillis()
         val last = ring.peekLast()
@@ -55,9 +57,8 @@ class ErrorRing internal constructor(private val capacity: Int) {
             if (frames.size() >= 15) break
             frames.add(el.toString())
         }
-        val cause = ex.cause
-        if (cause != null && cause !== ex) {
-            entry.put("cause", cause.javaClass.name + ": " + cause.message)
+        if (ex !== thrown) {
+            entry.put("wrappedBy", thrown.javaClass.name)
         }
         entry.put("dedupCount", 1)
         ring.addLast(entry)
@@ -75,5 +76,20 @@ class ErrorRing internal constructor(private val capacity: Int) {
             if (e.get("seq").asLong() > sinceSeq) out.add(e.deepCopy())
         }
         return out
+    }
+
+    private fun rootCause(t: Throwable): Throwable {
+        var cur = t
+        var depth = 0
+        while (depth++ < 10) {
+            val cause = cur.cause ?: break
+            if (cause === cur) break
+            val wrapper = cur is java.lang.reflect.InvocationTargetException ||
+                (cur.javaClass == RuntimeException::class.java && cur.message == cause.toString()) ||
+                cur is java.lang.reflect.UndeclaredThrowableException
+            if (!wrapper && cause !is java.lang.reflect.InvocationTargetException) break
+            cur = cause
+        }
+        return cur
     }
 }
