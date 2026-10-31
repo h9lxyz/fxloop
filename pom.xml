@@ -10,7 +10,7 @@
   <packaging>pom</packaging>
 
   <name>FXLoop</name>
-  <description>Agentic dev-loop for JavaFX: MCP server + in-JVM agent giving coding agents eyes, ears and hands.</description>
+  <description>Agentic dev-loop for JavaFX (tooling written in Kotlin): MCP server + in-JVM agent giving coding agents eyes, ears and hands.</description>
   <url>https://github.com/fxloop/fxloop</url>
 
   <licenses>
@@ -47,6 +47,8 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
+    <kotlin.version>2.4.21</kotlin.version>
+    <kotlin.compiler.jvmTarget>17</kotlin.compiler.jvmTarget>
     <javafx.version>21.0.13</javafx.version>
     <jackson.version>2.21.1</jackson.version>
     <mcp.version>2.1.0</mcp.version>
@@ -77,6 +79,13 @@
         <groupId>dev.fxloop</groupId>
         <artifactId>fxloop-dev</artifactId>
         <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-bom</artifactId>
+        <version>${kotlin.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
       </dependency>
       <dependency>
         <groupId>com.fasterxml.jackson</groupId>
@@ -177,6 +186,41 @@
               <arg>-Xlint:all,-processing,-serial,-options</arg>
             </compilerArgs>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.jetbrains.kotlin</groupId>
+          <artifactId>kotlin-maven-plugin</artifactId>
+          <version>${kotlin.version}</version>
+          <configuration>
+            <jvmTarget>${kotlin.compiler.jvmTarget}</jvmTarget>
+            <args>
+              <arg>-Xjdk-release=17</arg>
+            </args>
+          </configuration>
+          <executions>
+            <execution>
+              <id>compile</id>
+              <goals>
+                <goal>compile</goal>
+              </goals>
+              <configuration>
+                <sourceDirs>
+                  <sourceDir>${project.basedir}/src/main/kotlin</sourceDir>
+                </sourceDirs>
+              </configuration>
+            </execution>
+            <execution>
+              <id>test-compile</id>
+              <goals>
+                <goal>test-compile</goal>
+              </goals>
+              <configuration>
+                <sourceDirs>
+                  <sourceDir>${project.basedir}/src/test/kotlin</sourceDir>
+                </sourceDirs>
+              </configuration>
+            </execution>
+          </executions>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>

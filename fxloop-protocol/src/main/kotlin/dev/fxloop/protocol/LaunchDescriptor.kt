@@ -1,0 +1,121 @@
+package dev.fxloop.protocol
+
+import com.fasterxml.jackson.annotation.JsonCreator
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonProperty
+import java.nio.file.Files
+import java.nio.file.Path
+
+/**
+ * `launch.json` emitted by `fxloop:prepare` (Maven) and `fxloopPrepare` (Gradle). Single source of truth for both
+ * build plugins; JSON schema published as `dev/fxloop/protocol/launch.schema.json`.
+ *
+ * @property buildTool `maven` or `gradle`
+ * @property mainModule main module name when the app itself is modular, else `null`
+ * @property classpath absolute classpath entries (excluding [outputDir])
+ * @property modulePath absolute module-path entries
+ * @property addModules modules to pass to `--add-modules`
+ * @property release Java release level for in-process compilation (e.g. "17")
+ * @property annotationProcessors true when annotation processors were detected on the compile path
+ * @property fcp reserved for FCP overrides (port, timeouts)
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class LaunchDescriptor(
+    val schemaVersion: Int = SCHEMA_VERSION,
+    val buildTool: String,
+    val mainClass: String,
+    val mainModule: String? = null,
+    val classpath: List<String> = emptyList(),
+    val modulePath: List<String> = emptyList(),
+    val addModules: List<String> = emptyList(),
+    val jvmArgs: List<String> = emptyList(),
+    val appArgs: List<String> = emptyList(),
+    val workingDir: String,
+    val sourceRoots: List<String> = emptyList(),
+    val resourceRoots: List<String> = emptyList(),
+    val outputDir: String,
+    val release: String? = null,
+    val annotationProcessors: Boolean = false,
+    val fcp: Map<String, Any> = emptyMap(),
+) {
+    fun writeTo(file: Path) {
+        file.toAbsolutePath().parent?.let { Files.createDirectories(it) }
+        Files.writeString(file, Json.pretty(this))
+    }
+
+    companion object {
+        const val SCHEMA_VERSION = 1
+        const val FILE_NAME = "launch.json"
+
+        @JvmStatic
+        fun readFrom(file: Path): LaunchDescriptor = Json.MAPPER.readValue(Files.readString(file), LaunchDescriptor::class.java)
+
+        /** Null-tolerant creator so missing JSON arrays become empty lists. */
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(
+            @JsonProperty("schemaVersion") schemaVersion: Int?,
+            @JsonProperty("buildTool") buildTool: String,
+            @JsonProperty("mainClass") mainClass: String,
+            @JsonProperty("mainModule") mainModule: String?,
+            @JsonProperty("classpath") classpath: List<String>?,
+            @JsonProperty("modulePath") modulePath: List<String>?,
+            @JsonProperty("addModules") addModules: List<String>?,
+            @JsonProperty("jvmArgs") jvmArgs: List<String>?,
+            @JsonProperty("appArgs") appArgs: List<String>?,
+            @JsonProperty("workingDir") workingDir: String,
+            @JsonProperty("sourceRoots") sourceRoots: List<String>?,
+            @JsonProperty("resourceRoots") resourceRoots: List<String>?,
+            @JsonProperty("outputDir") outputDir: String,
+            @JsonProperty("release") release: String?,
+            @JsonProperty("annotationProcessors") annotationProcessors: Boolean?,
+            @JsonProperty("fcp") fcp: Map<String, Any>?,
+        ) = LaunchDescriptor(
+            schemaVersion ?: SCHEMA_VERSION, buildTool, mainClass, mainModule, classpath.orEmpty(), modulePath.orEmpty(),
+            addModules.orEmpty(), jvmArgs.orEmpty(), appArgs.orEmpty(), workingDir, sourceRoots.orEmpty(),
+            resourceRoots.orEmpty(), outputDir, release, annotationProcessors ?: false, fcp.orEmpty(),
+        )
+
+        /** Fluent builder kept for Java callers and incremental construction in the build plugins. */
+        @JvmStatic
+        fun builder() = Builder()
+    }
+
+    class Builder {
+        private var buildTool: String? = null
+        private var mainClass: String? = null
+        private var mainModule: String? = null
+        private var classpath: List<String> = emptyList()
+        private var modulePath: List<String> = emptyList()
+        private var addModules: List<String> = emptyList()
+        private var jvmArgs: List<String> = emptyList()
+        private var appArgs: List<String> = emptyList()
+        private var workingDir: String? = null
+        private var sourceRoots: List<String> = emptyList()
+        private var resourceRoots: List<String> = emptyList()
+        private var outputDir: String? = null
+        private var release: String? = null
+        private var annotationProcessors = false
+
+        fun buildTool(v: String?) = apply { buildTool = v }
+        fun mainClass(v: String?) = apply { mainClass = v }
+        fun mainModule(v: String?) = apply { mainModule = v }
+        fun classpath(v: List<String>?) = apply { classpath = v.orEmpty() }
+        fun modulePath(v: List<String>?) = apply { modulePath = v.orEmpty() }
+        fun addModules(v: List<String>?) = apply { addModules = v.orEmpty() }
+        fun jvmArgs(v: List<String>?) = apply { jvmArgs = v.orEmpty() }
+        fun appArgs(v: List<String>?) = apply { appArgs = v.orEmpty() }
+        fun workingDir(v: String?) = apply { workingDir = v }
+        fun sourceRoots(v: List<String>?) = apply { sourceRoots = v.orEmpty() }
+        fun resourceRoots(v: List<String>?) = apply { resourceRoots = v.orEmpty() }
+        fun outputDir(v: String?) = apply { outputDir = v }
+        fun release(v: String?) = apply { release = v }
+        fun annotationProcessors(v: Boolean) = apply { annotationProcessors = v }
+
+        fun build() = LaunchDescriptor(
+            SCHEMA_VERSION, requireNotNull(buildTool) { "buildTool" }, requireNotNull(mainClass) { "mainClass" },
+            mainModule, classpath, modulePath, addModules, jvmArgs, appArgs, requireNotNull(workingDir) { "workingDir" },
+            sourceRoots, resourceRoots, requireNotNull(outputDir) { "outputDir" }, release, annotationProcessors,
+        )
+    }
+}
