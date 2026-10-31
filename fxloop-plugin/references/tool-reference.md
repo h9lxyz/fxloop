@@ -5,6 +5,7 @@ _Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-ref
 | Tool | Kind | Summary |
 |---|---|---|
 | [`fx_get_app_status`](#fx_get_app_status) | read | App status |
+| [`fx_set_control_mode`](#fx_set_control_mode) | idempotent_write | Set control mode |
 | [`fx_start_app`](#fx_start_app) | write | Start app |
 | [`fx_restart_app`](#fx_restart_app) | destructive | Restart app |
 | [`fx_stop_app`](#fx_stop_app) | destructive | Stop app |
@@ -22,6 +23,7 @@ _Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-ref
 | [`fx_get_journal`](#fx_get_journal) | read | Get journal |
 | [`fx_export_test`](#fx_export_test) | write | Export TestFX test |
 | [`fx_take_screenshot`](#fx_take_screenshot) | read | Take screenshot |
+| [`fx_get_picked`](#fx_get_picked) | read | Get picked node |
 | [`fx_get_screenshot`](#fx_get_screenshot) | read | Get screenshot |
 | [`fx_compare_screenshots`](#fx_compare_screenshots) | read | Compare screenshots |
 | [`fx_lint_visual`](#fx_lint_visual) | read | Lint visual |
@@ -34,6 +36,8 @@ _Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-ref
 | [`fx_attach`](#fx_attach) | write | Attach to JVM |
 | [`fx_explain_property`](#fx_explain_property) | read | Explain property |
 | [`fx_explain_style`](#fx_explain_style) | read | Explain style |
+| [`fx_suggest_override`](#fx_suggest_override) | read | Suggest CSS override |
+| [`fx_open_inspector`](#fx_open_inspector) | read | Open CSS inspector |
 | [`fx_explain_layout`](#fx_explain_layout) | read | Explain layout |
 | [`fx_eval_js`](#fx_eval_js) | write | Evaluate JavaScript |
 
@@ -42,6 +46,14 @@ _Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-ref
 Application state (starting/running/exited/stopped), pid, uptime, mode, FCP connection, showing windows (index, title, type STAGE|POPUP|DIALOG) and the FXML load registry. Auto-starts a never-started app.
 
 _No parameters._
+
+## fx_set_control_mode
+
+Who may drive the UI: agent (the agent owns mouse and keyboard; human input during an action is a conflict) or shared (human and agent interleave; agent clicks/keys use synthetic events and restarts wait for the developer). Ask the developer before switching to agent while they are present. Returns the status.
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `mode` | string (agent\|shared) | yes | agent or shared |
 
 ## fx_start_app
 
@@ -84,7 +96,7 @@ Uncaught exceptions captured on the JavaFX Application Thread (class, message, t
 
 ## fx_get_scene_graph
 
-Bounded JSON of the logical scene graph of a window (or subtree): h (handle), path, type, fxId, styleClass, text, value, visible (only when false), disabled/focused (only when true), boundsScreen, kids. Output is budgeted (depth, nodes, ~56 KB) with {truncated:true} markers. Virtualized controls report itemCount and visibleCells only. Skin internals of built-in controls are omitted.
+Bounded JSON of the logical scene graph of a window (or subtree): h (handle), path, type, fxId, styleClass, text, value, visible (only when false), disabled/focused (only when true), boundsScreen, kids. Output is budgeted (depth, nodes, ~56 KB) with {truncated:true} markers. Virtualized controls report itemCount and visibleCells only. Skin internals of built-in controls are omitted unless skin=true.
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -92,7 +104,9 @@ Bounded JSON of the logical scene graph of a window (or subtree): h (handle), pa
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `rootHandle` | integer |  | Subtree root handle |
+| `skin` | boolean |  | Include skin (control-internal) nodes; they are addressed by handle |
 | `maxDepth` | integer |  | Depth budget (default 12) |
 | `maxNodes` | integer |  | Node budget (default 400) |
 
@@ -119,6 +133,7 @@ Read a JavaFX property of a node: value, type, bound (true if bound — writes w
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `name` | string | yes | Property name, e.g. text, disable, value, prefWidth; window.<name> reads the node's Stage, e.g. window.width |
 
 ## fx_get_node_details
@@ -131,6 +146,7 @@ Reflective dump of every property of a node (name, one-line value, type, bound, 
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `limit` | integer |  | Page size (default 60) |
 | `offset` | integer |  | Page offset |
 
@@ -145,7 +161,7 @@ Deepest addressable node at a screen point (from a screenshot or boundsScreen): 
 
 ## fx_click_node
 
-Click a node (handle/path/query) or screen point (x,y). mode=robot (default) moves the real mouse via javafx Robot — picking, hover and focus behave like a user; enclosing tabs/scroll panes are brought into view first. mode=event fires synthetic events (no real input). Returns effects (scene diff).
+Click a node (handle/path/query) or screen point (x,y). mode=robot (default in agent control) moves the real mouse via javafx Robot — picking, hover and focus behave like a user; enclosing tabs/scroll panes are brought into view first. mode=event (default when control is shared) fires synthetic events (no real input, leaves the developer's mouse alone). Returns effects (scene diff), mode and conflicts (human input during the action).
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -153,6 +169,7 @@ Click a node (handle/path/query) or screen point (x,y). mode=robot (default) mov
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `x` | number |  | Screen x (instead of a target) |
 | `y` | number |  | Screen y |
 | `button` | string (primary\|secondary\|middle) |  | Mouse button (default primary) |
@@ -162,7 +179,7 @@ Click a node (handle/path/query) or screen point (x,y). mode=robot (default) mov
 
 ## fx_type_keys
 
-Press key codes via Robot (FX KeyCode names: ENTER, TAB, ESCAPE, DOWN, A, DIGIT1 …; modifiers SHIFT, CONTROL, ALT, META, SHORTCUT). For free text use fx_set_text (layout-independent).
+Press key codes (FX KeyCode names: ENTER, TAB, ESCAPE, DOWN, A, DIGIT1 …; modifiers SHIFT, CONTROL, ALT, META, SHORTCUT). mode=robot (default in agent control) uses the real keyboard via Robot; mode=event (default when control is shared) fires synthetic key events. For free text use fx_set_text (layout-independent).
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -171,6 +188,8 @@ Press key codes via Robot (FX KeyCode names: ENTER, TAB, ESCAPE, DOWN, A, DIGIT1
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
+| `mode` | string (robot\|event) |  | robot or event (default follows the control mode) |
 | `effects` | boolean |  | Attach the scene-diff 'effects' of this action (default true) |
 
 ## fx_set_text
@@ -183,6 +202,7 @@ Programmatically set the text of a TextInputControl (TextField/TextArea/editable
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `text` | string | yes | Text to set |
 | `clearFirst` | boolean |  | Replace (default true) or append |
 | `effects` | boolean |  | Attach the scene-diff 'effects' of this action (default true) |
@@ -197,13 +217,14 @@ Write a JavaFX property (coerces strings to boolean/number/enum/Color/Insets). B
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `name` | string | yes | Property name; window.<name> targets the node's Stage, e.g. window.width / window.height to resize it |
 | `value` | any | yes | New value |
 | `effects` | boolean |  | Attach the scene-diff 'effects' of this action (default true) |
 
 ## fx_get_journal
 
-The ordered log of successful actions (replayed after restarts and exported as tests).
+The ordered log of successful actions (replayed after restarts and exported as tests). Each entry has source: agent (an MCP action tool) or human (the developer's own input in the app; redacted:true for password fields, whose value is never recorded).
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -219,6 +240,7 @@ Generate a JUnit 5 + TestFX test from the journal (optionally a seq range) into 
 | `package` | string |  | Java package (default: main class package) |
 | `fromSeq` | integer |  | First journal seq |
 | `toSeq` | integer |  | Last journal seq |
+| `sources` | array |  | Which entries to export: agent, human (default both) |
 | `write` | boolean |  | Write files (default true); false returns the source only |
 
 ## fx_take_screenshot
@@ -232,12 +254,21 @@ Capture a window or node. Always persisted to target/fxloop/screens/<seq>-<label
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `maxWidth` | integer |  | Max width in px (default 1200, window hard cap 1600) |
 | `scale` | number |  | 0.25–3.0 render scale (node shots) |
 | `label` | string |  | File label |
 | `annotate` | string |  | none (default) | interactive | all | <css selector> |
 | `includeImage` | boolean |  | Return the image block (default true) |
 | `settleMs` | integer |  | Wait before capture (default 150) |
+
+## fx_get_picked
+
+The node the developer picked in the running app (dev bar pick button / pick hotkey): target, property details, a short explanation and a screenshot of the node (persisted like fx_take_screenshot). Other tools accept picked:true as a target. Fails with PICK_STALE when nothing recent is picked — ask the developer to pick again.
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `includeImage` | boolean |  | Return the image block (default true) |
 
 ## fx_get_screenshot
 
@@ -272,6 +303,7 @@ Heuristic visual checks on a window or subtree: textTruncated, siblingOverlap, z
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `checks` | array |  | Subset of checks (default all) |
 | `limit` | integer |  | Page size (default 50) |
 | `offset` | integer |  | Page offset |
@@ -286,12 +318,13 @@ CSS workbench: render one node in each pseudo-state (none, hover, focused, press
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `states` | array |  | States (default none,hover,focused,pressed,disabled) |
 | `scale` | number |  | Render scale (default 2) |
 
 ## fx_reload
 
-Apply your edits: detects changed files since the last launch/reload (or takes files=[…]) and routes them through the cheapest tiers — css (live re-apply + visualDiff), fxml (live swap of registered documents), java (in-process javac → HotSwap; compile errors returned as data, nothing swapped), restart (+replay) when needed. Returns tiersApplied, compileErrors?, needsRestart?, restarted?, replay?, visualDiff?, effects.
+Apply your edits: detects changed files since the last launch/reload (or takes files=[…]) and routes them through the cheapest tiers — css (live re-apply + visualDiff), fxml (live swap of registered documents), java (in-process javac → HotSwap; compile errors returned as data, nothing swapped), then remount (after a successful HotSwap or FXML swap the registered FxLoopDev.view mounts are rebuilt in place, view state carried over; tier restage with FXLOOP_RESTAGE), restart (+replay) when needed — but a restart waits while the developer is using the app. Returns tiersApplied, compileErrors?, stateCarried?{restored,skipped}, needsRestart?, restarted?, restartDeferred? ("humanActive"), restartFailed?, waitingForBuild?, replay?, visualDiff?, effects.
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -299,15 +332,19 @@ Apply your edits: detects changed files since the last launch/reload (or takes f
 | `allowRestart` | boolean |  | Restart automatically when required (default true) |
 | `replay` | boolean |  | Replay the journal after a restart (default FXLOOP_REPLAY, true) |
 | `visualDiff` | boolean |  | Before/after pixel diff for the css tier (default true) |
+| `remount` | boolean |  | Rebuild registered views after a HotSwap (default true) |
+| `carryState` | boolean |  | Carry view state (selection, scroll, text, …) across a remount/FXML swap (default true) |
+| `restartWhenHumanActive` | boolean |  | Restart even while the developer is using the app (default false: the restart is deferred) |
 | `effects` | boolean |  | Attach the scene-diff 'effects' of this action (default true) |
 
 ## fx_reload_fxml
 
-Force a live swap of one FXML document (project-relative path): re-copies it, re-runs FXMLLoader and replaces the old root in place. The controller is re-created (view-local state resets).
+Force a live swap of one FXML document (project-relative path): re-copies it, re-runs FXMLLoader and replaces the old root in place. The controller is re-created; view state (selection, scroll, text, …) is carried over unless carryState=false — see stateCarried in the result.
 
 | Param | Type | Required | Description |
 |---|---|---|---|
 | `path` | string | yes | FXML file path, e.g. src/main/resources/app/main.fxml |
+| `carryState` | boolean |  | Carry view state across the swap (default true) |
 
 ## fx_set_watch_mode
 
@@ -353,11 +390,12 @@ Why does a property have its value? value, type, bound, binding dependency tree 
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `name` | string | yes | Property name, e.g. disable |
 
 ## fx_explain_style
 
-CSS-styled properties of a node with their origin (USER_AGENT/AUTHOR/INLINE/USER), inline style, style classes, pseudo-classes and candidate stylesheets along the parent chain. Paginated.
+CSS-styled properties of a node with their origin (USER_AGENT/AUTHOR/INLINE/USER), inline style, style classes, pseudo-classes and candidate stylesheets along the parent chain. With rules (default) each property also names the winner rule (selector, file:line), the overridden rules with reasons (all of them when property is given) and blockers that stop an override (inline style, !important, code-set value). Paginated.
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -365,9 +403,38 @@ CSS-styled properties of a node with their origin (USER_AGENT/AUTHOR/INLINE/USER
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `property` | string |  | One CSS property, e.g. -fx-text-fill |
 | `limit` | integer |  | Page size |
 | `offset` | integer |  | Page offset |
+| `rules` | boolean |  | Rule-level cascade: winner rule with file:line, overridden rules with reasons, blockers (default true). false = origin-only output as before |
+
+## fx_suggest_override
+
+Suggest the smallest CSS rule that makes a property of a node take effect: selector, target file, whether !important is needed, a ready-to-paste snippet, why, and blockers (inline style, code-set value). Does not edit anything; apply it with your editor, then fx_reload.
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `handle` | integer |  | Session node handle (from fx_get_scene_graph / fx_find_nodes) |
+| `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
+| `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
+| `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
+| `property` | string | yes | CSS property, e.g. -fx-background-color |
+| `value` | string |  | Desired value, e.g. #ff0000 |
+| `file` | string |  | Stylesheet to put the rule in (project-relative); default: best match |
+
+## fx_open_inspector
+
+For the human developer: opens the browser CSS inspector (live scene tree, styles with rule file:line, layout) on the running app, optionally preselecting a node. Returns the URL and whether a browser was opened (FXLOOP_BROWSER=none disables opening). Do not call it to inspect yourself; use fx_explain_style.
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `handle` | integer |  | Session node handle (from fx_get_scene_graph / fx_find_nodes) |
+| `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
+| `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
+| `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 
 ## fx_explain_layout
 
@@ -379,6 +446,7 @@ Why is it there/that size? layout/parent/screen bounds, insets, min/pref/max siz
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 
 ## fx_eval_js
 
@@ -390,5 +458,6 @@ Run JavaScript in a WebView's engine on the FX thread; result is JSON-serialized
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `script` | string | yes | JavaScript expression |
 | `timeoutMs` | integer |  | Timeout (default 3000) |

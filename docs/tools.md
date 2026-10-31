@@ -419,6 +419,7 @@ Suggest the smallest CSS rule that makes a property of a node take effect: selec
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `property` | string | yes | CSS property, e.g. -fx-background-color |
 | `value` | string |  | Desired value, e.g. #ff0000 |
 | `file` | string |  | Stylesheet to put the rule in (project-relative); default: best match |
@@ -433,6 +434,7 @@ For the human developer: opens the browser CSS inspector (live scene tree, style
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 
 ## fx_explain_layout
 
