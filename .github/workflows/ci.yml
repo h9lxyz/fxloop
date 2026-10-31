@@ -26,8 +26,8 @@ jobs:
           distribution: temurin
           java-version: ${{ matrix.java }}
           cache: maven
-      # Sample/gauntlet tests run headless on Monocle (no display needed).
-      - run: ./mvnw -B install
+      # Sample/gauntlet apps (profile `samples`) run their tests headless on Monocle (no display needed).
+      - run: ./mvnw -B -Psamples install
         shell: bash
 
   acceptance:

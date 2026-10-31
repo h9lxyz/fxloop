@@ -201,7 +201,8 @@ projects.
 ## Building
 
 ```sh
-./mvnw install                  # all modules; UI tests run headless on Monocle, no display needed
+./mvnw install                  # the FXLoop modules; UI tests run headless on Monocle, no display needed
+./mvnw install -Psamples        # plus the sample and gauntlet apps and their tests (what CI builds)
 ./mvnw install -Pacceptance     # plus the end-to-end MCP suite
 ```
 
