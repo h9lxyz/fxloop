@@ -8,6 +8,8 @@ import dev.fxloop.protocol.Json
 import dev.fxloop.server.Config
 import dev.fxloop.server.app.AppSession
 import dev.fxloop.server.lint.FxmlLint
+import dev.fxloop.server.app.ActionNeeded
+import dev.fxloop.server.loop.ReloadStory
 import dev.fxloop.server.loop.Reloader
 import dev.fxloop.server.loop.SceneDiff
 import dev.fxloop.server.mcp.Schema
@@ -28,13 +30,25 @@ object LoopTools {
         reg.tool("fx_reload", "Reload", Kind.IDEMPOTENT_WRITE,
             "Apply your edits: detects changed files since the last launch/reload (or takes files=[…]) and routes them " +
                 "through the cheapest tiers — css (live re-apply + visualDiff), fxml (live swap of registered documents), " +
-                "java (in-process javac → HotSwap; compile errors returned as data, nothing swapped), restart (+replay) when " +
-                "needed. Returns tiersApplied, compileErrors?, needsRestart?, restarted?, replay?, visualDiff?, effects.",
+                "java (in-process javac → HotSwap; compile errors returned as data, nothing swapped), then remount (after a " +
+                "successful HotSwap or FXML swap the registered FxLoopDev.view mounts are rebuilt in place, view state carried " +
+                "over; tier restage with FXLOOP_RESTAGE), restart (+replay) when needed — but a restart waits while the " +
+                "developer is using the app. Returns tiersApplied, compileErrors?, stateCarried?{restored,skipped}, " +
+                "needsRestart?, restarted?, restartDeferred? (\"humanActive\"), restartFailed?, waitingForBuild?, replay?, " +
+                "visualDiff?, effects.",
             Schema.obj().strArray("files", "Explicit changed files (project-relative); default: auto-detect")
                 .bool("allowRestart", "Restart automatically when required (default true)")
                 .bool("replay", "Replay the journal after a restart (default FXLOOP_REPLAY, true)")
-                .bool("visualDiff", "Before/after pixel diff for the css tier (default true)").effects()) { a ->
+                .bool("visualDiff", "Before/after pixel diff for the css tier (default true)")
+                .bool("remount", "Rebuild registered views after a HotSwap (default true)")
+                .bool("carryState", "Carry view state (selection, scroll, text, …) across a remount/FXML swap (default true)")
+                .bool("restartWhenHumanActive", "Restart even while the developer is using the app (default false: the restart is deferred)")
+                .effects()) { a ->
             s.ensureStarted()
+            if (s.mode == AppSession.Mode.ATTACHED) {
+                guardLive { ctx.live.setActionNeeded(listOf(ActionNeeded("attachedEdits",
+                    "Edits don't apply live when attached · relaunch with FXLoop or your IDE", "Relaunch with FXLoop or your IDE"))) }
+            }
             val effectsOn = a.path("effects").asBoolean(true)
             val before = if (effectsOn) runCatching { ctx.snapshot() }.getOrNull() else null
             val files = a["files"]?.map { it.asText() }
@@ -43,7 +57,11 @@ object LoopTools {
                 allowRestart = a.path("allowRestart").asBoolean(true),
                 replay = a.path("replay").asBoolean(ctx.config.replayOnRestart),
                 visualDiff = a.path("visualDiff").asBoolean(true),
+                remount = a.path("remount").asBoolean(true),
+                carryState = a.path("carryState").asBoolean(true),
+                restartWhenHumanActive = a.path("restartWhenHumanActive").asBoolean(false),
             )) { replay -> ctx.restartWithReplay(replay) }
+            publish(ctx, r)
             if (before != null && s.connected) {
                 Thread.sleep(100)
                 r.set<JsonNode>("effects", SceneDiff.diff(before, ctx.snapshot()))
@@ -53,10 +71,17 @@ object LoopTools {
 
         reg.tool("fx_reload_fxml", "Reload FXML", Kind.IDEMPOTENT_WRITE,
             "Force a live swap of one FXML document (project-relative path): re-copies it, re-runs FXMLLoader and replaces " +
-                "the old root in place. The controller is re-created (view-local state resets).",
-            Schema.obj().str("path", "FXML file path, e.g. src/main/resources/app/main.fxml").required("path")) { a ->
+                "the old root in place. The controller is re-created; view state (selection, scroll, text, …) is carried over " +
+                "unless carryState=false — see stateCarried in the result.",
+            Schema.obj().str("path", "FXML file path, e.g. src/main/resources/app/main.fxml")
+                .bool("carryState", "Carry view state across the swap (default true)").required("path")) { a ->
+            if (s.mode == AppSession.Mode.ATTACHED) {
+                guardLive { ctx.live.setActionNeeded(listOf(ActionNeeded("attachedEdits",
+                    "Edits don't apply live when attached · relaunch with FXLoop or your IDE", "Relaunch with FXLoop or your IDE"))) }
+            }
             val r = ctx.reloader.reload(Reloader.Options(files = listOf(a["path"].asText()), allowRestart = false, visualDiff = false,
-                javaTier = false)) { Json.obj() }
+                javaTier = false, carryState = a.path("carryState").asBoolean(true))) { Json.obj() }
+            publish(ctx, r)
             ok(summary(r), r)
         }
 
@@ -100,6 +125,22 @@ object LoopTools {
             if (!Config.attachAllowed) throw ToolException("DISABLED", "attach is disabled on this server (-Dfxloop.attach=false)", "use fx_start_app")
             if (a.path("list").asBoolean(false) || !a.hasNonNull("pid")) list() else attach(ctx, a["pid"].asLong())
         }
+    }
+
+    private inline fun guardLive(block: () -> Unit) {
+        try {
+            block()
+        } catch (e: NotImplementedError) {
+            // LiveState slice not merged yet
+        } catch (e: RuntimeException) {
+            audit.debug("live state update failed: {}", e.message)
+        }
+    }
+
+    /** Hands the reload outcome to the dev bar (PRD 07 §7.1); never fails the reload. */
+    private fun publish(ctx: Ctx, r: ObjectNode) = guardLive {
+        val story = ReloadStory.of(r, ctx.session.mode, ctx.config.externalCompile)
+        ctx.live.reloaded(story.lastReload, story.ok, story.actionNeeded)
     }
 
     private fun list(): dev.fxloop.server.mcp.ToolResult {
@@ -158,7 +199,24 @@ object LoopTools {
             sb.append("\nCOMPILE ERRORS (nothing swapped):")
             errs.forEach { sb.append("\n  ${it.path("file").asText()}:${it.path("line").asText()}:${it.path("col").asText()} ${it.path("message").asText()}") }
         }
-        if (r.path("needsRestart").asBoolean()) sb.append("\nneeds restart: ${r["restartReasons"]}" + if (r.path("restarted").asBoolean()) " → restarted" else " (not restarted)")
+        tiers.firstOrNull { it.path("tier").asText() == "remount" || it.path("tier").asText() == "restage" }?.let { t ->
+            val d = t.path("details")
+            val keys = d.path("remounted").joinToString(", ") { it.asText() }
+            if (keys.isNotEmpty()) sb.append("\n${t["tier"].asText()}: remounted $keys")
+            d.path("failed").forEach { sb.append("\n  remount FAILED ${it.path("key").asText()}: ${it.path("error").asText()}") }
+            d.path("skipped").forEach { sb.append("\n  remount skipped ${it.path("key").asText()}: ${it.path("reason").asText()}") }
+        }
+        r["stateCarried"]?.let { sb.append("\nstate carried: ${it.path("restored").asInt()} restored, ${it.path("skipped").size()} skipped") }
+        if (r.path("needsRestart").asBoolean()) {
+            sb.append("\nneeds restart: ${r["restartReasons"]}")
+            sb.append(when {
+                r.path("restarted").asBoolean() -> " → restarted"
+                r.has("restartDeferred") -> "\nrestart deferred: the developer is using the app — fx_reload{restartWhenHumanActive:true} or fx_restart_app to override"
+                r.has("restartFailed") -> "\nrestart failed: ${r["restartFailed"].path("message").asText()}"
+                else -> " (not restarted)"
+            })
+        }
+        if (r.path("waitingForBuild").asBoolean()) sb.append("\nwaiting for a build: Java sources changed but no new classes appeared (external compile)")
         r["replay"]?.let { sb.append("\nreplay: $it") }
         r["visualDiff"]?.let { sb.append("\nvisualDiff: ${it["changedPct"]}% ${it["verdict"].asText()}" + (it["hint"]?.let { h -> " — ${h.asText()}" } ?: "")) }
         r["effects"]?.let { sb.append("\n").append(SceneDiff.summary(it)) }

@@ -36,7 +36,13 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
         val visualDiff: Boolean = true,
         val javaTier: Boolean = true,
         val consume: Boolean = true,
+        val remount: Boolean = true,
+        val carryState: Boolean = true,
+        val restartWhenHumanActive: Boolean = false,
     )
+
+    /** What tier 4 does with a needed restart (PRD 07 §6). */
+    enum class RestartDecision { RESTART, DEFER, NONE }
 
     private val log = LoggerFactory.getLogger(Reloader::class.java)
     private val sources = ChangeScanner()
@@ -82,6 +88,7 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
             }
         }
         var needsRestart = !reasons.isEmpty
+        var fxmlSwapped = 0
 
         if (other.isNotEmpty()) {
             val t0 = System.currentTimeMillis()
@@ -91,8 +98,13 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
         if (fxml.isNotEmpty()) {
             val t0 = System.currentTimeMillis()
             val rels = copyResources(d, fxml)
-            val r = session.call(Fcp.Method.RELOAD_FXML, Json.obj { set<JsonNode>("files", Json.strings(rels)) }) as ObjectNode
+            val r = session.call(Fcp.Method.RELOAD_FXML, Json.obj {
+                set<JsonNode>("files", Json.strings(rels))
+                put("carryState", opt.carryState)
+            }) as ObjectNode
             tiers.add(tier("fxml", rels, t0, r))
+            fxmlSwapped = r.path("swapped").size()
+            r["stateCarried"]?.let { mergeCarried(out, it) }
             r["unregistered"]?.let { u ->
                 needsRestart = true
                 u.forEach { reasons.add("FXML ${it.asText()} is not in the load registry") }
@@ -101,7 +113,11 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
         if (opt.javaTier) {
             if (session.config.externalCompile) {
                 val classes = changedClasses(d)
-                if (classes.isNotEmpty() && !redefine(classes, emptyList(), tiers, System.currentTimeMillis(), "external", reasons)) needsRestart = true
+                if (classes.isNotEmpty()) {
+                    if (!redefine(classes, emptyList(), tiers, System.currentTimeMillis(), "external", reasons)) needsRestart = true
+                } else if (java.isNotEmpty()) {
+                    out.put("waitingForBuild", true)
+                }
             } else if (java.isNotEmpty()) {
                 when (javaTier(d, java, tiers, out, reasons)) {
                     null -> { // compile errors: no partial swap, no restart
@@ -113,20 +129,73 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
                 }
             }
         }
+        val hotswapOk = tiers.any { it.path("tier").asText() == "hotswap" && it.path("details").path("ok").asBoolean() }
+        if (hotswapOk || fxmlSwapped > 0) remountTier(hotswapOk && opt.remount, opt, tiers, out)
         if (needsRestart) {
             out.put("needsRestart", true)
             out.set<JsonNode>("restartReasons", reasons)
-            if (opt.allowRestart && session.mode == AppSession.Mode.LAUNCHED) {
-                val t0 = System.currentTimeMillis()
-                val r = restartWithReplay(opt.replay)
-                tiers.add(tier("restart", emptyList(), t0, r))
-                out.put("restarted", true)
-                r["replay"]?.let { out.set<JsonNode>("replay", it) }
+            val deferred = opt.allowRestart && session.mode == AppSession.Mode.LAUNCHED && !opt.restartWhenHumanActive &&
+                safeDefer()
+            when (restartDecision(opt.allowRestart, session.mode, opt.restartWhenHumanActive, deferred)) {
+                RestartDecision.DEFER -> out.put("restartDeferred", "humanActive")
+                RestartDecision.RESTART -> {
+                    val t0 = System.currentTimeMillis()
+                    try {
+                        val r = restartWithReplay(opt.replay)
+                        tiers.add(tier("restart", emptyList(), t0, r))
+                        out.put("restarted", true)
+                        r["replay"]?.let { out.set<JsonNode>("replay", it) }
+                    } catch (e: ToolException) {
+                        out.set<JsonNode>("restartFailed", Json.obj {
+                            put("message", e.message?.lineSequence()?.firstOrNull { it.isNotBlank() }?.trim() ?: e.code)
+                        })
+                    }
+                }
+                RestartDecision.NONE -> {}
             }
         }
         if (tiers.isEmpty) out.put("note", "no changes detected since the last reload/launch")
         if (opt.consume) checkpoint()
         return out
+    }
+
+    private fun safeDefer(): Boolean = try {
+        live.shouldDeferRestart()
+    } catch (e: NotImplementedError) {
+        false
+    }
+
+    /** Calls `remountViews` once; an older agent (UNKNOWN_METHOD) and any failure are ignored — a remount never fails a reload. */
+    private fun remountTier(doRemount: Boolean, opt: Options, tiers: ArrayNode, out: ObjectNode) {
+        val t0 = System.currentTimeMillis()
+        val r = try {
+            session.call(Fcp.Method.REMOUNT_VIEWS, Json.obj {
+                put("remount", doRemount)
+                put("carryState", opt.carryState)
+                put("restage", session.config.restage)
+            }) as? ObjectNode ?: return
+        } catch (e: FcpException) {
+            if (e.code != Fcp.Error.UNKNOWN_METHOD) log.warn("remountViews failed: {}", e.message)
+            return
+        } catch (e: RuntimeException) {
+            log.warn("remountViews failed: {}", e.message)
+            return
+        }
+        r["stateCarried"]?.let { mergeCarried(out, it) }
+        val restaged = r.path("restaged").asBoolean()
+        if (restaged || remountNoteworthy(r)) tiers.add(tier(if (restaged) "restage" else "remount", emptyList(), t0, r))
+    }
+
+    private fun mergeCarried(out: ObjectNode, add: JsonNode) {
+        val cur = out.path("stateCarried")
+        val restored = cur.path("restored").asInt(0) + add.path("restored").asInt(0)
+        val skipped = Json.array()
+        cur.path("skipped").forEach { skipped.add(it) }
+        add.path("skipped").forEach { skipped.add(it) }
+        out.set<JsonNode>("stateCarried", Json.obj {
+            put("restored", restored)
+            set<JsonNode>("skipped", skipped)
+        })
     }
 
     private fun changes(opt: Options, d: LaunchDescriptor): List<ChangeScanner.Change> {
@@ -254,6 +323,19 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
     }
 
     companion object {
+        /** Restart etiquette (PRD 07 §6): watch/attached/embedded never restart; a busy developer defers it. */
+        fun restartDecision(allowRestart: Boolean, mode: AppSession.Mode, restartWhenHumanActive: Boolean, humanActive: Boolean): RestartDecision =
+            when {
+                !allowRestart || mode != AppSession.Mode.LAUNCHED -> RestartDecision.NONE
+                !restartWhenHumanActive && humanActive -> RestartDecision.DEFER
+                else -> RestartDecision.RESTART
+            }
+
+        /** True when a `remountViews` result carries something worth reporting as a tier. */
+        fun remountNoteworthy(r: JsonNode): Boolean =
+            !r.path("remounted").isEmpty || !r.path("skipped").isEmpty || !r.path("failed").isEmpty ||
+                r.path("callbacks").path("ran").asInt(0) > 0 || !r.path("callbacks").path("failed").isEmpty
+
         const val NO_CHANGE_PCT = 0.05
         val BUILD_FILES = setOf("pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts",
             "gradle.properties", "module-info.java")
