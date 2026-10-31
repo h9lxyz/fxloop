@@ -29,11 +29,14 @@ class ErrorRing internal constructor(private val capacity: Int) {
         }
     }
 
-    /** Records under the lock; notifies the listener outside it with a private copy (ring entries mutate on dedup). */
-    internal fun record(thread: Thread, thrown: Throwable): ObjectNode {
-        val (entry, fresh) = synchronized(this) { recordLocked(thread, thrown) }
+    /**
+     * Records and notifies under the lock so events leave in seq order (the listener only enqueues — it never
+     * blocks); the listener gets a private copy because ring entries mutate on dedup.
+     */
+    internal fun record(thread: Thread, thrown: Throwable): ObjectNode = synchronized(this) {
+        val (entry, fresh) = recordLocked(thread, thrown)
         if (fresh) listener(entry.deepCopy())
-        return entry
+        entry
     }
 
     private fun recordLocked(thread: Thread, thrown: Throwable): Pair<ObjectNode, Boolean> {

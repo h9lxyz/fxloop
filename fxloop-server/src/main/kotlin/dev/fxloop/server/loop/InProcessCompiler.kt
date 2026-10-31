@@ -19,6 +19,29 @@ import javax.tools.ToolProvider
 
 /** Tier-3 compile via `javax.tools` with the launch classpath; diagnostics returned as data (PRD 02 §3). */
 object InProcessCompiler {
+    @Volatile private var warmed = false
+
+    /**
+     * Compiles a trivial class once in the background so the first real hot-swap doesn't pay javac's class
+     * loading/JIT warm-up (PRD budget: single-class HotSwap < 2 s).
+     */
+    fun warmUpAsync() {
+        if (warmed) return
+        warmed = true
+        kotlin.concurrent.thread(isDaemon = true, name = "fxloop-javac-warmup") {
+            runCatching {
+                val dir = Files.createTempDirectory("fxloop-javac-warmup")
+                try {
+                    val src = Files.writeString(dir.resolve("Warm.java"), "class Warm { int f(int x) { return x * 2; } }")
+                    val javac = ToolProvider.getSystemJavaCompiler() ?: return@runCatching
+                    javac.run(null, null, null, "-d", dir.toString(), "-proc:none", src.toString())
+                } finally {
+                    dir.toFile().deleteRecursively()
+                }
+            }
+        }
+    }
+
     data class Result(val success: Boolean, val diagnostics: ArrayNode, val classes: Map<String, ByteArray>, val failure: String?)
 
     fun compile(d: LaunchDescriptor, sources: List<Path>): Result {

@@ -57,6 +57,19 @@ object ProcessTree {
         return if (p.isAlive) null else p.exitValue()
     }
 
+    /**
+     * Kills [root]'s tree plus [extras]: processes known to belong to it (recorded at launch) that may have been
+     * re-parented away — e.g. Xvfb and the app JVM after the `xvfb-run` wrapper itself was killed externally.
+     */
+    fun kill(root: ProcessHandle, extras: Collection<ProcessHandle>, graceMs: Long = 3000) {
+        kill(root, graceMs)
+        val stray = extras.filter { it.isAlive }
+        if (stray.isNotEmpty()) {
+            log.info("reaping {} re-parented process(es) of tree {}", stray.size, root.pid())
+            stray.forEach { kill(it, graceMs) }
+        }
+    }
+
     fun kill(root: ProcessHandle, graceMs: Long = 3000) {
         // Interrupts would cut the grace waits short and leave orphans behind: clear, do the work, restore.
         val interrupted = Thread.interrupted()
@@ -66,8 +79,9 @@ object ProcessTree {
             descendants.filter { it.isAlive }.forEach { it.destroy() }
             awaitExit(descendants, System.currentTimeMillis() + graceMs)
             // A wrapper root (xvfb-run) runs its own cleanup once its child is gone — xauth, rm of its temp dir.
-            // SIGTERMing it mid-cleanup skips its EXIT trap, so it gets a separate window instead of the leftovers.
-            awaitExit(listOf(root), System.currentTimeMillis() + ROOT_CLEANUP_MS)
+            // SIGTERMing it mid-cleanup skips its EXIT trap, so it gets a separate window. A plain JVM root (no
+            // children) was never asked to exit, so it is signalled right away instead.
+            if (descendants.isNotEmpty()) awaitExit(listOf(root), System.currentTimeMillis() + ROOT_CLEANUP_MS)
             if (root.isAlive) {
                 root.destroy()
                 awaitExit(listOf(root), System.currentTimeMillis() + minOf(graceMs, 1500))

@@ -35,20 +35,11 @@ internal class FcpServer(private val runtime: AgentRuntime) {
     private val events = ArrayBlockingQueue<FcpFrame>(MAX_PENDING_EVENTS)
     private lateinit var serverSocket: ServerSocket
 
-    @Volatile
-    private var current: Connection? = null
+    /** The authenticated connection; swapped atomically so a closing connection can't clobber its successor. */
+    private val current = java.util.concurrent.atomic.AtomicReference<Connection?>()
 
     private class Connection(val socket: Socket, val codec: FcpCodec) {
-        @Volatile var writeStartedAt = 0L
-
-        fun write(frame: FcpFrame) {
-            writeStartedAt = System.currentTimeMillis()
-            try {
-                codec.write(frame)
-            } finally {
-                writeStartedAt = 0L
-            }
-        }
+        fun write(frame: FcpFrame) = codec.write(frame)
     }
 
     init {
@@ -65,7 +56,7 @@ internal class FcpServer(private val runtime: AgentRuntime) {
             } catch (e: InterruptedException) {
                 return
             }
-            val conn = current ?: continue
+            val conn = current.get() ?: continue
             try {
                 conn.write(frame)
             } catch (e: IOException) {
@@ -82,9 +73,8 @@ internal class FcpServer(private val runtime: AgentRuntime) {
             } catch (e: InterruptedException) {
                 return
             }
-            val conn = current ?: continue
-            val started = conn.writeStartedAt
-            if (started != 0L && System.currentTimeMillis() - started > WRITE_STALL_MS) {
+            val conn = current.get() ?: continue
+            if (conn.codec.stalledForMs() > WRITE_STALL_MS) { // no progress at all, not merely a large frame
                 AgentLog.info("FCP peer stopped reading; closing the connection")
                 closeQuietly(conn.socket)
             }
@@ -133,9 +123,7 @@ internal class FcpServer(private val runtime: AgentRuntime) {
                 return
             }
             socket.soTimeout = 0 // authenticated: requests may be minutes apart
-            val previous = current
-            current = conn
-            if (previous != null) closeQuietly(previous.socket)
+            current.getAndSet(conn)?.let { closeQuietly(it.socket) }
             while (true) {
                 val frame = conn.codec.read()
                 if (!frame.isRequest) continue
@@ -150,7 +138,7 @@ internal class FcpServer(private val runtime: AgentRuntime) {
         } catch (e: IOException) {
             AgentLog.debug("FCP connection closed: ${e.message}")
         } finally {
-            if (current === conn) current = null
+            current.compareAndSet(conn, null)
             closeQuietly(socket)
         }
     }
@@ -198,7 +186,10 @@ internal class FcpServer(private val runtime: AgentRuntime) {
     }
 
     private fun handle(conn: Connection, frame: FcpFrame) {
-        if (conn !== current) return // the requester is gone (replaced or disconnected): don't run stale UI work
+        if (conn !== current.get()) { // the requester was replaced or disconnected: don't run stale UI work
+            runCatching { conn.write(FcpFrame.error(frame.id, FcpError(Fcp.Error.DISCONNECTED, "connection replaced"))) }
+            return
+        }
         val reply: FcpFrame = try {
             FcpFrame.result(frame.id, dispatcher.dispatch(frame.method!!, frame.params))
         } catch (e: FcpException) {
@@ -216,7 +207,7 @@ internal class FcpServer(private val runtime: AgentRuntime) {
 
     /** Called on application threads (FX thread, loggers): never blocks — drops the oldest event when full. */
     private fun emit(event: String, payload: ObjectNode) {
-        if (current == null) return
+        if (current.get() == null) return
         val frame = FcpFrame.event(event, payload)
         while (!events.offer(frame)) events.poll()
     }

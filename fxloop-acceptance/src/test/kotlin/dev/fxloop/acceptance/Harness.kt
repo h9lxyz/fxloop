@@ -98,7 +98,8 @@ class Harness(
 
     companion object {
         /** Unique per test JVM; passed to every app JVM this run launches (see [NoLeakedProcesses]). */
-        val RUN_MARKER = "-Dfxloop.acceptance.run=" + java.util.UUID.randomUUID()
+        val RUN_ID: String = System.getenv("FXLOOP_ACCEPTANCE_RUN")?.takeIf { it.isNotBlank() } ?: java.util.UUID.randomUUID().toString()
+        val RUN_MARKER = "-Dfxloop.acceptance.run=$RUN_ID"
 
         const val CONTROLLER = "src/main/java/dev/fxloop/sample/MainController.java"
         const val CSS = "src/main/resources/dev/fxloop/sample/app.css"

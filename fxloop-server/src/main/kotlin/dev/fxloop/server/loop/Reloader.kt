@@ -235,14 +235,20 @@ class Reloader(private val session: AppSession, private val visuals: Visuals) {
         }
     }
 
-    /** Copies resources (css/fxml/other) from their root into outputDir; returns root-relative paths. */
+    /**
+     * Copies resources (css/fxml/other) from their source root to wherever the running app loads them; returns
+     * root-relative paths. That is every classpath directory already holding the file — Gradle serves resources from
+     * `build/resources/main`, not from the classes dir — and `outputDir` when none does yet (new files).
+     */
     private fun copyResources(d: LaunchDescriptor, files: List<Path>): List<String> = files.map { f ->
         val root = (d.resourceRoots + d.sourceRoots).map(Path::of).lastOrNull { f.startsWith(it) }
         if (root == null) {
             f.name
         } else {
             val rel = root.relativize(f).toString().replace('\\', '/')
-            copyWithRetry(f, Path.of(d.outputDir).resolve(rel))
+            val dirs = (listOf(d.outputDir) + d.classpath).map(Path::of).filter { Files.isDirectory(it) }.distinct()
+            val targets = dirs.map { it.resolve(rel) }.filter { Files.exists(it) }.ifEmpty { listOf(Path.of(d.outputDir).resolve(rel)) }
+            targets.forEach { copyWithRetry(f, it) }
             rel
         }
     }

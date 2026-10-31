@@ -40,9 +40,16 @@ object Fx {
             }
         }
         if (stuck.get() > 0) {
-            // the FX thread has not even reached an earlier timed-out call: fail fast instead of queueing more work
-            throw FcpException(Fcp.Error.FX_TIMEOUT, "FX thread is still blocked (an earlier call timed out and has not run yet)",
-                Json.obj().setNode("fxThreadStack", fxThreadStack()))
+            // The FX thread has not reached an earlier timed-out call yet. Don't pile more work onto its queue:
+            // give it the normal timeout to catch up (a transient stall, e.g. first-use class loading under load),
+            // and only then report it as blocked.
+            val deadline = System.currentTimeMillis() + timeoutMs
+            while (stuck.get() > 0 && System.currentTimeMillis() < deadline) sleep(20)
+            if (stuck.get() > 0) {
+                throw FcpException(Fcp.Error.FX_TIMEOUT,
+                    "FX thread is still blocked (an earlier call timed out and has not run after another $timeoutMs ms)",
+                    Json.obj().setNode("fxThreadStack", fxThreadStack()))
+            }
         }
         val future = CompletableFuture<T>()
         val state = java.util.concurrent.atomic.AtomicInteger(QUEUED)

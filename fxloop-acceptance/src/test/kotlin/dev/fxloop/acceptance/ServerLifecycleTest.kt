@@ -24,6 +24,18 @@ class ServerLifecycleTest {
     }.toList()
 
     private class Server(val process: Process) {
+        var tree: List<ProcessHandle> = emptyList()
+
+        /** Every process of the server's tree is gone (not just the marked app JVM — Xvfb carries no marker). */
+        fun treeGone(seconds: Long): Boolean {
+            val deadline = System.currentTimeMillis() + seconds * 1000
+            while (System.currentTimeMillis() < deadline) {
+                if (tree.none { it.isAlive }) return true
+                Thread.sleep(200)
+            }
+            return false
+        }
+
         val out: BufferedReader = process.inputStream.bufferedReader()
 
         fun send(json: String) {
@@ -58,6 +70,7 @@ class ServerLifecycleTest {
         server.send("""{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"fx_get_app_status","arguments":{}}}""")
         assertThat(server.awaitId(2)).contains("running")
         assertThat(appJvms()).hasSize(1)
+        server.tree = server.process.toHandle().descendants().toList() // xvfb-run, Xvfb, xauth, app JVM
         return server
     }
 
@@ -79,8 +92,9 @@ class ServerLifecycleTest {
                 server.process.outputStream.close() // the MCP client went away
                 assertThat(server.process.waitFor(20, TimeUnit.SECONDS)).describedAs("server exits on stdin EOF").isTrue()
                 assertThat(awaitNoAppJvms(10)).describedAs("app JVM reaped with the server").isTrue()
+                assertThat(server.treeGone(10)).describedAs("whole tree (Xvfb too) reaped: ${server.tree.filter { it.isAlive }}").isTrue()
             } finally {
-                server?.let { ProcessTree.kill(it.process) }
+                server?.let { s -> ProcessTree.kill(s.process.toHandle(), s.tree) }
                 appJvms().forEach { ProcessTree.kill(it) }
                 Harness.deleteProject(project)
             }
@@ -96,8 +110,9 @@ class ServerLifecycleTest {
                 server.process.destroyForcibly() // no shutdown hooks can run
                 server.process.waitFor(10, TimeUnit.SECONDS)
                 assertThat(awaitNoAppJvms(15)).describedAs("app exits by itself when its server is gone").isTrue()
+                assertThat(server.treeGone(10)).describedAs("xvfb-run cleans up Xvfb once the app is gone: ${server.tree.filter { it.isAlive }}").isTrue()
             } finally {
-                server?.let { ProcessTree.kill(it.process) }
+                server?.let { s -> ProcessTree.kill(s.process.toHandle(), s.tree) }
                 appJvms().forEach { ProcessTree.kill(it) }
                 Harness.deleteProject(project)
             }

@@ -34,6 +34,7 @@ class Ctx(val config: Config) {
     init {
         session.onLaunched {
             reloader.checkpoint()
+            dev.fxloop.server.loop.InProcessCompiler.warmUpAsync()
             applyWatchMode(watch.mode.takeIf { it != "off" } ?: config.watchMode)
         }
     }

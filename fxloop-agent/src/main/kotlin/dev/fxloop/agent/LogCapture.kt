@@ -56,10 +56,12 @@ class LogCapture internal constructor(private val capacity: Int) {
         })
     }
 
-    /** Called on arbitrary application threads; the listener runs outside the lock with a private copy. */
+    /**
+     * Called on arbitrary application threads. Notifies under the lock so events leave in seq order; safe because
+     * the listener only enqueues (never blocks). The listener gets a private copy.
+     */
     internal fun add(level: String, logger: String?, message: String?, thrown: Throwable?) {
-        val e = synchronized(this) { addLocked(level, logger, message, thrown) }
-        listener(e.deepCopy())
+        synchronized(this) { listener(addLocked(level, logger, message, thrown).deepCopy()) }
     }
 
     private fun addLocked(level: String, logger: String?, message: String?, thrown: Throwable?): ObjectNode {

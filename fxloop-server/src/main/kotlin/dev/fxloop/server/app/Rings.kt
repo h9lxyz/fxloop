@@ -57,18 +57,23 @@ class EventRing(private val capacity: Int) {
     fun newLaunch(launchId: Long) {
         launch = launchId
         lastAgentSeq = 0
+        seenAgentSeqs.clear()
     }
+
+    private val seenAgentSeqs = HashSet<Long>()
 
     @Synchronized
     fun add(agentEntry: JsonNode) {
         val agentSeq = agentEntry.path("seq").asLong()
-        if (agentSeq <= lastAgentSeq) {
+        if (agentSeq in seenAgentSeqs) {
             // a re-sent entry or a dedupCount update for this launch
             ring.filter { it.path("launch").asLong() == launch && it.path("agentSeq").asLong() == agentSeq }
                 .forEach { it.put("dedupCount", agentEntry.path("dedupCount").asInt(1)) }
             return
         }
-        lastAgentSeq = agentSeq
+        seenAgentSeqs += agentSeq // unseen seqs are kept even when they arrive out of order
+        if (seenAgentSeqs.size > capacity * 2) seenAgentSeqs.remove(seenAgentSeqs.min())
+        lastAgentSeq = maxOf(lastAgentSeq, agentSeq)
         val e = (agentEntry as ObjectNode).deepCopy()
         e.put("agentSeq", agentSeq)
         e.put("seq", ++seq)
