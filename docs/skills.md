@@ -56,7 +56,10 @@ with no manual edits.
 
 - Detects the build tool, app module, language, JavaFX setup, main class and demo-data flags such as `--seed`.
 - Registers the MCP server for the agent it runs in: Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI or any
-  stdio client ([configs](../fxloop-skills/skills/fxloop-connect/references/mcp-clients.md)).
+  stdio client ([configs](../fxloop-skills/skills/fxloop-connect/references/mcp-clients.md)). The config runs a
+  small launcher it copies to `~/.fxloop/`, which finds the server jar, so the MCP entry never needs editing again.
+  Project settings that the launch needs (the app module, demo flags, headless) go in a `fxloop.properties` at the
+  workspace root.
 - Adds the FXLoop Maven or Gradle plugin and a production guard that fails the package build if FXLoop leaks onto the
   runtime classpath, and leaves a short `## FXLoop` section in `AGENTS.md` or `CLAUDE.md`.
 - Asks you to reload the agent's MCP servers once, then launches the app and shows it.

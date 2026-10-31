@@ -1,8 +1,8 @@
 # The FXLoop MCP server
 
 FXLoop is a stdio [MCP](https://modelcontextprotocol.io) server that gives a coding agent eyes, ears and hands on the
-JavaFX app you are building. It builds your project, launches the app with a small in-JVM agent, and exposes about
-three dozen `fx_*` tools: screenshots and the scene graph, clicks and typing, logs and UI exceptions, "why" answers for
+JavaFX app you are building. It builds your project, launches the app with a small in-JVM agent, and exposes nearly
+forty `fx_*` tools: screenshots and the scene graph, clicks and typing, logs and UI exceptions, "why" answers for
 layout, CSS and bindings, live reload of CSS, FXML and code, and TestFX export of what was clicked.
 
 It works with any MCP client: Claude Code, Cursor, VS Code (Copilot agent mode), Codex CLI, Gemini CLI and the rest.
@@ -81,6 +81,7 @@ agent losing its connection. Your app needs no FXLoop dependency: the agent is i
 | [`fx_set_text`](tools.md#fx_set_text) | Fill a text field, independent of the keyboard layout |
 | [`fx_set_property`](tools.md#fx_set_property) | Set any writable property, including `window.width` and `window.height` to resize the stage |
 | [`fx_eval_js`](tools.md#fx_eval_js) | Run JavaScript in a `WebView` (off unless `FXLOOP_WEBVIEW=true`) |
+| [`fx_lock_input`](tools.md#fx_lock_input) | Drop your clicks and keys for a moment while the agent clicks through a flow. The dev bar says why and offers **Take over**; the lock expires on its own |
 
 ### Apply edits
 
@@ -125,10 +126,14 @@ come back as results with a one-line cause and a next step; an FX-thread timeout
 | An FXML file | The document is reloaded and swapped in place. Selection, scroll, text, tabs and focus are carried over |
 | A method body (Java or Kotlin) | Compiled and HotSwapped into the running JVM. Compile errors come back as data; nothing is swapped |
 | A code-built view wrapped in `FxLoopDev.view(...)` | Rebuilt in place after the swap, with view state carried over |
-| A new field, method or class shape, or the build file | Restart, then replay the journal back to the same screen |
+| A new method, lambda or field | HotSwapped too when the app runs on JetBrains Runtime (detected from `FXLOOP_JAVA_HOME`, `FXLOOP_JBR` overrides). Elsewhere: restart |
+| A class shape change, or the build file | Restart, then replay the journal back to the same screen |
 
-Restarts wait while you are using the app. The details, including JetBrains Runtime enhanced redefinition, are in
-[limitations](limitations.md#hot-reload-hotswap) and the [fxloop-dev API](configuration.md#live-dev-loop-fxloop-dev-api).
+A restart relaunches only the JVM when the reload has already compiled and copied every edit into the output directory;
+build-file changes, deletions and edits no reload has seen run the full build first. The same applies to
+`fx_restart_app` and the dev bar's **Restart**. Restarts wait while you are using the app. An edit that watch mode
+already applied is not compiled again by `fx_reload`. The details are in [limitations](limitations.md#hot-reload-hotswap)
+and the [fxloop-dev API](configuration.md#live-dev-loop-fxloop-dev-api).
 
 ## You and the agent in the same app
 
@@ -169,6 +174,10 @@ Restarts wait while you are using the app. The details, including JetBrains Runt
 | Attached | `fx_attach` by pid | No | No |
 | Headless | `FXLOOP_HEADLESS=monocle` or `xvfb` on a launched app | CSS, FXML, HotSwap | Yes, with replay |
 
+In the developer-run and embedded modes the build tool or IDE owns the JVM, so the agent cannot restart it. Once that
+app has exited (window closed, build stopped), the session notices and `fx_start_app` launches a supervised copy, so a
+structural change no longer leaves the agent stuck.
+
 Headless runs make FXLoop usable in devcontainers, over SSH and in CI. There the screenshot *is* the app's face. See
 [CI templates](ci/README.md) and [Monocle](ci/monocle.md).
 
@@ -197,6 +206,7 @@ Common knobs, all optional (full list in [configuration](configuration.md)):
 | `FXLOOP_HEADLESS` | `monocle` or `xvfb` for runs without a display |
 | `FXLOOP_WATCH` | `css-only` (default), `all` or `off`: what your own saves apply live |
 | `FXLOOP_EXTERNAL_COMPILE` | Let your IDE or `gradle -t classes` compile; FXLoop only hot-swaps the output |
+| `FXLOOP_JAVA_HOME` | The JDK that runs the app. Point it at a JetBrains Runtime and new methods, lambdas and fields hot-swap instead of restarting |
 | `FXLOOP_VIEWER` | Port for the live screenshot viewer |
 
 ## Safety

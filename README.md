@@ -48,7 +48,7 @@ Agent  fx_take_screenshot annotate=interactive       → screens/14-before-save.
 | **Drive it** | Clicks, typing and key presses through the real mouse and keyboard, or as synthetic events while you use the app yourself. Every action returns a scene diff: the dialog opened, the button got disabled, nothing happened. |
 | **Ask why** | Why is this node that size: bounds, min/pref/max, grow, margins and anchors. Why is it this color: the CSS rule that won, with `file:line`, the rules it beat and the smallest override that would win. Why is it disabled: the binding tree. |
 | **Catch problems** | Visual lint for truncated text, overlap, zero-size and off-screen nodes and low contrast. FXML lint against your controllers before the app even starts. Uncaught FX-thread exceptions and app logs. |
-| **Edit live** | CSS re-applies in milliseconds, FXML swaps in place with selection, scroll and text carried over, method bodies HotSwap (Java and Kotlin), and anything bigger restarts and clicks its way back to the same screen. |
+| **Edit live** | CSS re-applies in milliseconds, FXML swaps in place with selection, scroll and text carried over, method bodies HotSwap (Java and Kotlin), and on JetBrains Runtime so do new methods, lambdas and fields. Anything bigger restarts without rebuilding, since the reload already compiled it, and clicks its way back to the same screen. |
 | **Lock it in** | Export what was clicked, by the agent or by you, as a JUnit 5 + TestFX test with real assertions, and run it headless on Monocle. |
 | **Work alongside you** | A dev bar on the app window shows what the agent is doing and what needs you. **Pick** a node and ask "why is *this* grey?". **Open CSS inspector** opens a DevTools-style cascade inspector in your browser; under `fxloop:run` (or with `FXLOOP_INSPECTOR_EDIT`) you edit values and add rules there live, then write them into the stylesheet with *Apply to file* or hand them to the agent. When the agent clicks through the UI itself it can lock your input for a moment: the bar says what it is doing and that you are watching, and **Take over** ends it. |
 | **Stay out of production** | Nothing is added to your app: the agent is injected with `-javaagent` at dev launch, listens on loopback with a per-run token, and is a no-op without its launch arguments. A build guard fails the package if FXLoop ever leaks in. |
@@ -57,7 +57,7 @@ FXLoop comes in two parts. Use the server on its own, or add the skills on top.
 
 ### [The MCP server →](docs/mcp.md)
 
-About three dozen `fx_*` tools for any MCP client. It builds your project, launches the app with a small in-JVM agent,
+Nearly forty `fx_*` tools for any MCP client. It builds your project, launches the app with a small in-JVM agent,
 supervises it across crashes and restarts, and routes your edits through the cheapest reload that works. The
 [overview](docs/mcp.md) groups the tools by job and explains run modes, reload tiers and shared control. Every
 parameter is in the [tool reference](docs/tools.md).
@@ -132,7 +132,8 @@ mvn fxloop:run        # or: gradle fxloopRun
 ```
 
 Your app starts with the dev bar. Click around, **Pick** the node that bothers you, then ask your agent. It finds the
-running app on its first call, connects instead of launching another copy, and leaves your mouse alone
+running app on its first call, connects instead of launching another copy, and leaves your mouse alone. Close the app
+and the agent's next `fx_start_app` launches a supervised copy that it can restart itself
 ([details](docs/configuration.md#running-the-app-yourself)).
 
 ## How it works
@@ -154,7 +155,7 @@ back. Diffing, compiling, journaling and test generation happen in the server.
 |---|---|
 | **Agents** | Claude Code, Cursor, VS Code (Copilot agent mode), Codex CLI, Gemini CLI, any stdio MCP client |
 | **Apps** | Java or Kotlin, Maven or Gradle, FXML or code-built UI, classpath or module path |
-| **Runtime** | JDK 17+, built and tested against JavaFX 21. Optional JetBrains Runtime for structural hot-swaps |
+| **Runtime** | JDK 17+, built and tested against JavaFX 21. Launch on JetBrains Runtime and structural hot-swaps are enabled automatically |
 | **Displays** | A real desktop, or headless on Xvfb or Monocle for devcontainers, SSH and CI ([templates](docs/ci/README.md)) |
 | **Ways to connect** | Launched by the server, run by you (`fxloop:run`, `fxloopRun`), started from your IDE with `fxloop-dev`, or attached to any local JavaFX JVM by pid |
 
