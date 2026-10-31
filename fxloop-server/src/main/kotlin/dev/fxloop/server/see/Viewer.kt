@@ -26,8 +26,8 @@ typealias ViewerApi = (method: String, params: ObjectNode, timeoutMs: Long) -> J
 
 /**
  * Opt-in, loopback-only, token-guarded live viewer (PRD 04 §3.7) plus the CSS inspector API (PRD 08): read-only
- * except `POST /api/highlight` and `POST /api/pick`, which are visual-only and ephemeral. With [editEnabled]
- * (`FXLOOP_INSPECTOR_EDIT`) the scratch-CSS endpoints exist too (PRD 08 §5): they accept CSS text only, which the
+ * except `POST /api/highlight` and `POST /api/pick`, which are visual-only and ephemeral. While [editEnabled]
+ * (`FXLOOP_INSPECTOR_EDIT`, or a developer-run app started with it) the scratch-CSS endpoints exist too (PRD 08 §5): they accept CSS text only, which the
  * agent parses before installing, and never touch source files. Without it they answer 404.
  */
 class Viewer(
@@ -37,7 +37,7 @@ class Viewer(
     private val api: ViewerApi? = null,
     private val connected: () -> Boolean = { false },
     private val editorUrl: String? = null,
-    private val editEnabled: Boolean = false,
+    private val editEnabled: () -> Boolean = { false },
 ) : AutoCloseable {
     private var server: HttpServer? = null
     private var executor: ExecutorService? = null
@@ -108,7 +108,7 @@ class Viewer(
     private fun handle(ex: HttpExchange) {
         try {
             val path = ex.requestURI.path
-            if (!editEnabled && path.startsWith(SCRATCH_PREFIX)) {
+            if (!editEnabled() && path.startsWith(SCRATCH_PREFIX)) {
                 send(ex, 404, "text/plain", "not found".toByteArray())
                 return
             }
@@ -233,7 +233,7 @@ class Viewer(
                 "windows" -> r.path("windows")
                 "styles" -> {
                     if (r is ObjectNode && editorUrl != null) r.put("editorUrl", editorUrl)
-                    if (r is ObjectNode && editEnabled) r.put("edit", true)
+                    if (r is ObjectNode && editEnabled()) r.put("edit", true)
                     r
                 }
                 "scratch" -> r.path("scratchCss").takeIf { it.isObject } ?: Json.obj { put("active", false); put("rules", 0) }

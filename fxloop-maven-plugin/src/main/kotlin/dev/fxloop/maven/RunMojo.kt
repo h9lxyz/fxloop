@@ -53,6 +53,13 @@ class RunMojo : PrepareMojo() {
     @field:Parameter(property = "fxloop.inspector", defaultValue = "true")
     var inspector: Boolean = true
 
+    /**
+     * "Try it live" in the CSS inspector: edit values and add rules in a scratch stylesheet, never in source. Applies to
+     * the helper and to agent sessions that connect to this run.
+     */
+    @field:Parameter(property = "fxloop.inspectorEdit", defaultValue = "true")
+    var inspectorEdit: Boolean = true
+
     /** Server jar override for the inspector helper; default: `dev.fxloop:fxloop-server:jar:all` at this plugin's version. */
     @field:Parameter(property = "fxloop.serverJar")
     var serverJar: File? = null
@@ -69,10 +76,10 @@ class RunMojo : PrepareMojo() {
         Files.deleteIfExists(handshake)
         val java = javaExecutable()
         val cmd = d.runCommand(java, "${resolve(agentJar, "dev.fxloop:fxloop-agent:${plugin.version}", "fxloop.agentJar")}=" +
-            d.runAgentArgs(handshake, bar))
+            d.runAgentArgs(handshake, bar, inspectorEdit))
         val helperCmd = if (inspector) d.inspectorHelperCommand(java,
             resolve(serverJar, "dev.fxloop:fxloop-server:jar:all:${plugin.version}", "fxloop.serverJar"),
-            project.basedir.toPath().toAbsolutePath(), bar) else null
+            project.basedir.toPath().toAbsolutePath(), bar, inspectorEdit) else null
         log.info("FXLoop: running ${d.mainClass} with the dev bar. To bring in your agent, ask it to " +
             "\"connect to my running app\" (handshake: $handshake). Ctrl+C stops the app.")
         val p = ProcessBuilder(cmd).directory(File(d.workingDir)).inheritIO().start()

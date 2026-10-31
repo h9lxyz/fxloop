@@ -51,7 +51,7 @@ class Ctx(val config: Config) {
     @Synchronized
     fun ensureViewer(port: Int = 0): Viewer = viewer ?: Viewer(port, Tokens.generate(), visuals.store,
         api = { m, p, t -> session.call(m, if (m in CSS_METHODS) withCssRoots(p) else p, t) }, connected = { session.connected }, editorUrl = config.editorUrl,
-        editEnabled = config.inspectorEdit).also {
+        editEnabled = { config.inspectorEdit || session.appInspectorEdit }).also {
         it.start()
         viewer = it
         log.info("live viewer: {}", it.url())

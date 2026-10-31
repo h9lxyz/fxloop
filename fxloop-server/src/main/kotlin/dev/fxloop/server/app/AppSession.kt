@@ -55,6 +55,9 @@ class AppSession(val config: Config) {
     @Volatile private var fcp: FcpClient? = null
     @Volatile var startedAt = 0L
         private set
+    /** The connected developer-run app was started with the inspector's "Try it live" on (handshake `inspectorEdit`). */
+    @Volatile var appInspectorEdit = false
+        private set
     @Volatile private var exitCode: Int? = null
     private var launchCounter = 0L
 
@@ -116,6 +119,7 @@ class AppSession(val config: Config) {
         killProcess() // leftovers of a crashed launch (wrapper gone, children alive) are reaped before relaunching
         state = State.STARTING
         mode = Mode.LAUNCHED
+        appInspectorEdit = false
         exitCode = null
         var ok = false
         try {
@@ -367,6 +371,7 @@ class AppSession(val config: Config) {
                 "use fx_start_app for supervised apps")
             connect(hs.port, token, yieldToAgents)
             mode = newMode
+            appInspectorEdit = hs.inspectorEdit == true
             // embedded apps are built from this project: reload tiers need its source roots and output dir (attach has none)
             // fxloop:run leaves its launch.json next to the handshake: reuse it instead of building again
             if (newMode == Mode.EMBEDDED && descriptor == null) descriptor = try {

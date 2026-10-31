@@ -32,12 +32,15 @@ on any JDK >= 17 (no toolchain required).
 ./gradlew fxloopRun --args="--de --rtl"   # extra program args for this run
 ./gradlew fxloopRun -Pfxloop.bar=pill     # dev bar as a corner pill (on|pill|off)
 ./gradlew fxloopRun -Pfxloop.inspector=false   # no inspector helper
+./gradlew fxloopRun -Pfxloop.inspectorEdit=false   # read-only CSS inspector (no "Try it live")
 ```
 
 Runs the app in the foreground from `launch.json` with the agent (`dev.fxloop:fxloop-agent` at the plugin's version,
 resolved from the project's repositories: a SNAPSHOT needs `mavenLocal()`). The dev bar shows before any agent
 connects, with **Pick** and **Inspect CSS**: an inspector helper (`dev.fxloop:fxloop-server:all`, also from the project's
 repositories) serves the browser CSS inspector until an agent session connects, steps aside while it is there, and
-returns afterwards; its output and URL are in `build/fxloop/inspector.log`. The FXLoop server finds the running app on
+returns afterwards; its output and URL are in `build/fxloop/inspector.log`. The inspector has "Try it live" on, also
+while an agent session is connected: edit CSS values and add rules in a scratch stylesheet, then hand them to your agent
+to apply. The FXLoop server finds the running app on
 its first call and connects instead of launching another copy. Everything but restart works (re-run the task). Uses
 the project's Java toolchain when one is configured.

@@ -79,6 +79,7 @@ class FxloopPlugin : Plugin<Project> {
             t.javaLauncher.convention(toolchains.launcherFor(javaExt.toolchain))
             t.bar.convention(project.providers.gradleProperty("fxloop.bar").orElse("on"))
             t.inspector.convention(project.providers.gradleProperty("fxloop.inspector").map { it != "false" }.orElse(true))
+            t.inspectorEdit.convention(project.providers.gradleProperty("fxloop.inspectorEdit").map { it != "false" }.orElse(true))
             t.serverJar.from(server)
             t.projectDir.convention(project.layout.projectDirectory)
         }

@@ -48,6 +48,7 @@ re-running the goal.
 |---|---|---|---|
 | `bar` | `fxloop.bar` | `on` | Dev bar before an agent connects: `on`, `pill` or `off`. |
 | `inspector` | `fxloop.inspector` | `true` | Start the inspector helper (Inspect CSS without an agent session). |
+| `inspectorEdit` | `fxloop.inspectorEdit` | `true` | "Try it live" in the CSS inspector: edit values, untick declarations and add rules in a scratch stylesheet, never in source. Applies to the helper and to agent sessions that connect to this run. `false` keeps it read-only. |
 | `agentJar` | `fxloop.agentJar` | `dev.fxloop:fxloop-agent` at the plugin's version | Agent jar override. |
 | `serverJar` | `fxloop.serverJar` | `dev.fxloop:fxloop-server:jar:all` at the plugin's version | Server jar for the inspector helper. |
 | `javaHome` | `fxloop.javaHome` | the JDK running Maven | JDK that runs the app. |

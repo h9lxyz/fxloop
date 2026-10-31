@@ -40,6 +40,9 @@ abstract class FxloopRunTask : DefaultTask() {
     @get:Internal abstract val serverJar: ConfigurableFileCollection
     @get:Internal abstract val projectDir: DirectoryProperty
 
+    /** "Try it live" in the CSS inspector, also for agent sessions that connect (`-Pfxloop.inspectorEdit=false` keeps it read-only). */
+    @get:Input abstract val inspectorEdit: Property<Boolean>
+
     /** Dev bar before an agent connects: `on`, `pill` or `off` (`-Pfxloop.bar=`). */
     @get:Input abstract val bar: Property<String>
 
@@ -60,7 +63,7 @@ abstract class FxloopRunTask : DefaultTask() {
             ?: throw GradleException("cannot resolve the FXLoop agent jar (a SNAPSHOT needs mavenLocal() in the project's repositories)")
         val extra = extraArgs.orNull.orEmpty().split(Regex("\\s+")).filter { it.isNotEmpty() }
         val cmd = d.runCommand(javaLauncher.get().executablePath.asFile.absolutePath,
-            "${agent.absolutePath}=${d.runAgentArgs(handshake, bar.get())}", extra)
+            "${agent.absolutePath}=${d.runAgentArgs(handshake, bar.get(), inspectorEdit.get())}", extra)
         logger.lifecycle("FXLoop: running ${d.mainClass} with the dev bar. To bring in your agent, ask it to " +
             "\"connect to my running app\" (handshake: $handshake). Ctrl+C stops the app.")
         val helper = if (inspector.get()) startHelper(d, java = cmd.first(), log = launch.resolveSibling("inspector.log")) else null
@@ -89,7 +92,7 @@ abstract class FxloopRunTask : DefaultTask() {
             return null
         }
         Files.deleteIfExists(log)
-        val p = ProcessBuilder(d.inspectorHelperCommand(java, jar.toPath(), projectDir.get().asFile.toPath(), bar.get()))
+        val p = ProcessBuilder(d.inspectorHelperCommand(java, jar.toPath(), projectDir.get().asFile.toPath(), bar.get(), inspectorEdit.get()))
             .directory(projectDir.get().asFile).redirectErrorStream(true).redirectOutput(log.toFile())
             .apply { environment()["FXLOOP_LOG"] = "warn" }.start()
         val deadline = System.currentTimeMillis() + 15_000

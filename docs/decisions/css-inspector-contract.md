@@ -79,6 +79,8 @@ The sheet is the last stylesheet of every app scene (a `data:text/css;base64,` U
 next to `state.json`). In the cascade its rules carry `"file":"scratch:<n>"` and `"scratch":true` (no `line`/`absFile`);
 origin stays `AUTHOR` because that is what JavaFX applies. `status.scratchCss` is present only while active.
 CSS reloads keep it last and report `scratchRules`; a restart drops it.
+Editing is on with `FXLOOP_INSPECTOR_EDIT`, or while the server is connected to an app whose handshake carries
+`"inspectorEdit":true` (agent argument `inspectorEdit=true`, set by `fxloop:run` / `fxloopRun` unless `fxloop.inspectorEdit=false`).
 
 ## Viewer HTTP (all GET unless noted, `?t=<token>` required, loopback only)
 

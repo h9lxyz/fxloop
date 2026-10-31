@@ -46,6 +46,10 @@ class FcpCodecTest {
         val file = dir.resolve("hs.json")
         Handshake(2, 42, 1234, 1L, "javaagent", null).writeTo(file)
         assertThat(Handshake.readFrom(file).port).isEqualTo(1234)
+        assertThat(Handshake.readFrom(file).inspectorEdit).isNull()
+        assertThat(Files.readString(file)).doesNotContain("inspectorEdit")
+        Handshake(2, 42, 1234, 1L, "embedded", "t", inspectorEdit = true).writeTo(file)
+        assertThat(Handshake.readFrom(file).inspectorEdit).isTrue()
         if (Files.getFileStore(file).supportsFileAttributeView("posix")) {
             assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(file))).isEqualTo("rw-------")
         }

@@ -74,7 +74,7 @@ class AgentRuntime private constructor(
             val port = s.bind()
             val pid = ManagementFactory.getRuntimeMXBean().pid
             val writeToken = options.token == null
-            Handshake(Fcp.VERSION, pid, port, startedAt, mode, if (writeToken) token else null)
+            Handshake(Fcp.VERSION, pid, port, startedAt, mode, if (writeToken) token else null, options.inspectorEdit.takeIf { it })
                 .writeTo(options.handshake!!.toAbsolutePath())
             AgentLog.info("FCP listening on 127.0.0.1:$port ($mode)")
             s.acceptLoop()

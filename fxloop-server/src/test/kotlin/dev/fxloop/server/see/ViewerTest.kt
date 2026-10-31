@@ -212,7 +212,7 @@ class ViewerTest {
                     else Json.obj { put("active", true); put("rules", 1) }
                 else -> Json.obj { put("active", false); put("rules", 0) }
             }
-        }, { true }, editEnabled = true).use { v ->
+        }, { true }, editEnabled = { true }).use { v ->
             v.start()
             val base = "http://127.0.0.1:${v.port}"
             assertThat(postCss("$base/api/scratch/set", ".a { }").statusCode()).isEqualTo(403)

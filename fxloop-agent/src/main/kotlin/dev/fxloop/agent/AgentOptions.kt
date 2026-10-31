@@ -8,6 +8,7 @@ import java.nio.file.Path
  * Agent arguments, `key=value` pairs separated by commas:
  * `handshake=<path>,tokenFile=<path>,state=<path>,logs=true,fxmlHook=true,ownerPid=<pid>,recordHuman=true,bar=on`.
  * `bar=on|pill` shows the dev bar before any server connects (`fxloop:run`); otherwise the server turns it on.
+ * `inspectorEdit=true` (`fxloop:run`) is written into the handshake so a connecting server enables "Try it live".
  * `ownerPid` is the launching fxloop server: when it disappears (even SIGKILL) the app exits on its own. `tokenFile` (owner-only
  * file written by the server) is preferred over `token=` because command lines are visible to other users.
  */
@@ -20,6 +21,7 @@ data class AgentOptions(
     val ownerPid: Long? = null,
     val recordHuman: Boolean = true,
     val bar: String? = null,
+    val inspectorEdit: Boolean = false,
 ) {
     companion object {
         @JvmStatic
@@ -49,6 +51,7 @@ data class AgentOptions(
                 map["ownerPid"]?.toLongOrNull(),
                 !(map["recordHuman"] ?: System.getProperty("fxloop.recordHuman") ?: "true").equals("false", ignoreCase = true),
                 map["bar"]?.lowercase()?.takeIf { it == "on" || it == "pill" },
+                (map["inspectorEdit"] ?: "false").equals("true", ignoreCase = true),
             )
         }
 

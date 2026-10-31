@@ -361,6 +361,8 @@ class AgentFxTest {
         assertThat(o.captureLogs).isTrue()
         assertThat(o.fxmlHook).isFalse()
         assertThat(o.bar).isNull()
+        assertThat(o.inspectorEdit).isFalse()
+        assertThat(AgentOptions.parse("handshake=/x,inspectorEdit=true").inspectorEdit).isTrue()
         assertThat(AgentOptions.parse("handshake=/x,bar=ON").bar).isEqualTo("on")
         assertThat(AgentOptions.parse("handshake=/x,bar=pill").bar).isEqualTo("pill")
         assertThat(AgentOptions.parse("handshake=/x,bar=sideways").bar).isNull()

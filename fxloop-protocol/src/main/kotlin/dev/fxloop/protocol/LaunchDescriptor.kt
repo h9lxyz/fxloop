@@ -66,15 +66,21 @@ data class LaunchDescriptor(
 
     /**
      * The inspector helper started next to a developer-run app: the FXLoop server in sidecar mode (no MCP) for
-     * [projectDir], serving the viewer and CSS inspector while no agent session is connected.
+     * [projectDir], serving the viewer and CSS inspector while no agent session is connected. [inspectorEdit] turns on
+     * the inspector's "Try it live" scratch CSS (`FXLOOP_INSPECTOR_EDIT`), on by default for a developer-run app.
      */
-    fun inspectorHelperCommand(java: String, serverJar: Path, projectDir: Path, bar: String?): List<String> =
-        listOf(java, "-jar", serverJar.toString(), "--sidecar=true", "--project-dir=$projectDir", "--bar=${bar ?: "on"}")
+    fun inspectorHelperCommand(java: String, serverJar: Path, projectDir: Path, bar: String?, inspectorEdit: Boolean = true): List<String> =
+        listOf(java, "-jar", serverJar.toString(), "--sidecar=true", "--project-dir=$projectDir", "--bar=${bar ?: "on"}",
+            "--inspector-edit=$inspectorEdit")
 
-    /** Agent arguments for a developer-run app: self-generated token in [handshake], optional standalone dev bar. */
-    fun runAgentArgs(handshake: Path, bar: String?): String {
+    /**
+     * Agent arguments for a developer-run app: self-generated token in [handshake], optional standalone dev bar, and
+     * [inspectorEdit] recorded in the handshake so an agent session that connects keeps "Try it live" on.
+     */
+    fun runAgentArgs(handshake: Path, bar: String?, inspectorEdit: Boolean = false): String {
         val b = bar?.trim()?.lowercase()?.takeIf { it == "on" || it == "pill" }
-        return "handshake=$handshake,state=${handshake.resolveSibling("state.json")},logs=true" + (b?.let { ",bar=$it" } ?: "")
+        return "handshake=$handshake,state=${handshake.resolveSibling("state.json")},logs=true" + (b?.let { ",bar=$it" } ?: "") +
+            (if (inspectorEdit) ",inspectorEdit=true" else "")
     }
 
     companion object {

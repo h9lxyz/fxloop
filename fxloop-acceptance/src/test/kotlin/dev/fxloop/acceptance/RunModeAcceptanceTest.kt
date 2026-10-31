@@ -49,6 +49,8 @@ class RunModeAcceptanceTest {
                 assertThat(r["tiersApplied"].map { it.path("tier").asText() }).contains("css")
                 val style = h.ok("fx_explain_style", args("query" to "#statusLabel", "property" to "-fx-text-fill"))
                 assertThat(style["items"][0]["value"].asText()).isEqualTo("#123456ff")
+                // started without inspectorEdit: the agent session's inspector stays read-only (FXLOOP_INSPECTOR_EDIT is off)
+                assertThat(awaitBody(scratchUrl(h)) { it.isNotEmpty() }).isEqualTo("not found")
             } finally {
                 ProcessTree.kill(p)
             }
@@ -63,7 +65,7 @@ class RunModeAcceptanceTest {
             Files.deleteIfExists(handshake)
             val java = AppSession.javaExecutable()
             val run = d.copy(jvmArgs = d.jvmArgs + Harness.RUN_MARKER)
-                .runCommand(java, "${h.ctx.session.agentJar()}=${d.runAgentArgs(handshake, "on")}", listOf("--seed"))
+                .runCommand(java, "${h.ctx.session.agentJar()}=${d.runAgentArgs(handshake, "on", inspectorEdit = true)}", listOf("--seed"))
             val xvfb = if (System.getenv("FXLOOP_ACCEPTANCE_HEADLESS") != "none") listOf("xvfb-run", "-a") else emptyList()
             val app = ProcessTree.track(ProcessBuilder(xvfb + run).directory(h.project.toFile()).redirectErrorStream(true)
                 .redirectOutput(h.project.resolve("run-mode.log").toFile()).start())
@@ -77,10 +79,15 @@ class RunModeAcceptanceTest {
                 val url = awaitLine(helperLog, Regex("http://\\S+/inspect\\?t=\\w+"))
                 val tree = url.replace("/inspect?", "/api/tree?")
                 assertThat(awaitBody(tree) { it.contains("\"root\"") }).contains("#statusLabel")
+                // "Try it live" is on by default for a developer-run app (the endpoint is a 404 without it)
+                val scratch = url.replace("/inspect?", "/api/scratch?")
+                assertThat(awaitBody(scratch) { it.contains("\"active\"") }).contains("\"active\":false")
 
                 // an agent session takes the app over; the helper steps aside instead of fighting for it
                 assertThat(h.ok("fx_get_app_status")["mode"].asText()).isEqualTo("embedded")
                 assertThat(awaitBody(tree) { it.contains("NO_APP") }).contains("NO_APP")
+                // the run asked for "Try it live" in its handshake: the agent session's inspector keeps it on
+                assertThat(awaitBody(scratchUrl(h)) { it.contains("\"active\"") }).contains("\"active\":false")
                 Thread.sleep(3000) // a few helper retry rounds: the agent session must keep the app
                 assertThat(h.prop("#statusLabel", "text").asText()).isEqualTo("3 contacts")
 
@@ -93,6 +100,9 @@ class RunModeAcceptanceTest {
             }
         }
     }
+
+    /** The agent session's own viewer (not the helper's): its scratch endpoint exists only while editing is on. */
+    private fun scratchUrl(h: Harness) = h.ctx.ensureViewer().inspectUrl().replace("/inspect?", "/api/scratch?")
 
     private fun awaitLine(file: Path, re: Regex): String {
         val deadline = System.currentTimeMillis() + 60_000
