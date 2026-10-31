@@ -21,19 +21,25 @@ import kotlin.streams.asSequence
  * Drives the real tool surface in-process against a throwaway copy of the sample app (the MVP workflows edit its
  * sources). Headless lane: `xvfb-run` per launch (FXLOOP_ACCEPTANCE_HEADLESS=xvfb|monocle|none, default xvfb).
  */
-class Harness(appArgs: List<String> = emptyList()) : AutoCloseable {
+class Harness(
+    appArgs: List<String> = emptyList(),
+    app: String = "fxloop-sample-app",
+    webview: Boolean = false,
+    headlessOverride: String? = null,
+) : AutoCloseable {
     val repo: Path = Path.of(System.getProperty("fxloop.repo") ?: "..").toAbsolutePath().normalize()
-    val project: Path = copySampleApp(repo)
+    val project: Path = copySampleApp(repo, app)
     val ctx: Ctx
     val tools: ToolRegistry
 
     init {
-        val headless = System.getenv("FXLOOP_ACCEPTANCE_HEADLESS") ?: "xvfb"
+        val headless = headlessOverride ?: System.getenv("FXLOOP_ACCEPTANCE_HEADLESS") ?: "xvfb"
         val config = Config(
             projectDir = project,
             buildCmd = repo.resolve("mvnw").toString(),
             headless = headless.takeIf { it != "none" },
             appArgs = appArgs,
+            webview = webview,
             testMode = true,
             screenshotRatePerSec = 0.0,
             watchMode = "off",
@@ -94,8 +100,8 @@ class Harness(appArgs: List<String> = emptyList()) : AutoCloseable {
             }
         }
 
-        private fun copySampleApp(repo: Path): Path {
-            val src = repo.resolve("sample-apps/fxloop-sample-app")
+        private fun copySampleApp(repo: Path, app: String): Path {
+            val src = repo.resolve("sample-apps/$app")
             val dst = Files.createTempDirectory("fxloop-acceptance-")
             Files.walk(src).use { s ->
                 s.asSequence().filter { !src.relativize(it).startsWith("target") }.forEach {

@@ -154,6 +154,8 @@ internal object VisualLint {
                         break
                     }
                     if (topFill !is Color) {
+                        // controls paint their own (gradient) skin backgrounds — only plain text is worth flagging
+                        if (n !is javafx.scene.control.Label && n !is Text) return
                         findings.add(
                             finding(
                                 "lowContrast", n, "skipped:unresolvedBackground", "info",

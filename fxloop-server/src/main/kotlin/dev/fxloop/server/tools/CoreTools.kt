@@ -100,7 +100,8 @@ object CoreTools {
 
         reg.tool("fx_get_scene_graph", "Get scene graph", Kind.READ,
             "Bounded JSON of the logical scene graph of a window (or subtree): h (handle), path, type, fxId, styleClass, " +
-                "text, value, visible/disabled/focused, boundsScreen, kids. Virtualized controls report itemCount and " +
+                "text, value, visible (only when false), disabled/focused (only when true), boundsScreen, kids. Output is budgeted " +
+                "(depth, nodes, ~56 KB) with {truncated:true} markers. Virtualized controls report itemCount and " +
                 "visibleCells only. Skin internals of built-in controls are omitted.",
             Schema.obj().target().integer("rootHandle", "Subtree root handle")
                 .integer("maxDepth", "Depth budget (default 12)", 1, 64).integer("maxNodes", "Node budget (default 400)", 1, 5000)) { a ->
