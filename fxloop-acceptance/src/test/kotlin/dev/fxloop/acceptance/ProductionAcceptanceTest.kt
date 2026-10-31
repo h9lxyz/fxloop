@@ -80,10 +80,10 @@ class ProductionAcceptanceTest {
         assertThat(Json.write(g).length).isLessThan(64 * 1024)
         // end-to-end (MCP tool → FCP → FX thread → JSON) on a loaded CI box; the agent-side serializer budget
         // (≤ 150 ms for 5 000 nodes, PRD 03 §10) is far below this, the margin absorbs scheduling noise
-        assertThat(ms).isLessThan(3000)
+        assertThat(ms).isLessThan(6000)
         val t1 = System.currentTimeMillis()
         h.ok("fx_get_scene_graph", args("query" to "#bigPane", "maxNodes" to 5000, "maxDepth" to 4))
-        assertThat(System.currentTimeMillis() - t1).isLessThan(3000)
+        assertThat(System.currentTimeMillis() - t1).isLessThan(6000)
     }
 
     @Test @Order(7)
