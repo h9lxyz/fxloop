@@ -1,14 +1,18 @@
 # fxloop-showcase-app — Ticket Desk
 
-A deliberately flawed **Kotlin + Gradle (Kotlin DSL)** JavaFX 21 helpdesk app used to demo the FXLoop skills
+A deliberately flawed **Kotlin + Maven** JavaFX 21 helpdesk app used to demo the FXLoop skills
 (PRD 06, S0–S9). It looks like an ordinary in-house tool, and its sources carry no hints about the bugs.
 The answer key is [ISSUES.md](ISSUES.md). Don't give it to an agent during a demo or eval.
 
-The project is **not connected to FXLoop yet** (no `dev.fxloop` plugin), so `/fxloop:connect` (S0) is the first step
-of every demo. The entry point is a top-level `fun main` (`dev.fxloop.showcase.MainKt`).
+It is a standalone Maven project (own wrapper, not a reactor module, no `fxloop-parent`) and is **not connected to
+FXLoop yet** (no `fxloop-maven-plugin`), so `/fxloop:connect` (S0) is the first step of every demo. The entry point is
+a top-level `fun main` (`dev.fxloop.showcase.MainKt`).
 
-    ./gradlew test     # one headless smoke test (TestFX + Monocle)
-    ./gradlew run      # plain run, no FXLoop
+    ./mvnw verify          # one headless smoke test (TestFX + Monocle)
+    ./mvnw javafx:run      # plain run, no FXLoop
+
+The FXLoop server can also launch it unconnected: it runs `compile dev.fxloop:fxloop-maven-plugin:<version>:prepare`
+by coordinates (needs the FXLoop artifacts in `~/.m2`, `./mvnw install` at the repo root).
 
 ## Screens
 
@@ -46,5 +50,5 @@ Program arguments, or `-Dfxloop.showcase.args="..."`:
 | S8 consistency | "make Customers, Reports and Settings look like the main window" |
 | S9 lock-in | "make sure the assign/delete fixes don't regress" |
 
-Kotlin note: the HotSwap tier compiles Java only. For code fixes run with `FXLOOP_EXTERNAL_COMPILE=true` and
-`./gradlew -t classes`. CSS and FXML edits reload live without it.
+Kotlin note: the HotSwap tier compiles Java only. For code fixes run with `FXLOOP_EXTERNAL_COMPILE=true` and let the
+IDE or `./mvnw compile` produce the classes. CSS and FXML edits reload live without it.

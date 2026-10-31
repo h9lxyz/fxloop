@@ -10,8 +10,8 @@ Paths are relative to `src/main/`.
 
 | # | Issue | Where | Notes |
 |---|---|---|---|
-| 0.1 | No FXLoop build plugin, no dev/test scope guard, no `CLAUDE.md` section | `build.gradle.kts` | connect must add `id("dev.fxloop")` |
-| 0.2 | Kotlin top-level `main` → main class `MainKt` | `kotlin/.../Main.kt` | resolved via `application.mainClass` |
+| 0.1 | No FXLoop build plugin, no enforcer guard, no `CLAUDE.md` section | `pom.xml` | connect must add `fxloop-maven-plugin` |
+| 0.2 | Kotlin top-level `main` → main class `MainKt` | `kotlin/.../Main.kt` | ✓ resolved via `javafx-maven-plugin` `mainClass` |
 | 0.3 | Kotlin sources: HotSwap tier needs external-compile mode | — | connect should set `FXLOOP_EXTERNAL_COMPILE=true` and say so |
 
 ## S1 — UI review (lint_visual, screenshots)
@@ -142,7 +142,7 @@ selection, delete the selected (filtered) ticket, and create a ticket → select
 
 Observations about FXLoop itself, not planted issues:
 
-1. **Gradle plugin, Kotlin projects:** `fxloopPrepare` writes `outputDir=build/classes/java/main`, leaves out `build/classes/kotlin/main` from the classpath, and leaves `sourceRoots` empty, so the app fails with class-not-found for `MainKt`. Verification here used a hand-patched `launch.json`. This blocks S0 / milestone D3.
+1. **Gradle plugin, Kotlin projects** (found while this app still had a Gradle build): `fxloopPrepare` writes `outputDir=build/classes/java/main`, leaves out `build/classes/kotlin/main` from the classpath, and leaves `sourceRoots` empty, so the app fails with class-not-found for `MainKt`. The Maven plugin handles the Maven build of this app correctly (`target/classes`, `src/main/kotlin`).
 2. `fx_set_property` on `Stage[0]` `width` → `UNSUPPORTED_TARGET: width is read-only`; S5's "resize stage via properties" has no tool path.
 3. `fx_lint_visual lowContrast` misses status chips (labels with their own background inside table cells), the table header, and KPI captions.
 4. `fx_lint_fxml missingFxIdField` reports every fx:id without a controller field (26 here, 1 real). The real one's suggestion was "rename fx:id to 'priorityCol'" instead of `priorityBox`.
