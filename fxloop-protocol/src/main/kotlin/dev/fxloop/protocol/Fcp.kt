@@ -43,6 +43,19 @@ object Fcp {
         const val EVAL_JS = "evalJs"
         const val CAPTURE_STATES = "captureStates"
 
+        /** CSS inspector (PRD 08): full per-property cascade for the browser inspector. */
+        const val CSS_CASCADE = "cssCascade"
+        const val CSS_SUGGEST = "cssSuggest"
+
+        /** Visual-only overlay: draws or clears a node highlight (agent-owned popup, invisible to tools). */
+        const val HIGHLIGHT = "highlight"
+
+        /** Arms pick mode on a window: the next click is consumed and reported as a [Event.HUMAN_PICK] event. */
+        const val PICK_START = "pickStart"
+
+        /** Updates the dev bar (agent-owned popup): `{inspectorUrl?, text?}`. */
+        const val SET_BAR_STATE = "setBarState"
+
         /** Test-only: blocks the FX thread; only honoured with `-Dfxloop.test=true`. */
         const val BLOCK_FX_THREAD = "blockFxThread"
     }
@@ -51,6 +64,12 @@ object Fcp {
     object Event {
         const val UI_ERROR = "uiError"
         const val APP_LOG = "appLog"
+
+        /** The developer clicked *Inspect CSS* on the dev bar: `{path?}` (node to preselect). */
+        const val INSPECTOR_REQUESTED = "inspectorRequested"
+
+        /** The developer picked a node in pick mode: `{path, window}`. */
+        const val HUMAN_PICK = "humanPick"
     }
 
     /** Machine-readable error codes carried in [FcpError.code]. */
