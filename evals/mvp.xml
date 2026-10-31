@@ -1,0 +1,59 @@
+<!--
+  FXLoop MVP eval suite (PRD 02 §12 + PRD 04 §5 visual pairs), mcp-builder format.
+  Setup: FXLOOP_PROJECT_DIR=sample-apps/fxloop-sample-app (fresh launch, no seed) unless a question says otherwise.
+  Visual questions (11–13) use FXLOOP_APP_ARGS="--seed --broken-css".
+-->
+<evaluation>
+  <qa_pair>
+    <question>Type "Ada" into the name field and click Add. According to the effects of the click, what is the new text of the status label?</question>
+    <answer>1 contacts</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>After typing "Ada" into the name field, which property of the Add button changed according to the effects of fx_set_text? Answer with the property name.</question>
+    <answer>disabled</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Perform: set the name field to "Bob", click Add. How many entries does the action journal now contain?</question>
+    <answer>2</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which tool name is recorded as the first entry of the journal after setting the name field and clicking Add?</question>
+    <answer>fx_set_text</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Run fx_lint_fxml on all FXML files of the unmodified sample app. How many findings are reported?</question>
+    <answer>0</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Which controller class does the FXML load registry report for the main view?</question>
+    <answer>dev.fxloop.sample.MainController</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What is the stable path of the Add button as reported by fx_find_nodes for query #addBtn? Give the last path segment only.</question>
+    <answer>Button#addBtn</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Is the text property of the status label bound? Answer true or false.</question>
+    <answer>true</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Call fx_reload without editing anything. Which field of the result explains that nothing happened? Give the field name.</question>
+    <answer>note</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>What is the title of the main window?</question>
+    <answer>FXLoop Sample — Contacts</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>(broken-css launch) fx_lint_visual reports a siblingOverlap finding. What is the fx:id of the node that overlaps its sibling?</question>
+    <answer>helpBtn</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>(broken-css launch) Which label (fx:id) is reported by the lowContrast check?</question>
+    <answer>hintLabel</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>(broken-css launch) What is the CSS origin of the -fx-text-fill of hintLabel according to fx_explain_style?</question>
+    <answer>AUTHOR</answer>
+  </qa_pair>
+</evaluation>

@@ -1,0 +1,27 @@
+<!--
+  FXLoop PoC eval suite (PRD 01 §11), mcp-builder format.
+  Setup: sample app launched with seed data: FXLOOP_PROJECT_DIR=sample-apps/fxloop-sample-app FXLOOP_APP_ARGS=--seed
+  Each answer is obtainable only through FXLoop tools; verified by exact string match.
+-->
+<evaluation>
+  <qa_pair>
+    <question>The contact manager was started with seed data. What is the exact text of the status label at the bottom of the main window?</question>
+    <answer>3 contacts</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Clear the name text field. Which button (give its fx:id) becomes disabled while the name field is empty?</question>
+    <answer>addBtn</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Click the button labelled "Boom". What is the simple class name of the exception that the JavaFX Application Thread reports?</question>
+    <answer>IllegalStateException</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>Open the category combo box. How many items does its popup list offer?</question>
+    <answer>3</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>In the seeded contact table, which contact name is in the row whose category is "Friends"?</question>
+    <answer>Grace Hopper</answer>
+  </qa_pair>
+</evaluation>

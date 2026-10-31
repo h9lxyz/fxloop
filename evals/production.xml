@@ -1,0 +1,48 @@
+<!--
+  FXLoop Production eval suite (PRD 03 §12). Setup per question:
+  [S] sample app (FXLOOP_PROJECT_DIR=sample-apps/fxloop-sample-app); [G] gauntlet app
+  (FXLOOP_PROJECT_DIR=sample-apps/fxloop-gauntlet-app, FXLOOP_WEBVIEW=true); [A] attach mode: launch the sample app
+  yourself with plain `java` and use fx_attach {pid} (read-only questions).
+-->
+<evaluation>
+  <qa_pair>
+    <question>[G] Open the Dialogs tab and click the alert button. What is the content text shown by the alert?</question>
+    <answer>Hello from alert</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>[G] How many rows does the big table in the Big tab report (itemCount)?</question>
+    <answer>100000</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>[G] Click the deep button at the bottom of the scroll pane in the Scroll tab. What text does the result label show afterwards?</question>
+    <answer>deep clicked</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>[G] Using fx_eval_js on the WebView in the Web tab, what is document.getElementById('title').textContent?</question>
+    <answer>Gauntlet Web</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>[G] Open the second stage from the Stages tab. What is its window title?</question>
+    <answer>Gauntlet Second Stage</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>[G] fx_lint_visual on the Visual tab: which fx:id is reported with a lowContrast finding?</question>
+    <answer>lowContrastLabel</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>[S] Why is the Add button disabled at startup? Using fx_explain_property on its disable property, is the property bound (true/false)?</question>
+    <answer>true</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>[S] Set the name field to "Ada", click Add, then export the session with fx_export_test name "Eval". What is the generated class name?</question>
+    <answer>EvalGeneratedTest</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>[A] After attaching, what does fx_get_app_status report as the session mode?</question>
+    <answer>attached</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>[A] In attach mode, which error code does fx_restart_app return?</question>
+    <answer>NOT_SUPERVISED</answer>
+  </qa_pair>
+</evaluation>
