@@ -36,6 +36,37 @@ fun registry(ctx: Ctx): ToolRegistry = ToolRegistry().also { reg ->
     WhyTools.register(reg, ctx)
 }
 
+/** Markdown tool reference generated from the live registry (`--tool-reference`, written to docs/tools.md). */
+fun toolReference(reg: ToolRegistry): String = buildString {
+    appendLine("# FXLoop tool reference")
+    appendLine()
+    appendLine("_Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-reference`). Do not edit by hand._")
+    appendLine()
+    appendLine("| Tool | Kind | Summary |")
+    appendLine("|---|---|---|")
+    reg.all().forEach { appendLine("| [`${it.name}`](#${it.name}) | ${it.kind.name.lowercase()} | ${it.title} |") }
+    reg.all().forEach { t ->
+        appendLine()
+        appendLine("## ${t.name}")
+        appendLine()
+        appendLine(t.description)
+        appendLine()
+        @Suppress("UNCHECKED_CAST")
+        val props = t.inputSchema["properties"] as Map<String, Map<String, Any>>
+        val required = (t.inputSchema["required"] as? List<*>).orEmpty()
+        if (props.isEmpty()) {
+            appendLine("_No parameters._")
+        } else {
+            appendLine("| Param | Type | Required | Description |")
+            appendLine("|---|---|---|---|")
+            props.forEach { (name, def) ->
+                val type = (def["type"] ?: "any").toString() + ((def["enum"] as? List<*>)?.let { " (${it.joinToString("\\|")})" } ?: "")
+                appendLine("| `$name` | $type | ${if (name in required) "yes" else ""} | ${def["description"]} |")
+            }
+        }
+    }
+}
+
 /** stdio MCP server entry point. stdout carries MCP frames only; all logging goes to stderr. */
 fun main(args: Array<String>) {
     System.setProperty("java.awt.headless", "true")
@@ -45,6 +76,10 @@ fun main(args: Array<String>) {
         return
     }
     val config = Config.load(System.getenv(), args)
+    if (args.any { it == "--tool-reference" }) {
+        print(toolReference(registry(Ctx(config.copy(webview = true)))))
+        return
+    }
     val log = LoggerFactory.getLogger("dev.fxloop.server")
     val ctx = Ctx(config)
     config.viewerPort?.let { port ->
