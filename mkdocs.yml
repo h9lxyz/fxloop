@@ -11,6 +11,8 @@ markdown_extensions:
   - pymdownx.superfences
 nav:
   - Home: index.md
+  - MCP server: mcp.md
+  - Agent skills: skills.md
   - Configuration: configuration.md
   - Tools reference: tools.md
   - Security: security.md

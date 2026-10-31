@@ -124,7 +124,7 @@ Finish with:
 5. Language/loop notes that apply: Kotlin (`.kt` → build-tool compile + HotSwap, `external-compile=true` with IDE
    auto-build for speed), annotation processors (slower reloads), headless.
 6. How to run it themselves with the dev bar and bring you in later: `./mvnw fxloop:run` or `./gradlew fxloopRun`
-   (Pick a node or open Inspect CSS, then ask). Needs the build plugin from step 2, which is now in place.
+   (Pick a node or open the CSS inspector, then ask). Needs the build plugin from step 2, which is now in place.
 7. Three things to try next, e.g. "review the main window", "the dialog looks cramped, fix the layout", "add a dark
    mode".
 

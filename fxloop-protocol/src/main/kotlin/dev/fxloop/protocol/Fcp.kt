@@ -75,6 +75,13 @@ object Fcp {
         const val CSS_SCRATCH_SET = "cssScratchSet"
         const val CSS_SCRATCH_CLEAR = "cssScratchClear"
 
+        /**
+         * Inspector *Apply to file*: maps every scratch rule onto the project stylesheet that holds its selector (or the
+         * scene's first project stylesheet for a new selector) and returns `{files:[{file, absFile, sha256, text,
+         * changes}]}` with the edited source text. Read-only: the server checks and writes the files.
+         */
+        const val CSS_SCRATCH_PLAN = "cssScratchPlan"
+
         /** Test-only: blocks the FX thread; only honoured with `-Dfxloop.test=true`. */
         const val BLOCK_FX_THREAD = "blockFxThread"
     }
@@ -88,11 +95,14 @@ object Fcp {
         const val HUMAN_RESTART_REQUEST = "humanRestartRequest"
         const val CONTROL_MODE_CHANGED = "controlModeChanged"
 
-        /** The developer clicked *Inspect CSS* on the dev bar: `{path?}` (node to preselect). */
+        /** The developer clicked *Open CSS inspector* on the dev bar: `{path?}` (node to preselect). */
         const val INSPECTOR_REQUESTED = "inspectorRequested"
 
         /** The scratch stylesheet changed inside the app (dev bar *Clear*): `{active, rules}`. */
         const val SCRATCH_CHANGED = "scratchChanged"
+
+        /** The developer clicked *Take over* on the dev bar while the agent held the input lock: `{via}`. */
+        const val INPUT_LOCK_RELEASED = "inputLockReleased"
     }
 
     /** Machine-readable error codes carried in [FcpError.code]. */

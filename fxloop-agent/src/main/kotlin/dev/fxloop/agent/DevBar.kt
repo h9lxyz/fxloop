@@ -16,6 +16,7 @@ import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.Tooltip
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
 import javafx.scene.input.KeyCode
@@ -56,6 +57,7 @@ class DevBar(private val rt: AgentRuntime) {
     private var listening = false
 
     private val views = LinkedHashMap<Stage, BarView>()
+    private val lockExpiry by lazy { PauseTransition().apply { setOnFinished { refresh() } } }
     private val reloadClear by lazy { PauseTransition(Duration.seconds(3.0)).apply {
         setOnFinished {
             synchronized(lock) { reloadVisible = null }
@@ -70,6 +72,14 @@ class DevBar(private val rt: AgentRuntime) {
             bar = p.path("bar").asText("off")
             control = p.path("control").asText("agent")
             stateDriving = p.path("driving").asBoolean(false)
+            val lockMs = p.path("lock").path("remainingMs").asLong(0)
+            rt.human.setLock(lockMs)
+            if (lockMs > 0) {
+                lockExpiry.duration = Duration.millis(lockMs.toDouble() + 50)
+                lockExpiry.playFromStart()
+            } else {
+                lockExpiry.stop()
+            }
             degraded = 0
             if (dismissedSig != null && dismissedSig != actionSig()) dismissedSig = null
             val lr = p.path("lastReload")
@@ -104,6 +114,19 @@ class DevBar(private val rt: AgentRuntime) {
     private fun scratchText(): String? = dev.fxloop.agent.css.Scratch.ruleCount().takeIf { it > 0 }
         ?.let { "Scratch CSS active · $it rule${if (it == 1) "" else "s"}" }
 
+    /** What the agent is doing right now (`setBarState.activity`), e.g. "clicking #save". */
+    private fun activityText(): String? = state.path("activity").asText("").takeIf { it.isNotEmpty() && !isStandalone() && !isSidecar() }
+
+    private fun locked(): Boolean = rt.human.locked
+
+    /** Bar *Take over*: drops the agent's input lock at once and tells the server. */
+    private fun takeOver() {
+        rt.human.setLock(null)
+        synchronized(lock) { state.remove("lock") }
+        rt.emitEvent(Fcp.Event.INPUT_LOCK_RELEASED, Json.obj().put("via", "bar"))
+        refresh()
+    }
+
     /** Bar *Clear*: drops the scratch sheet and tells the server so an open inspector page refreshes. */
     private fun clearScratch() {
         val r = dev.fxloop.agent.css.Scratch.clear()
@@ -130,6 +153,8 @@ class DevBar(private val rt: AgentRuntime) {
         texts.put("session", sessionText())
         texts.put("lastReload", reloadVisible ?: "")
         texts.put("scratch", scratchText() ?: "")
+        texts.put("activity", activityText() ?: "")
+        o.put("locked", locked())
         val arr = texts.putArray("actionNeeded")
         visibleActions().forEach { arr.add(it.reason) }
         val h = o.putArray("controlHistory")
@@ -141,10 +166,10 @@ class DevBar(private val rt: AgentRuntime) {
 
     private fun driving(): Boolean = stateDriving || robots > 0
 
-    private fun controlText(): String = if (control == "shared") {
-        if (driving()) "Agent is using your mouse" else "You can interact"
-    } else {
-        if (driving()) "Agent is driving — hands off" else "Agent mode"
+    private fun controlText(): String = when {
+        locked() -> "Agent is driving — you're watching"
+        control == "shared" -> if (driving()) "Agent is using your mouse" else "You can interact"
+        else -> if (driving()) "Agent is driving — hands off" else "Agent mode · you can interact"
     }
 
     private fun sessionText(): String = if (isStandalone() || isSidecar()) "FXLoop · no agent connected · pick a node, then ask your agent" else
@@ -304,7 +329,7 @@ class DevBar(private val rt: AgentRuntime) {
 
     // ---- one bar per stage ----------------------------------------------------------------------------------
 
-    /** *Inspect CSS* (PRD 08 §4): asks the server to open the browser inspector on the last pick or the focused node. */
+    /** *Open CSS inspector* (PRD 08 §4): asks the server to open the browser inspector on the last pick or the focused node. */
     private fun requestInspector(stage: Stage) {
         val o = Json.obj()
         val node = runCatching { rt.pick.picked() }.getOrNull()?.takeIf { it.scene?.window === stage }
@@ -373,7 +398,7 @@ class DevBar(private val rt: AgentRuntime) {
             val actions = synchronized(lock) { visibleActions() }
             val color = when {
                 actions.isNotEmpty() -> "rgba(176,42,42,0.92)"
-                synchronized(lock) { driving() } -> "rgba(183,121,31,0.92)"
+                locked() || synchronized(lock) { driving() } -> "rgba(183,121,31,0.92)"
                 else -> "rgba(40,40,40,0.82)"
             }
             root.style = "-fx-background-color: $color; -fx-background-radius: 0;"
@@ -389,6 +414,7 @@ class DevBar(private val rt: AgentRuntime) {
             } else {
                 val session = label(synchronized(lock) { sessionText() }).apply { HBox.setHgrow(this, Priority.SOMETIMES) }
                 kids.add(session)
+                synchronized(lock) { activityText() }?.let { kids.add(label("· Agent: $it")) }
                 synchronized(lock) { reloadVisible }?.let { kids.add(label("· $it")) }
                 scratchText()?.let {
                     kids.add(label("· $it"))
@@ -406,8 +432,18 @@ class DevBar(private val rt: AgentRuntime) {
                     }
                 }
                 val standalone = synchronized(lock) { isStandalone() }
-                if (!standalone) kids.add(button("Inspect CSS") { requestInspector(stage) }) // needs the server's viewer
-                kids.add(button("Pick") { rt.pick.toggle(stage) })
+                if (!standalone) { // needs the server's viewer
+                    kids.add(button("Open CSS inspector") { requestInspector(stage) }.apply {
+                        tooltip = Tooltip("Opens the CSS inspector in a browser")
+                    })
+                }
+                val isLocked = locked()
+                kids.add(button("Pick") { rt.pick.toggle(stage) }.apply { isDisable = isLocked })
+                if (isLocked) {
+                    kids.add(button("Take over") { takeOver() }.apply {
+                        tooltip = Tooltip("Ends the agent's input lock so you can use the app again")
+                    })
+                }
                 val shared = synchronized(lock) { control == "shared" }
                 val noAgent = standalone || synchronized(lock) { isSidecar() }
                 if (!noAgent) kids.add(button(if (shared) "Hand back to agent" else "Let me drive") { toggleControl() })

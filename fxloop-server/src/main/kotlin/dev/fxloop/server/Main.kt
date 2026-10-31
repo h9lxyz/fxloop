@@ -35,6 +35,7 @@ fun registry(ctx: Ctx): ToolRegistry = ToolRegistry().also { reg ->
     SeeTools.register(reg, ctx)
     LoopTools.register(reg, ctx)
     WhyTools.register(reg, ctx)
+    reg.observer = ctx::toolActivity
 }
 
 /** Markdown tool reference generated from the live registry (`--tool-reference`, written to docs/tools.md). */

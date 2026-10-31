@@ -1,14 +1,28 @@
 package dev.fxloop.agent.css
 
-/** A declaration inside a rule; [line] is where the property name starts (1-based). */
-internal data class ScannedDecl(val property: String, val text: String, val line: Int, val important: Boolean)
+/**
+ * A declaration inside a rule; [line] is where the property name starts (1-based). [valueStart]..[valueEnd] is the
+ * value's character range in the source (after the colon, trailing whitespace and `;` excluded), -1 when unknown.
+ */
+internal data class ScannedDecl(
+    val property: String,
+    val text: String,
+    val line: Int,
+    val important: Boolean,
+    val valueStart: Int = -1,
+    val valueEnd: Int = -1,
+)
 
-/** A style rule; [line] is where its selector starts. [selectors] are normalized, one per top-level comma part. */
+/**
+ * A style rule; [line] is where its selector starts. [selectors] are normalized, one per top-level comma part.
+ * [closeBrace] is the offset of its closing `}` in the source, -1 when the block runs to EOF.
+ */
 internal data class ScannedRule(
     val selectorText: String,
     val selectors: List<String>,
     val line: Int,
     val declarations: List<ScannedDecl>,
+    val closeBrace: Int = -1,
 )
 
 /** Result of [CssSource.scan]: style rules plus the bits the rule mapper needs to know about (imports, @font-face). */
@@ -57,9 +71,10 @@ internal object CssSource {
                 '{' -> {
                     c.advance()
                     val decls = parseDeclarations(c)
+                    val close = if (c.pos > 0 && text[c.pos - 1] == '}') c.pos - 1 else -1
                     val selector = collapseWs(prelude.toString()).trim()
                     if (selector.isNotEmpty()) {
-                        rules += ScannedRule(selector, splitSelectors(selector), line, decls)
+                        rules += ScannedRule(selector, splitSelectors(selector), line, decls, close)
                     }
                 }
                 null -> break
@@ -109,10 +124,12 @@ internal object CssSource {
                 ';' -> c.advance()
                 else -> {
                     val line = c.line
+                    val start = c.pos
                     sb.setLength(0)
                     val terminated = collect(c, sb, ";}") == ';'
+                    val end = c.pos
                     if (terminated) c.advance()
-                    declarationOf(line, sb.toString(), terminated)?.let { out += it }
+                    declarationOf(line, sb.toString(), terminated)?.let { out += it.withRange(c.src, start, end) }
                 }
             }
         }
@@ -128,6 +145,17 @@ internal object CssSource {
         if (property.isEmpty() || value.isEmpty()) return null
         val text = if (terminated) "$body;" else body
         return ScannedDecl(property, text, line, isImportant(value))
+    }
+
+    /** Locates the value inside `src[start, end)`: after the first colon, surrounding whitespace trimmed. */
+    private fun ScannedDecl.withRange(src: String, start: Int, end: Int): ScannedDecl {
+        val colon = src.indexOf(':', start)
+        if (colon < 0 || colon >= end) return this
+        var a = colon + 1
+        var b = end
+        while (a < b && src[a].isWhitespace()) a++
+        while (b > a && src[b - 1].isWhitespace()) b--
+        return copy(valueStart = a, valueEnd = b)
     }
 
     private fun isImportant(value: String): Boolean {
@@ -293,7 +321,7 @@ internal object CssSource {
     }
 
     /** Position and 1-based line tracking over the source text. */
-    private class Cursor(private val src: String) {
+    private class Cursor(val src: String) {
         var pos = 0
             private set
         var line = 1

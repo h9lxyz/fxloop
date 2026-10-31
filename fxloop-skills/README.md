@@ -2,7 +2,7 @@
 
 Agent skills that use FXLoop to **improve the UI and UX of your own JavaFX app** (Java or Kotlin, Maven or Gradle)
 (PRD 06). They are plain `SKILL.md` folders in the open skills format, not tied to one agent or a plugin system. They
-aren't for developing FXLoop itself.
+aren't for developing FXLoop itself. What each skill does and returns: [skills overview](../docs/skills.md).
 
 ## Install
 

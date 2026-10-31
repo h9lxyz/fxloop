@@ -187,4 +187,38 @@ class HumanInputFxTest {
         assertThat(res.get("mode").asText()).isEqualTo("event")
         assertThat(actions()).isEmpty()
     }
+
+    @Test
+    fun inputLockDropsDeveloperInputButNotAgentEvents() {
+        Thread.sleep(150) // past the settle window of earlier brackets
+        rt.human.setLock(10_000)
+        try {
+            input { put("kind", "click"); put("query", "#hlbl") }
+            input { put("kind", "keys"); putArray("keys").addObject().put("code", "A") }
+            Fx.call { rt.human.flush() }
+            assertThat(labelMouse.get()).isZero()
+            assertThat(rootKeys.get()).isZero()
+            assertThat(actions()).isEmpty()
+            val d = Fx.call { rt.human.describe() }
+            assertThat(d.path("inputLocked").asBoolean()).isTrue()
+            assertThat(d.path("blockedWhileLocked").asInt()).isGreaterThan(0)
+
+            Interaction.click(Json.obj().put("query", "#hlbl").put("mode", "event"))
+            WaitForAsyncUtils.waitForFxEvents()
+            assertThat(labelMouse.get()).isEqualTo(1)
+        } finally {
+            rt.human.setLock(null)
+        }
+        Thread.sleep(150)
+        input { put("kind", "click"); put("query", "#hlbl") }
+        assertThat(labelMouse.get()).isEqualTo(2)
+        assertThat(Fx.call { rt.human.describe() }.has("inputLocked")).isFalse()
+    }
+
+    @Test
+    fun inputLockExpires() {
+        rt.human.setLock(1)
+        Thread.sleep(20)
+        assertThat(rt.human.locked).isFalse()
+    }
 }

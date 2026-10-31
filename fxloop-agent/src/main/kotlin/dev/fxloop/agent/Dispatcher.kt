@@ -58,6 +58,7 @@ internal class Dispatcher(private val rt: AgentRuntime) {
         handlers[Method.CSS_SUGGEST] = CssInspect::suggest
         handlers[Method.CSS_SCRATCH_SET] = dev.fxloop.agent.css.Scratch::set
         handlers[Method.CSS_SCRATCH_CLEAR] = dev.fxloop.agent.css.Scratch::clear
+        handlers[Method.CSS_SCRATCH_PLAN] = dev.fxloop.agent.css.ScratchApply::plan
         handlers[Method.EXPLAIN_LAYOUT] = Introspect::explainLayout
         handlers[Method.EVAL_JS] = Probes::evalJs
         handlers[Method.BLOCK_FX_THREAD] = Probes::blockFxThread

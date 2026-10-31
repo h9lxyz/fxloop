@@ -22,6 +22,11 @@ fxloop {
 Main class resolution: `fxloop.mainClass` -> `javafx { mainClass }` (org.openjfx.javafxplugin, if present) ->
 `application.mainClass` -> jar manifest `Main-Class` -> ASM scan of the compiled classes (Launcher pattern preferred);
 ambiguity fails and lists candidates. `auto` launches on the module path only when `module-info.java` exists.
+
+Kotlin (and other JVM languages) work without configuration: the scan covers every `main.output.classesDirs` entry,
+`sourceRoots` holds all of the source set's source dirs (`src/main/kotlin` too), and `outputDir` is
+`build/classes/java/main` unless only another language produced classes (a pure Kotlin app gets
+`build/classes/kotlin/main`, which is what `FXLOOP_EXTERNAL_COMPILE` watches). Other classes dirs lead the `classpath`.
 Publishing to the Plugin Portal is configured (`com.gradle.plugin-publish`) but not executed. Compiles with `--release 17`
 on any JDK >= 17 (no toolchain required).
 
@@ -37,7 +42,7 @@ on any JDK >= 17 (no toolchain required).
 
 Runs the app in the foreground from `launch.json` with the agent (`dev.fxloop:fxloop-agent` at the plugin's version,
 resolved from the project's repositories: a SNAPSHOT needs `mavenLocal()`). The dev bar shows before any agent
-connects, with **Pick** and **Inspect CSS**: an inspector helper (`dev.fxloop:fxloop-server:all`, also from the project's
+connects, with **Pick** and **Open CSS inspector**: an inspector helper (`dev.fxloop:fxloop-server:all`, also from the project's
 repositories) serves the browser CSS inspector until an agent session connects, steps aside while it is there, and
 returns afterwards; its output and URL are in `build/fxloop/inspector.log`. The inspector has "Try it live" on, also
 while an agent session is connected: edit CSS values and add rules in a scratch stylesheet, then hand them to your agent

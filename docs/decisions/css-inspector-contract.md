@@ -106,10 +106,14 @@ Editing is on with `FXLOOP_INSPECTOR_EDIT`, or while the server is connected to 
 | `GET /api/scratch` | `status` → `scratchCss` | only with `FXLOOP_INSPECTOR_EDIT` (else 404); `{active:false,rules:0}` when none |
 | `POST /api/scratch/set` | `cssScratchSet` | only with the flag; body is the whole scratch sheet as `text/css` (415 otherwise, 413 above 64 KB) |
 | `POST /api/scratch/clear` | `cssScratchClear` | only with the flag |
+| `POST /api/scratch/apply?dryRun=` | `cssScratchPlan`, then server write + CSS reload + `cssScratchClear` | only with the flag. Each scratch rule goes into the project rule with the same selector (the last one already setting one of its properties, else the last one; existing values replaced in place, keeping `!important`; new declarations before the `}`), else it is appended to the scene's first project sheet. `dryRun=1` returns `{dryRun, rules, files:[{file, changes:[{kind: update\|add\|newRule, selector, line, property?, from?, to?, css?}]}]}`; without it the server checks each file (`.css`, inside a resource root, not build output, unchanged sha256 since the plan: `FILE_CHANGED` otherwise), writes them, reloads them like a save and clears the scratch sheet (`applied:true`, `reload`) |
+| `POST /api/lock/release` | — | ends the agent's input lock (`fx_lock_input`); `{locked:false}` |
 | `/sse` | — | adds events `reload` (`{files:[…]}` after a CSS/FXML reload), `pick` (`{path,h,window}`) and `scratch` (*Scratch JSON*) next to `frame` |
 
 Errors: HTTP 200 with `{"error":{"code","message"}}` when the agent call fails; 503 `{"error":{"code":"NO_APP"}}`
-when no app is connected.
+when no app is connected; 423 `{"error":{"code":"LOCKED"}}` from the `scratch/*` POSTs while the agent holds the input
+lock. The SSE `status` event (the bar state) carries `lock: {remainingMs, reason?}` and `activity` ("clicking #save");
+the page shows them and goes read-only while locked.
 
 ## Opening the browser
 

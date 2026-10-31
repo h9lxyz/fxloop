@@ -131,7 +131,8 @@ A thin status bar the agent lays over the top edge of each app window. It works 
 | Segment | Values |
 |---|---|
 | Mode | `dev loop` (launched by FXLoop: all tiers and restart) · `embedded` (IDE-launched with `FxLoopDev`: no restart) · `attached` (pid attach: no reload tiers, no restart) |
-| Control (§7.2) | `You can interact` (shared) · `Agent is driving — hands off` (agent mode while robot input or replay runs) · `Agent is using your mouse` (a robot action in shared mode, for its duration) |
+| Control (§7.2) | `You can interact` (shared) · `Agent mode · you can interact` (agent mode, idle) · `Agent is driving — hands off` (agent mode while robot input or replay runs) · `Agent is using your mouse` (a robot action in shared mode, for its duration) · `Agent is driving — you're watching` (input lock held) |
+| Activity | `Agent: clicking Button#save` · `Agent: taking a screenshot` … while a tool call runs (2 s linger) |
 | Watch | `Saves apply CSS live` (css-only) / `Saves apply CSS, FXML and code` (all) / `Saves apply on reload` (off) |
 
 **Last reload (transient, fades after 3 s):** `CSS applied · 12 ms` · `Hot-swapped 2 classes · remounted edit-form` · `FXML main-view.fxml swapped (7 states restored)` · `No visual change — selector may not match`.
@@ -156,6 +157,8 @@ Robot input moves the real pointer and sends real keystrokes to the focused wind
 
 - **`agent`** — the agent may drive with robot input (today's behavior). While a robot action or a replay runs, the bar turns amber: "Agent is driving — hands off". Human input during that time is not journaled and is reported as `conflicts: n` in the action's result.
 - **`shared`** — the developer is using the app. Action tools default to `mode=event` (synthetic events: no pointer movement, no focus theft). An explicit `mode=robot` is still allowed (hover styles, native drag and some popups need it) and makes the bar show "Agent is using your mouse" for its duration. Restarts are always deferred (§6).
+
+**Input lock.** Before it drives the UI like a person, the agent may call `fx_lock_input {locked, reason?, seconds?}` (default 60 s, max 600). While it holds, the agent drops the developer's mouse, key, scroll, touch and drag input to app windows (its own robot and synthetic events pass; the dev bar stays usable), inspector editing answers `423`, and the bar turns amber with "Agent is driving — you're watching" and a **Take over** button (the inspector shows the same). Take over, `locked:false`, expiry or a lost server connection end it. After a take-over the next action result tells the agent, and `fx_get_app_status.inputLock.releasedBy` is `developer`.
 
 Switching: the bar's toggle ("Let me drive" / "Hand back to agent"), the new tool `fx_set_control_mode {mode}`, or `FXLOOP_CONTROL=auto|agent|shared`. `auto` (default) starts in `agent` and switches to `shared` on the first human input; it never switches back on its own. `fx_get_app_status` reports `control`. The PRD 06 skills tell the agent to ask before switching to `agent` while the developer is present.
 

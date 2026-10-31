@@ -21,6 +21,7 @@ import javafx.scene.control.ComboBox
 import javafx.scene.control.Control
 import javafx.scene.control.PasswordField
 import javafx.scene.control.TextInputControl
+import javafx.scene.input.InputEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
@@ -34,7 +35,8 @@ import javafx.util.Duration
 /**
  * E3 (PRD 07 §5) + E5b (§7.2): observes the developer's own input with scene event filters on every app window
  * (overlay windows excluded) and turns it into journal-shaped `humanAction` events; brackets agent actions so their
- * events are not mistaken for human ones; handles the restart and pick hotkeys.
+ * events are not mistaken for human ones; handles the restart and pick hotkeys. While the agent holds the input lock
+ * ([setLock], from the bar state) the developer's input to app windows is consumed; overlays (the dev bar) stay usable.
  */
 class HumanInput(private val rt: AgentRuntime) {
     /**
@@ -79,6 +81,11 @@ class HumanInput(private val rt: AgentRuntime) {
     @Volatile
     private var lastCloseNanos: Long = 0L
 
+    /** `System.nanoTime()` deadline of the agent's input lock, 0 when unlocked. */
+    @Volatile
+    private var lockedUntil = 0L
+    private var blocked = 0
+
     private var agentDepth = 0
     private var installed = false
     private var lastHumanNanos = -1L
@@ -113,6 +120,10 @@ class HumanInput(private val rt: AgentRuntime) {
         if (scene.properties.putIfAbsent(SCENE_KEY, true) != null) return
         scene.addEventFilter(MouseEvent.ANY, EventHandler<MouseEvent> { onMouse(scene, it) })
         scene.addEventFilter(KeyEvent.ANY, EventHandler<KeyEvent> { onKey(scene, it) })
+        scene.addEventFilter(InputEvent.ANY, EventHandler<InputEvent> { e ->
+            // scroll, touch, gestures, drag and drop; mouse and key events are handled above
+            if (e !is MouseEvent && e !is KeyEvent) blockIfLocked(scene, e) { it.robot }
+        })
         scene.focusOwnerProperty().addListener { _, old, new ->
             if (old is TextInputControl) commit(old, false)
             if (new is TextInputControl) edits[new] = EditState(new.text ?: "")
@@ -138,6 +149,24 @@ class HumanInput(private val rt: AgentRuntime) {
             AgentLog.warn("invalid $name '$s'; keeping the previous key", e)
             null
         }
+    }
+
+    /** The agent's input lock: [remainingMs] > 0 blocks the developer's input for that long, null or 0 releases it. Any thread. */
+    fun setLock(remainingMs: Long?) {
+        lockedUntil = if (remainingMs == null || remainingMs <= 0) 0L else System.nanoTime() + remainingMs * 1_000_000
+    }
+
+    /** True while the agent's input lock holds. */
+    val locked: Boolean get() = lockedUntil != 0L && System.nanoTime() - lockedUntil < 0
+
+    /** Consumes [e] when the lock holds and it is the developer's input (not an agent event or overlay). */
+    private fun blockIfLocked(scene: Scene, e: InputEvent, expected: (Bracket) -> Boolean): Boolean {
+        if (!locked || isOverlay(scene) || agentDepth > 0) return false
+        if (brackets.any(expected)) return false
+        if (brackets.isEmpty() && System.nanoTime() - lastCloseNanos < SETTLE_NANOS) return false
+        e.consume()
+        blocked++
+        return true
     }
 
     /** Opens an agent-action bracket (any thread). Robot brackets also make the dev bar show the driving state. */
@@ -185,6 +214,7 @@ class HumanInput(private val rt: AgentRuntime) {
 
     private fun onMouse(scene: Scene, e: MouseEvent) {
         val type = e.eventType
+        if (blockIfLocked(scene, e) { it.expectsMouse(e) }) return
         if (type != MouseEvent.MOUSE_PRESSED && type != MouseEvent.MOUSE_CLICKED) return
         if (isOverlay(scene)) return
         if (!isHuman(type == MouseEvent.MOUSE_PRESSED) { it.expectsMouse(e) }) return
@@ -202,6 +232,7 @@ class HumanInput(private val rt: AgentRuntime) {
 
     private fun onKey(scene: Scene, e: KeyEvent) {
         if (isOverlay(scene)) return
+        if (blockIfLocked(scene, e) { it.expectsKey(e) }) return
         val type = e.eventType
         if (type == KeyEvent.KEY_PRESSED && agentDepth == 0) {
             if (restartKey.match(e)) {
@@ -364,6 +395,8 @@ class HumanInput(private val rt: AgentRuntime) {
         o.put("recorded", recorded)
         o.put("skippedHuman", skippedHuman)
         o.put("recordHuman", recordHuman)
+        if (locked) o.put("inputLocked", true)
+        if (blocked > 0) o.put("blockedWhileLocked", blocked)
         return o
     }
 

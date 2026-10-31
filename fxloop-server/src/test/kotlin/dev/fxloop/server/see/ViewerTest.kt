@@ -235,6 +235,37 @@ class ViewerTest {
     }
 
     @Test
+    fun applyToFileAndTheInputLock(@TempDir dir: Path) {
+        var lock: String? = null
+        var released = 0
+        val dryRuns = mutableListOf<Boolean>()
+        Viewer(0, "tok", ScreenStore(dir, 10), { _, _, _ -> Json.obj { put("active", false) } }, { true }, editEnabled = { true },
+            lockText = { lock }, releaseLock = { released++; lock = null },
+            scratchApply = { dry -> dryRuns += dry; Json.obj { put("applied", !dry); putArray("files").addObject().put("file", "app.css") } },
+        ).use { v ->
+            v.start()
+            val base = "http://127.0.0.1:${v.port}"
+            assertThat(req("$base/api/scratch/apply?t=tok").statusCode()).isEqualTo(405)
+            assertThat(req("$base/api/scratch/apply?t=tok&dryRun=1", "POST").body()).contains("\"applied\":false")
+            assertThat(req("$base/api/scratch/apply?t=tok", "POST").body()).contains("\"applied\":true")
+            assertThat(dryRuns).containsExactly(true, false)
+
+            lock = "walking through checkout"
+            for (r in listOf(req("$base/api/scratch/apply?t=tok", "POST"), postCss("$base/api/scratch/set?t=tok", ".a { -fx-padding: 1; }"),
+                req("$base/api/scratch/clear?t=tok", "POST"))) {
+                assertThat(r.statusCode()).isEqualTo(423)
+                assertThat(r.body()).contains("\"code\":\"LOCKED\"").contains("walking through checkout")
+            }
+            assertThat(dryRuns).hasSize(2)
+            assertThat(req("$base/api/scratch?t=tok").statusCode()).isEqualTo(200) // reading stays possible
+            assertThat(req("$base/api/lock/release").statusCode()).isEqualTo(405)
+            assertThat(req("$base/api/lock/release?t=tok", "POST").body()).isEqualTo("{\"locked\":false}")
+            assertThat(released).isEqualTo(1)
+            assertThat(postCss("$base/api/scratch/set?t=tok", ".a { -fx-padding: 1; }").statusCode()).isEqualTo(200)
+        }
+    }
+
+    @Test
     fun noAppIs503(@TempDir dir: Path) {
         viewer(dir, connected = false, api = { _, _, _ -> Json.obj() }).use { v ->
             v.start()

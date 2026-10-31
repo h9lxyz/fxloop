@@ -34,7 +34,7 @@ object CoreTools {
             st.put("watchMode", ctx.watch.mode)
             st.put("screensDir", ctx.visuals.relative(ctx.visuals.store.dir))
             val live = ctx.live.status(st["human"])
-            listOf("control", "controlSetting", "human", "actionNeeded").forEach { k -> st.set<JsonNode>(k, live[k]) }
+            listOf("control", "controlSetting", "human", "actionNeeded", "inputLock").forEach { k -> st.set<JsonNode>(k, live[k]) }
             val windows = st.path("windows").joinToString("; ") { "#${it["index"]} ${it.path("type").asText()} '${it.path("title").asText("")}'" }
             val needed = live.path("actionNeeded").joinToString(", ") { "${it.path("reason").asText()} · ${it.path("next").asText()}" }
             val how = when {
@@ -56,6 +56,26 @@ object CoreTools {
             val r = ctx.live.setControl(mode, "tool")
             r.setAll<JsonNode>(ctx.live.status(s.status().path("human")))
             ok("control: ${r["previous"].asText()} → ${r["control"].asText()}", r)
+        }
+
+        reg.tool("fx_lock_input", "Lock developer input", Kind.IDEMPOTENT_WRITE,
+            "Temporarily block the developer's mouse and keyboard input to the app windows while you drive the UI like a " +
+                "human (a click-through, a multi-step form) so stray input cannot interfere. Inspector editing pauses too, and " +
+                "the dev bar shows that the developer is watching, what you are doing and a Take over button. Tell the " +
+                "developer before you lock; release it (locked=false) as soon as the sequence is done. It expires after " +
+                "`seconds` anyway. inputLock.releasedBy=developer means they took over: stop driving and ask.",
+            Schema.obj()
+                .bool("locked", "true locks, false releases")
+                .str("reason", "Shown to the developer, e.g. 'walking through the checkout flow'")
+                .integer("seconds", "Lock duration (default 60)", 5, 600)
+                .required("locked")) { a ->
+            val r = if (a.path("locked").asBoolean()) {
+                ctx.live.lock(a.path("seconds").asInt(60).coerceIn(5, 600), a.path("reason").asText(null))
+            } else {
+                ctx.live.unlock("tool")
+            }
+            ok(if (r.path("locked").asBoolean()) "input locked for ${r.path("remainingMs").asLong() / 1000} s: the developer is watching"
+            else "input unlocked: the developer has access", Json.obj { set<JsonNode>("inputLock", r) })
         }
 
         reg.tool("fx_start_app", "Start app", Kind.WRITE,

@@ -28,7 +28,9 @@ typealias ViewerApi = (method: String, params: ObjectNode, timeoutMs: Long) -> J
  * Opt-in, loopback-only, token-guarded live viewer (PRD 04 §3.7) plus the CSS inspector API (PRD 08): read-only
  * except `POST /api/highlight` and `POST /api/pick`, which are visual-only and ephemeral. While [editEnabled]
  * (`FXLOOP_INSPECTOR_EDIT`, or a developer-run app started with it) the scratch-CSS endpoints exist too (PRD 08 §5): they accept CSS text only, which the
- * agent parses before installing, and never touch source files. Without it they answer 404.
+ * agent parses before installing. `POST /api/scratch/apply` (`?dryRun=1` previews) writes the scratch rules into the
+ * project's stylesheets through [scratchApply]. Without the flag they answer 404; while the agent holds the input lock
+ * ([lockText]) the editing endpoints answer 423 and `POST /api/lock/release` lets the developer take over.
  */
 class Viewer(
     private val requestedPort: Int,
@@ -38,6 +40,9 @@ class Viewer(
     private val connected: () -> Boolean = { false },
     private val editorUrl: String? = null,
     private val editEnabled: () -> Boolean = { false },
+    private val lockText: () -> String? = { null },
+    private val releaseLock: (() -> Unit)? = null,
+    private val scratchApply: ((dryRun: Boolean) -> JsonNode)? = null,
 ) : AutoCloseable {
     private var server: HttpServer? = null
     private var executor: ExecutorService? = null
@@ -171,6 +176,35 @@ class Viewer(
         fun target() {
             p("h")?.toIntOrNull()?.let { params.put("handle", it) }
             p("path")?.let { params.put("path", it) }
+        }
+        if (name.startsWith("scratch/")) {
+            lockText()?.let { why ->
+                send(ex, 423, "application/json", Json.write(error("LOCKED", "editing is paused: $why")).toByteArray())
+                return
+            }
+        }
+        if (name == "lock/release") {
+            releaseLock?.invoke()
+            send(ex, 200, "application/json", Json.write(Json.obj { put("locked", false) }).toByteArray())
+            return
+        }
+        if (name == "scratch/apply") {
+            val apply = scratchApply
+            if (apply == null || !connected()) {
+                send(ex, 503, "application/json", Json.write(error("NO_APP", "no application is connected")).toByteArray())
+                return
+            }
+            val out: JsonNode = try {
+                apply(p("dryRun") in TRUE).also { if (it.path("applied").asBoolean()) publish("scratch", Json.obj { put("active", false); put("rules", 0) }) }
+            } catch (e: FcpException) {
+                error(e.code, e.message ?: e.code)
+            } catch (e: dev.fxloop.server.mcp.ToolException) {
+                error(e.code, e.message ?: e.code)
+            } catch (e: Exception) {
+                error("INTERNAL", e.message ?: e.javaClass.simpleName)
+            }
+            send(ex, 200, "application/json", Json.write(out).toByteArray())
+            return
         }
         val method: String
         var timeout = 15_000L
@@ -350,7 +384,7 @@ class Viewer(
     private companion object {
         const val RATE_PER_SEC = 30
         const val INSPECT_RESOURCE = "/dev/fxloop/server/inspect/inspect.html"
-        val POST_PATHS = setOf("/api/highlight", "/api/pick", "/api/scratch/set", "/api/scratch/clear")
+        val POST_PATHS = setOf("/api/highlight", "/api/pick", "/api/scratch/set", "/api/scratch/clear", "/api/scratch/apply", "/api/lock/release")
         const val SCRATCH_PREFIX = "/api/scratch"
         const val MAX_SCRATCH_BYTES = 64 * 1024
         val TRUE = setOf("1", "true")

@@ -76,7 +76,7 @@ internal object Reloads {
         return n
     }
 
-    private fun allNodes(root: Parent): List<Node> {
+    internal fun allNodes(root: Parent): List<Node> {
         val out = ArrayList<Node>()
         val q = ArrayDeque<Node>()
         q.add(root)

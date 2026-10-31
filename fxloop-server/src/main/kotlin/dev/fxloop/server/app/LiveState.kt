@@ -44,6 +44,11 @@ class LiveState(private val config: Config, private val session: AppSession) {
     @Volatile private var lastPickTarget: JsonNode? = null
     @Volatile private var autoLocked = config.control != "auto"
     @Volatile private var drivingNow = false
+    @Volatile private var lockUntilMs = 0L
+    @Volatile private var lockReason: String? = null
+    @Volatile private var lockReleasedBy: String? = null
+    @Volatile private var activityText = ""
+    @Volatile private var activitySeq = 0L
     @Volatile private var items: List<ActionNeeded> = emptyList()
     @Volatile private var lastReloadText = ""
     @Volatile private var lastReloadOk = true
@@ -120,6 +125,84 @@ class LiveState(private val config: Config, private val session: AppSession) {
         push()
     }
 
+    /**
+     * The agent's input lock: while it holds, the developer's input to the app windows is dropped, inspector editing
+     * pauses and the bar says they are watching. Expires after [seconds]; the developer can always take over.
+     */
+    fun lock(seconds: Int, reason: String?): ObjectNode {
+        val until = System.currentTimeMillis() + seconds * 1000L
+        lockUntilMs = until
+        lockReason = reason?.takeIf { it.isNotBlank() }
+        lockReleasedBy = null
+        try {
+            pusher.schedule({ if (lockUntilMs == until) unlock("expired") }, seconds * 1000L, TimeUnit.MILLISECONDS)
+        } catch (_: RuntimeException) {
+            // executor shut down
+        }
+        push()
+        return lockJson()
+    }
+
+    /** Releases the input lock (`via`: tool, developer, expired); returns the lock state. */
+    fun unlock(via: String): ObjectNode {
+        if (locked()) {
+            lockReleasedBy = via
+            if (via == "developer") takeOverPending = true
+        }
+        lockUntilMs = 0L
+        lockReason = null
+        push()
+        return lockJson()
+    }
+
+    fun locked(): Boolean = lockUntilMs > System.currentTimeMillis()
+
+    @Volatile private var takeOverPending = false
+
+    /** True once after the developer took over a lock, so the next action result can tell the agent. */
+    fun takeOverNotice(): Boolean {
+        if (!takeOverPending) return false
+        takeOverPending = false
+        return true
+    }
+
+    /** Remaining lock reason for the viewer and inspector, or null when unlocked. */
+    fun lockText(): String? = if (locked()) lockReason ?: "the agent is driving the app" else null
+
+    /** `{locked, reason?, remainingMs?, releasedBy?}` for tool results and fx_get_app_status. */
+    fun lockJson(): ObjectNode = Json.obj {
+        val left = lockUntilMs - System.currentTimeMillis()
+        put("locked", left > 0)
+        if (left > 0) {
+            lockReason?.let { put("reason", it) }
+            put("remainingMs", left)
+        }
+        lockReleasedBy?.let { put("releasedBy", it) }
+    }
+
+    /**
+     * What the agent is doing, for the bar ("clicking #save"); null ends it. The text stays [lingerMs] after the end so
+     * fast tool sequences do not flicker.
+     */
+    fun activity(text: String?, lingerMs: Long = 2000) {
+        val seq = ++activitySeq
+        if (text != null) {
+            activityText = text
+            push()
+            return
+        }
+        try {
+            pusher.schedule({
+                if (activitySeq == seq) {
+                    activityText = ""
+                    push()
+                }
+            }, lingerMs, TimeUnit.MILLISECONDS)
+        } catch (_: RuntimeException) {
+            // executor shut down
+        }
+    }
+
     /** The full `setBarState` payload. */
     fun barState(): ObjectNode = Json.obj {
         put("bar", barSetting())
@@ -127,6 +210,9 @@ class LiveState(private val config: Config, private val session: AppSession) {
         put("mode", modeText())
         put("control", control.name.lowercase())
         put("driving", drivingNow)
+        if (activityText.isNotEmpty()) put("activity", activityText)
+        val left = lockUntilMs - System.currentTimeMillis()
+        if (left > 0) putObject("lock").put("remainingMs", left).also { o -> lockReason?.let { o.put("reason", it) } }
         put("watch", watchMode())
         putObject("lastReload").put("text", lastReloadText).put("ok", lastReloadOk).put("seq", reloadSeq)
         set<JsonNode>("actionNeeded", actionNeeded())
@@ -206,6 +292,7 @@ class LiveState(private val config: Config, private val session: AppSession) {
             set<JsonNode>("human", human)
             set<JsonNode>("actionNeeded", actionNeeded())
             put("bar", barSetting())
+            set<JsonNode>("inputLock", lockJson())
         }
     }
 

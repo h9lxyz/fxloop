@@ -1,27 +1,114 @@
+<div align="center">
+
 # FXLoop
 
-FXLoop is an MCP server plus an in-JVM agent that gives coding agents (Claude Code and any other MCP client) eyes, ears and hands on a running JavaFX application: screenshots and scene-graph inspection, clicks and typing, logs and UI exceptions, "why" explanations for properties, styles and layout (rule-level CSS cascade with `file:line`, override suggestions, and a browser CSS inspector opened from the dev bar's **Inspect CSS** button or `fx_open_inspector`), and a fast edit loop (CSS and FXML live reload, Java HotSwap, restart with journal replay). The tooling is written in Kotlin; the apps it drives are ordinary Java/JavaFX projects built with Maven or Gradle.
+**Eyes, ears and hands for coding agents on your JavaFX app.**
 
-**Status:** `1.0.0-SNAPSHOT`, built from source (not yet on Maven Central). See [docs/05-implementation-tracking.md](docs/05-implementation-tracking.md) for per-feature status. Publishing, macOS/Windows CI runs and soak tests are CI/human steps.
+FXLoop lets Claude Code, Cursor, Copilot, Codex, Gemini or any other MCP agent see your running JavaFX app, click
+through it, explain why it looks the way it does, and live-reload the fix, for Java and Kotlin, Maven and Gradle.
 
-## Quickstart (agent skills)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+![Java 17+](https://img.shields.io/badge/java-17%2B-orange.svg)
+![Kotlin and Java apps](https://img.shields.io/badge/apps-Java%20%7C%20Kotlin-7f52ff.svg)
+![MCP](https://img.shields.io/badge/MCP-stdio%20server-black.svg)
+![Status: 1.0.0-SNAPSHOT](https://img.shields.io/badge/status-1.0.0--SNAPSHOT-yellow.svg)
 
-```sh
-./mvnw install -DskipTests                            # until FXLoop is on Maven Central
-cp -r fxloop-skills/skills/fxloop-* ~/.claude/skills/ # or your agent's skills directory
+[What it does](#what-it-does) · [Quickstart](#quickstart) · [MCP server](docs/mcp.md) ·
+[Agent skills](docs/skills.md) · [Docs](#documentation)
+
+</div>
+
+---
+
+When an agent builds a web app, it has a browser: the DOM, the console, screenshots, clicks. When it builds a JavaFX
+app, it writes code, compiles, and asks you what happened on screen. FXLoop closes that loop. It gives the agent a
+supervised copy of your app to look at and drive, and the explanations it needs to fix what it finds the first time,
+instead of guessing at CSS and layout.
+
+```text
+You    The Save button in the contact dialog gets cut off when the window is small.
+
+Agent  fx_take_screenshot annotate=interactive       → screens/14-before-save.png
+       fx_lint_visual                                → textTruncated  Button#saveBtn  "Sa…"
+       fx_explain_layout #saveBtn                    → in HBox, prefWidth=60 set in FXML, below pref width
+       edit contact-dialog.fxml                      → drop prefWidth, HBox.hgrow on the spacer
+       fx_reload                                     → tier fxml, swapped live, view state restored
+       fx_compare_screenshots before=14 capture=true → 1 changed region, lint clean
+
+       Fixed: #saveBtn had a fixed prefWidth inside an HBox. Before/after frames are in target/fxloop/screens/.
 ```
 
-Then, in your app's project, ask your agent: "connect FXLoop to this project and show me the app". The `fxloop-connect` skill registers the MCP server for your agent (Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI or any stdio MCP client), adds the build plugin and a production guard, asks you to reload the agent's MCP servers once, then launches your app and shows a screenshot. To explore the app yourself first, run it with `mvn fxloop:run` (or `gradle fxloopRun`): it starts with the dev bar, and your agent connects to it whenever you ask ([details](docs/configuration.md#running-the-app-yourself)). Nine more [skills](fxloop-skills/README.md) cover UI review, layout, styling, accessibility, responsiveness, flows, forms, consistency and regression tests; they trigger from plain requests.
+<sub>An illustrative session, tool output abbreviated.</sub>
 
-## Quickstart (manual MCP setup)
+## What it does
+
+| | |
+|---|---|
+| **See the app** | Screenshots of any window or node, with numbered markers that map to node paths. Pixel diffs between frames, and one-shot strips of a control's hover/focus/pressed/disabled states. The scene graph as compact JSON. Every frame is saved to disk, so you see what the agent saw. |
+| **Drive it** | Clicks, typing and key presses through the real mouse and keyboard, or as synthetic events while you use the app yourself. Every action returns a scene diff: the dialog opened, the button got disabled, nothing happened. |
+| **Ask why** | Why is this node that size: bounds, min/pref/max, grow, margins and anchors. Why is it this color: the CSS rule that won, with `file:line`, the rules it beat and the smallest override that would win. Why is it disabled: the binding tree. |
+| **Catch problems** | Visual lint for truncated text, overlap, zero-size and off-screen nodes and low contrast. FXML lint against your controllers before the app even starts. Uncaught FX-thread exceptions and app logs. |
+| **Edit live** | CSS re-applies in milliseconds, FXML swaps in place with selection, scroll and text carried over, method bodies HotSwap (Java and Kotlin), and anything bigger restarts and clicks its way back to the same screen. |
+| **Lock it in** | Export what was clicked, by the agent or by you, as a JUnit 5 + TestFX test with real assertions, and run it headless on Monocle. |
+| **Work alongside you** | A dev bar on the app window shows what the agent is doing and what needs you. **Pick** a node and ask "why is *this* grey?". **Open CSS inspector** opens a DevTools-style cascade inspector in your browser; under `fxloop:run` (or with `FXLOOP_INSPECTOR_EDIT`) you edit values and add rules there live, then write them into the stylesheet with *Apply to file* or hand them to the agent. When the agent clicks through the UI itself it can lock your input for a moment: the bar says what it is doing and that you are watching, and **Take over** ends it. |
+| **Stay out of production** | Nothing is added to your app: the agent is injected with `-javaagent` at dev launch, listens on loopback with a per-run token, and is a no-op without its launch arguments. A build guard fails the package if FXLoop ever leaks in. |
+
+FXLoop comes in two parts. Use the server on its own, or add the skills on top.
+
+### [The MCP server →](docs/mcp.md)
+
+About three dozen `fx_*` tools for any MCP client. It builds your project, launches the app with a small in-JVM agent,
+supervises it across crashes and restarts, and routes your edits through the cheapest reload that works. The
+[overview](docs/mcp.md) groups the tools by job and explains run modes, reload tiers and shared control. Every
+parameter is in the [tool reference](docs/tools.md).
+
+### [The agent skills →](docs/skills.md)
+
+Ten `SKILL.md` workflows that turn those tools into UI and UX work on your own app. They trigger from plain requests,
+and every fix comes with evidence you can check: before/after frames, measured values, lint counts.
+
+| Ask your agent... | Skill |
+|---|---|
+| "connect FXLoop to this project and show me the app" | `fxloop-connect` |
+| "review this screen, what looks off?" | `fxloop-ui-review` |
+| "the panel doesn't resize", "the buttons are squashed" | `fxloop-fix-layout` |
+| "make it look modern", "add dark mode", "fix the hover state" | `fxloop-style` |
+| "is this keyboard friendly? run a contrast check" | `fxloop-accessibility` |
+| "does it work at 1024×640? in German? right-to-left?" | `fxloop-responsive` |
+| "this flow feels clunky", "it freezes when I click refresh" | `fxloop-flow-polish` |
+| "clean up this dialog", "Escape doesn't close it" | `fxloop-forms-dialogs` |
+| "make all screens look the same" | `fxloop-consistency` |
+| "make sure this doesn't regress" | `fxloop-lock-in` |
+
+## Quickstart
+
+You need JDK 17+, a JavaFX app built with Maven or Gradle, and an agent that speaks MCP. FXLoop isn't on Maven Central
+yet, so build it once:
 
 ```sh
-./mvnw install -DskipTests                       # builds fxloop-server/target/fxloop-server-1.0.0-SNAPSHOT-all.jar
+git clone https://github.com/fxloop/fxloop.git && cd fxloop
+./mvnw install -DskipTests
+(cd fxloop-gradle-plugin && ./gradlew publishToMavenLocal)   # only if your app uses Gradle
+```
+
+### With the skills (recommended)
+
+```sh
+cp -r fxloop-skills/skills/fxloop-* ~/.claude/skills/   # Claude Code; other agents: their skills directory
+```
+
+Then, in your app's project, ask: **"connect FXLoop to this project and show me the app"**. `fxloop-connect` registers
+the MCP server for your agent, adds the build plugin and a production guard, asks you to reload the agent's MCP
+servers once, then launches the app and shows you a screenshot. After that, just describe what you want.
+
+### With the MCP server only
+
+```sh
 claude mcp add fxloop -e FXLOOP_PROJECT_DIR=/abs/path/to/your-app -- \
   java -jar /abs/path/to/fxloop/fxloop-server/target/fxloop-server-1.0.0-SNAPSHOT-all.jar
 ```
 
-Or put this in your project's `.mcp.json` (see [.mcp.json.example](.mcp.json.example)):
+Or in your project's `.mcp.json` (see [.mcp.json.example](.mcp.json.example)):
 
 ```json
 { "mcpServers": { "fxloop": {
@@ -30,29 +117,96 @@ Or put this in your project's `.mcp.json` (see [.mcp.json.example](.mcp.json.exa
     "env": { "FXLOOP_PROJECT_DIR": "/abs/path/to/your-app" } } } }
 ```
 
-Then ask your agent to call `fx_get_app_status`: the first call builds the app, launches it with the agent and connects. If your project has no `fxloop-maven-plugin`/`dev.fxloop` Gradle plugin, set `FXLOOP_MAIN_CLASS` ([configuration](docs/configuration.md)).
+Ask your agent to call `fx_get_app_status`: the first call builds the app, launches it and connects. Without the
+FXLoop [Maven](fxloop-maven-plugin/README.md) or [Gradle](fxloop-gradle-plugin/README.md) plugin in your build, also
+set `FXLOOP_MAIN_CLASS`. Configs for Cursor, VS Code, Codex CLI and Gemini CLI are in the
+[MCP clients reference](fxloop-skills/skills/fxloop-connect/references/mcp-clients.md).
 
-**jbang:** `jbang-catalog.json` defines the alias `fxloop` (`dev.fxloop:fxloop-server:1.0.0-SNAPSHOT:all`). After `./mvnw install`, `jbang fxloop@<path-to-this-repo-or-catalog-url>` runs the server; use `"command": "jbang", "args": ["fxloop@..."]` in `.mcp.json`.
+With [jbang](https://www.jbang.dev): `jbang-catalog.json` defines the alias `fxloop`, so after `./mvnw install`,
+`jbang fxloop@<path-to-this-repo>` runs the server.
 
-## Modules
+### Run the app yourself, bring the agent in later
 
-| Module | What it is |
+```sh
+mvn fxloop:run        # or: gradle fxloopRun
+```
+
+Your app starts with the dev bar. Click around, **Pick** the node that bothers you, then ask your agent. It finds the
+running app on its first call, connects instead of launching another copy, and leaves your mouse alone
+([details](docs/configuration.md#running-the-app-yourself)).
+
+## How it works
+
+```mermaid
+flowchart LR
+    A["Your agent<br/>(any MCP client)"] <-->|"MCP over stdio"| S["fxloop-server<br/>build · launch · reload<br/>diff · journal · export"]
+    S -->|"launches with -javaagent"| J["Your JavaFX app<br/>+ fxloop-agent"]
+    S <-->|"loopback TCP, per-run token"| J
+```
+
+The server owns the MCP session and runs your app as a child process, so the app can crash, restart or be hot-swapped
+without the agent losing its connection. The in-JVM agent stays thin: it runs requests on the FX thread and reports
+back. Diffing, compiling, journaling and test generation happen in the server.
+
+## Works with
+
+| | |
 |---|---|
-| `fxloop-protocol` | FCP (FXLoop Control Protocol) DTOs, NDJSON codec, error codes, token/handshake helpers, `launch.json` schema (Kotlin) |
-| `fxloop-agent` | In-JVM agent (`-javaagent`/attach): scene graph, input, reload, FXML registry (Kotlin; ByteBuddy, Jackson and Kotlin stdlib relocated) |
-| `fxloop-dev` | Optional dev dependency for IDE-launched apps (`FxLoopDev.install/track/load`); see [decision](docs/decisions/fxml-load-registry.md) |
-| `fxloop-server` | The stdio MCP server (shaded `-all.jar`); builds, launches, supervises, reloads (Kotlin) |
-| `fxloop-maven-plugin` | `fxloop:prepare` writes `target/fxloop/launch.json` ([README](fxloop-maven-plugin/README.md)) |
-| `fxloop-gradle-plugin` | Gradle plugin `dev.fxloop`, task `fxloopPrepare` ([README](fxloop-gradle-plugin/README.md)); standalone Gradle build |
-| `fxloop-skills` | Agent skills S0–S9 (plain `SKILL.md` folders), MCP bootstrap, shared references, skill evals ([README](fxloop-skills/README.md)) |
-| `sample-apps/*` | Test targets: `fxloop-sample-app` (contacts), `fxloop-gauntlet-app` (dialogs, menus, tabs...), `fxloop-sample-app-gradle`, `fxloop-sample-app-kotlin` (Kotlin twin, Gradle Kotlin DSL); `fxloop-showcase-app` (standalone Kotlin/Maven helpdesk with planted UI/UX issues for the skills demo, answer key in its `ISSUES.md`) |
-| `fxloop-acceptance` | End-to-end suite driving the server over MCP (`-Pacceptance`) |
+| **Agents** | Claude Code, Cursor, VS Code (Copilot agent mode), Codex CLI, Gemini CLI, any stdio MCP client |
+| **Apps** | Java or Kotlin, Maven or Gradle, FXML or code-built UI, classpath or module path |
+| **Runtime** | JDK 17+, built and tested against JavaFX 21. Optional JetBrains Runtime for structural hot-swaps |
+| **Displays** | A real desktop, or headless on Xvfb or Monocle for devcontainers, SSH and CI ([templates](docs/ci/README.md)) |
+| **Ways to connect** | Launched by the server, run by you (`fxloop:run`, `fxloopRun`), started from your IDE with `fxloop-dev`, or attached to any local JavaFX JVM by pid |
+
+## Status
+
+FXLoop is `1.0.0-SNAPSHOT` and built from source. Per-feature status is in the
+[implementation tracking](docs/05-implementation-tracking.md). Still open: publishing to Maven Central and the Gradle
+Plugin Portal, and CI runs on macOS and Windows (configured, not yet run). Know the edges before you rely on it:
+[limitations](docs/limitations.md).
 
 ## Documentation
 
-[Configuration](docs/configuration.md) · [Tools reference](docs/tools.md) · [Security](docs/security.md) · [Limitations](docs/limitations.md) · [Troubleshooting](docs/troubleshooting.md) · [CI templates](docs/ci/README.md) · [Monocle headless](docs/ci/monocle.md) · Design: [overview](docs/00-overview.md), [PoC](docs/01-prd-poc.md), [MVP](docs/02-prd-mvp.md), [production](docs/03-prd-production.md), [visual feedback](docs/04-prd-visual-feedback.md), [skills](docs/06-prd-skills.md), [live dev loop](docs/07-prd-live-dev.md), [CSS inspector](docs/08-prd-css-inspector.md) · Decisions: [FXML load registry](docs/decisions/fxml-load-registry.md), [Kotlin](docs/decisions/kotlin.md), [skills packaging](docs/decisions/skills-packaging.md)
+| Start here | Reference | Design |
+|---|---|---|
+| [MCP server overview](docs/mcp.md) | [Tool reference](docs/tools.md) | [Overview and architecture](docs/00-overview.md) |
+| [Agent skills overview](docs/skills.md) | [Configuration](docs/configuration.md) | PRDs: [PoC](docs/01-prd-poc.md), [MVP](docs/02-prd-mvp.md), [production](docs/03-prd-production.md), [visual feedback](docs/04-prd-visual-feedback.md), [skills](docs/06-prd-skills.md), [live dev loop](docs/07-prd-live-dev.md), [CSS inspector](docs/08-prd-css-inspector.md) |
+| [Skills install and layout](fxloop-skills/README.md) | [Limitations](docs/limitations.md) | Decisions: [FXML load registry](docs/decisions/fxml-load-registry.md), [Kotlin](docs/decisions/kotlin.md), [live dev loop](docs/decisions/live-dev-loop.md), [CSS inspector contract](docs/decisions/css-inspector-contract.md), [skills packaging](docs/decisions/skills-packaging.md) |
+| [CI templates](docs/ci/README.md), [Monocle](docs/ci/monocle.md) | [Security](docs/security.md), [Troubleshooting](docs/troubleshooting.md) | |
 
-Build the docs site with `mkdocs serve` (see `mkdocs.yml`).
+Browse it as a site with `mkdocs serve` (see `mkdocs.yml`).
+
+## Repository layout
+
+<details>
+<summary>Modules</summary>
+
+| Module | What it is |
+|---|---|
+| `fxloop-protocol` | FCP (FXLoop Control Protocol) DTOs, NDJSON codec, error codes, token and handshake helpers, the `launch.json` schema |
+| `fxloop-agent` | The in-JVM agent (`-javaagent` or attach): scene graph, input, reload, FXML registry. ByteBuddy, Jackson and the Kotlin stdlib are relocated |
+| `fxloop-dev` | Optional dev dependency for IDE-launched apps (`FxLoopDev.install/view/onReload`); see the [decision](docs/decisions/fxml-load-registry.md) |
+| `fxloop-server` | The stdio MCP server (shaded `-all.jar`): builds, launches, supervises, reloads |
+| `fxloop-maven-plugin` | `fxloop:run` and `fxloop:prepare` ([README](fxloop-maven-plugin/README.md)) |
+| `fxloop-gradle-plugin` | Gradle plugin `dev.fxloop` with `fxloopRun` and `fxloopPrepare`; a standalone Gradle build ([README](fxloop-gradle-plugin/README.md)) |
+| `fxloop-skills` | The agent skills, the MCP bootstrap, shared references and skill evals ([README](fxloop-skills/README.md)) |
+| `sample-apps/*` | Test targets: `fxloop-sample-app` (contacts), `fxloop-gauntlet-app` (dialogs, menus, tabs and more), `fxloop-sample-app-gradle`, `fxloop-sample-app-kotlin`, and `fxloop-showcase-app`, a Kotlin helpdesk with planted UI and UX issues for trying the skills |
+| `fxloop-acceptance` | End-to-end suite that drives the server over MCP (`-Pacceptance`) |
+
+The tooling is written in Kotlin and targets Java 17 bytecode. The apps it drives are ordinary Java or Kotlin JavaFX
+projects.
+
+</details>
+
+## Building
+
+```sh
+./mvnw install                  # all modules; UI tests run headless on Monocle, no display needed
+./mvnw install -Pacceptance     # plus the end-to-end MCP suite
+```
+
+`docs/tools.md` is generated from the tool registry (`java -jar fxloop-server/target/fxloop-server-*-all.jar
+--tool-reference`); don't edit it by hand.
 
 ## License
 

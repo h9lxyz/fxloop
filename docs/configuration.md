@@ -29,7 +29,7 @@ headless=xvfb
 | `FXLOOP_WEBVIEW` / `--webview` | `false` | Enables `fx_eval_js` (otherwise `DISABLED`). |
 | `FXLOOP_VIEWER` / `--viewer` | off | Port for the live screenshot viewer (token-protected HTTP). |
 | `FXLOOP_EDITOR_URL` / `--editor-url` | unset | Template for "open in editor" links in the inspector, e.g. `idea://open?file={file}&line={line}`; returned as `editorUrl` by `/api/styles`. |
-| `FXLOOP_INSPECTOR_EDIT` / `--inspector-edit` | `false` | "Try it live" in the CSS inspector: click a value to edit it (suggestions per property type, ↑/↓ on numbers, a color picker for colors, live preview), untick a declaration, or add a declaration or rule. Edits go into one scratch stylesheet in the running app, never into source; *Copy as CSS* / *Ask agent to apply* hand them over, and the agent applies them, then calls `fx_reload{clearScratch:true}`. Off: the inspector stays read-only and the scratch endpoints do not exist. `fxloop:run` / `fxloopRun` turn it on unless `fxloop.inspectorEdit=false`: for their inspector helper, and, through the app's handshake, for any agent session that connects to the run. |
+| `FXLOOP_INSPECTOR_EDIT` / `--inspector-edit` | `false` | "Try it live" in the CSS inspector: click a value to edit it (suggestions per property type, ↑/↓ on numbers, a color picker for colors, live preview), untick a declaration, or add a declaration or rule. Edits go into one scratch stylesheet in the running app; *Apply to file…* previews and then writes them into the project stylesheets they belong to (and reloads), while *Copy as CSS* / *Ask agent to apply* hand them over instead (the agent applies them, then calls `fx_reload{clearScratch:true}`). Off: the inspector stays read-only and the scratch endpoints do not exist. `fxloop:run` / `fxloopRun` turn it on unless `fxloop.inspectorEdit=false`: for their inspector helper, and, through the app's handshake, for any agent session that connects to the run. |
 | `FXLOOP_BROWSER` / `--browser` | `auto` | `none` stops the server from opening a browser for `fx_open_inspector` and dev-bar picks (the URL is still returned). |
 | `FXLOOP_WATCH` / `--watch` | `css-only` | Initial file-watch mode: `css-only`, `all` (also FXML, Java and Kotlin), `off`. Change at runtime with `fx_set_watch_mode`. |
 | `FXLOOP_EXTERNAL_COMPILE` / `--external-compile` | `false` | The IDE/build tool compiles; the server HotSwaps changed classes from the output dir instead of running its own javac. |
@@ -41,7 +41,7 @@ headless=xvfb
 | `FXLOOP_RECORD_HUMAN` / `--record-human` | `true` | Journal the developer's own clicks, key presses and text commits (`source: human`) in launched and embedded modes. Memory only; `PasswordField` content is never recorded. `false` disables capture. |
 | `FXLOOP_HUMAN_IDLE_MS` / `--human-idle-ms` | `10000` | Human input within this window defers restarts (`restartDeferred: humanActive`). |
 | `FXLOOP_CONTROL` / `--control` | `auto` | `auto` starts in `agent` and switches to `shared` on the first human input, never back. `agent`: the agent may drive with robot input. `shared`: actions default to synthetic events. |
-| `FXLOOP_BAR` / `--bar` | `auto` | Dev bar on the app window: `on`, `pill` (corner pill) or `off`. `auto` is `on` with a real display and `off` headless. Its **Inspect CSS** button opens the browser CSS inspector (PRD 08). |
+| `FXLOOP_BAR` / `--bar` | `auto` | Dev bar on the app window: `on`, `pill` (corner pill) or `off`. `auto` is `on` with a real display and `off` headless. Its **Open CSS inspector** button opens the browser CSS inspector (PRD 08). While the agent holds the input lock (`fx_lock_input`) it reads "you're watching" and shows **Take over**. |
 | `FXLOOP_PICK_KEY` / `--pick-key` | `Ctrl+Shift+F12` | Hotkey that toggles pick mode on the focused window. |
 | `FXLOOP_RESTART_KEY` / `--restart-key` | `Ctrl+Shift+F5` | Hotkey for the bar's **Restart** button: restarts with replay. |
 | `FXLOOP_TEST` / `--test` | `false` | Adds `-Dfxloop.test=true` to the app and exposes test-only tool `fx_test_block_fx_thread`. Not for normal use. |
@@ -52,7 +52,7 @@ JVM system properties on the **server** (`-D` before `-jar`): `fxloop.attach=fal
 ## Running the app yourself
 
 `mvn fxloop:run` (Maven) or `gradle fxloopRun` (Gradle) runs the app in the foreground with the agent and the dev bar,
-without any agent session. Explore it, **Pick** nodes, open **Inspect CSS** (served by an inspector helper, the server in
+without any agent session. Explore it, **Pick** nodes, open **Open CSS inspector** (served by an inspector helper, the server in
 `--sidecar=true` mode, until an agent session connects; it steps aside while one is connected), then ask your agent: the server's first call finds the running
 app through `target|build/fxloop/handshake.json` (written with its own owner-only token) and connects instead of
 launching. Control starts out `shared`, so the agent uses synthetic events and never takes your mouse. Reloads work,
