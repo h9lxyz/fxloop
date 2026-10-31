@@ -175,4 +175,23 @@ class CascadeTest {
         assertThat(r.has("note")).isTrue()
         assertThat(r["items"].none { it.has("winner") }).isTrue()
     }
+
+    @Test
+    fun `cascade reports value types for the inspector editors`() {
+        val t = call(CssInspect::cascade, "#save")["types"]
+        assertThat(t["-fx-text-fill"]["kind"].asText()).isEqualTo("paint")
+        assertThat(t["-fx-background-color"]["kind"].asText()).isEqualTo("paint")
+        assertThat(t["-fx-background-color"]["list"].asBoolean()).isTrue()
+        assertThat(t["-fx-padding"]["kind"].asText()).isEqualTo("insets")
+        assertThat(t["-fx-font-size"]["kind"].asText()).isEqualTo("size")
+        assertThat(t["-fx-font-weight"]["kind"].asText()).isEqualTo("font-weight")
+        assertThat(t["-fx-wrap-text"]["kind"].asText()).isEqualTo("boolean")
+        assertThat(t["-fx-wrap-text"]["initial"].asText()).isEqualTo("false")
+        assertThat(t["-fx-opacity"]["initial"].asText()).isEqualTo("1")
+        val align = t["-fx-alignment"]
+        assertThat(align["kind"].asText()).isEqualTo("enum")
+        assertThat(align["choices"].map { it.asText() }).contains("center-left", "baseline-right")
+        assertThat(t["-fx-cursor"]["kind"].asText()).isEqualTo("cursor")
+        assertThat(t["-fx-effect"]["kind"].asText()).isEqualTo("effect")
+    }
 }

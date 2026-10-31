@@ -83,7 +83,8 @@ internal object CssInspect {
         val ordered = ex.cascade.rules.sortedWith(
             compareByDescending<MatchedRule> { it.origin.ordinal }.thenByDescending { it.specificity }.thenByDescending { it.ordinal },
         )
-        val names = PropertyView.all(node).map { it.cssProperty.lowercase() }.toHashSet()
+        val allViews = PropertyView.all(node)
+        val names = allViews.map { it.cssProperty.lowercase() }.toHashSet()
         for (m in ordered) {
             val ro = engine.decl(Candidate("", null, m, m.origin)).apply { remove("text"); remove("important") }
             val decls = ro.putArray("declarations")
@@ -105,6 +106,7 @@ internal object CssInspect {
         val sheets = out.putArray("sheets")
         ex.cascade.sheets.forEach { sheets.add(Sheets.describe(it, engine.roots)) }
         out.setNode("blockers", sheetBlockers(ex))
+        out.setNode("types", CssTypes.of(node, allViews))
         out
     }
 

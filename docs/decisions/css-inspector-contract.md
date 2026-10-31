@@ -58,9 +58,18 @@ Every agent-owned popup (dev bar, highlight, pick outline) sets `window.properti
   ],
   "sheets": [{"id":"s2","url":"file:/…","origin":"AUTHOR","on":"Scene|<node path>|Application",
               "file?":"…","sourceMap":"ok|unavailable|binary","reason?":"…","parseErrors":["…"]}],
-  "editorUrl": "idea://open?file={file}&line={line}"
+  "editorUrl": "idea://open?file={file}&line={line}",
+  "types": {"-fx-alignment": {"kind":"enum","choices":["top-left","…"],"initial":"top-left"},
+            "-fx-background-color": {"kind":"paint","list":true}, "-fx-wrap-text": {"kind":"boolean","initial":"false"}}
 }
 ```
+
+`types` covers every styleable property of the node (sub-properties such as `-fx-font-size` included), for the value
+editors. `kind` comes from the `CssMetaData` converter: `paint`, `color`, `size`, `insets`, `boolean`, `enum`, `font`,
+`font-weight`, `font-style`, `duration`, `effect`, `cursor`, `url`, `string`, `shape`, `border-style`,
+`background-position`, `background-size`, `background-repeat`, else `other`. `list` marks sequence/layered converters
+(comma-separated values). `choices` are an enum's constants in CSS spelling (`CENTER_LEFT` → `center-left`); `initial`
+is `getInitialValue(node)` as CSS text when it has a short spelling (colors `#rrggbb(aa)`, insets `t r b l`).
 
 `DECL` = `{"ruleId","selector","specificity","origin","file?","absFile?","line?","text","important","sheet"}`.
 The pseudo-candidate for a value set in code is `{"ruleId":"code","selector":"(set in code)","origin":"USER"}`;

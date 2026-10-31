@@ -102,6 +102,29 @@ tr.mismatch td{background:rgba(229,83,75,.18);color:var(--bad)}
 .tog{position:absolute;left:1px;top:3px;margin:0;width:12px;height:12px;cursor:pointer}
 .x{border:0;background:none;color:var(--dim);padding:0 4px;margin-left:6px}
 .x:hover{color:var(--bad)}
+.vedit{display:inline-flex;align-items:center;gap:3px;position:relative;vertical-align:middle}
+.vedit input.ed{width:auto;min-width:6ch}
+input.ed.bad{border-color:var(--bad);color:var(--bad)}
+.vbtn{padding:0 4px;font-size:10px;line-height:16px;color:var(--dim)}
+.steps{display:inline-flex;flex-direction:column;gap:1px}
+.steps button{padding:0 4px;font-size:8px;line-height:7px;height:9px;color:var(--dim)}
+.vcolor{width:22px;height:18px;padding:0 1px;cursor:pointer}
+.valpha{width:64px;padding:0;accent-color:var(--accent)}
+.vpop{position:fixed;z-index:20;min-width:240px;max-width:440px;max-height:260px;overflow-x:hidden;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:4px;box-shadow:0 4px 16px rgba(0,0,0,.35);font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;text-decoration:none;color:var(--fg)}
+.vpop .it{display:flex;align-items:center;gap:6px;padding:2px 8px;cursor:pointer;white-space:nowrap}
+.vpop .it>span:not(.tag):not(.sw){overflow:hidden;text-overflow:ellipsis}
+.vpop .it.on{background:var(--sel)}
+.vpop .it:hover{background:var(--hover)}
+.vpop .tag{margin-left:auto;padding-left:12px;color:var(--dim);font:10px system-ui,sans-serif}
+.vpop .foot{padding:3px 8px;color:var(--dim);font:10px system-ui,sans-serif;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--panel);white-space:normal}
+.sw{display:inline-block;width:10px;height:10px;border:1px solid var(--dim);border-radius:2px;margin:0 3px -1px 1px;vertical-align:baseline}
+.sw.click{cursor:pointer}.sw.click:hover{outline:1px solid var(--accent)}
+.decl.adddecl{display:flex;align-items:center;gap:2px;flex-wrap:wrap}
+.decl.adddecl input.pn{font:inherit;padding:0 4px;width:16ch;color:var(--prop)}
+.addb{border:0;background:none;color:var(--dim);padding:0 6px;font-size:13px;line-height:14px}
+.addb:hover{color:var(--accent)}
+.newrule .vedit{flex:1 1 160px}
+.newrule .vedit input.ed{flex:1;width:100%}
 #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--border);padding:6px 12px;border-radius:4px;display:none;z-index:9}
 </style>
 </head>
@@ -150,7 +173,9 @@ var state = {
   scratch: null,                    // {active, rules, css, items} when FXLOOP_INSPECTOR_EDIT is on
   disabled: Object.create(null),    // "selector|property" toggled off through a scratch fallback rule
   newRule: false,
-  draft: null                       // {sel, prop, val} of the open new-rule form, kept across re-renders and errors
+  draft: null,                      // {sel, prop, val} of the open new-rule form, kept across re-renders and errors
+  editing: false,                   // a value editor is live-previewing: re-renders wait until it ends
+  renderPending: false
 };
 
 // ---------- API ----------
@@ -426,10 +451,12 @@ function declEl(dc, r, d){
   var v = dc.text ? String(dc.text).replace(/^[^:]*:\s*/, '').replace(/;\s*$/, '') : '';
   var imp = !!dc.important;
   if (/\s*!important\s*$/i.test(v)) { v = v.replace(/\s*!important\s*$/i, ''); imp = true; }
-  var vs = el('span', 'v', v);
+  var vs = el('span', 'v');
+  var live = canEdit() && editable(r);
+  valueWithSwatches(vs, v, live ? function(i){ startEdit(vs, dc, r, d, v, imp, i); } : null);
   line.appendChild(vs);
-  if (canEdit() && editable(r)) {
-    vs.classList.add('editable'); vs.title = 'Click to edit (applies as scratch CSS)'; vs.tabIndex = 0;
+  if (live) {
+    vs.classList.add('editable'); vs.title = 'Click to edit (applies as scratch CSS): ↑/↓ change numbers, Ctrl+Space suggests'; vs.tabIndex = 0;
     var start = function(){ startEdit(vs, dc, r, d, v, imp); };
     vs.addEventListener('click', start);
     vs.addEventListener('keydown', function(ev){ if (ev.key === 'Enter') { ev.preventDefault(); start(); } });
@@ -451,6 +478,11 @@ function ruleEl(r, d){
   if (r.specificity) hd.appendChild(el('span', 'spec', r.specificity));
   hd.appendChild(el('span', 'org', originLabel(r.origin)));
   var l = locLink(r, d); if (l) hd.appendChild(l);
+  if (canEdit() && editable(r)) {
+    var add = el('button', 'addb', '+'); add.title = 'Add a declaration to ' + r.selector; add.setAttribute('aria-label', add.title);
+    add.addEventListener('click', function(){ if (!box.querySelector('.adddecl')) box.appendChild(addDeclRow(r, d)); });
+    hd.appendChild(add);
+  }
   box.appendChild(hd);
   var shown = 0;
   (r.declarations || []).forEach(function(dc){
@@ -462,6 +494,8 @@ function ruleEl(r, d){
 }
 
 function renderStyles(){
+  if (state.editing) { state.renderPending = true; return; }
+  state.renderPending = false;
   var pane = $('stylesPane'), top = pane.scrollTop, d = state.styles;
   clear(pane);
   if (!d) return;
@@ -576,6 +610,481 @@ function fillSuggest(out, r){
   out.appendChild(s);
 }
 
+// ---------- value editors: suggestions, number stepping, color picker ----------
+// Each property's kind ("paint", "size", "enum", …), enum choices and initial value come from the app (cascade `types`,
+// read from the CssMetaData converters); the keyword lists below fill in what a converter cannot tell.
+var NAMED_COLORS = ('transparent white black red green blue yellow orange purple gray grey silver navy teal maroon olive lime ' +
+  'aqua fuchsia aliceblue antiquewhite aquamarine azure beige bisque blanchedalmond blueviolet brown burlywood cadetblue ' +
+  'chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey ' +
+  'darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray ' +
+  'darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen ' +
+  'gainsboro ghostwhite gold goldenrod greenyellow honeydew hotpink indianred indigo ivory khaki lavender lavenderblush ' +
+  'lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink ' +
+  'lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow limegreen linen magenta ' +
+  'mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise ' +
+  'mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite oldlace olivedrab orangered orchid palegoldenrod ' +
+  'palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue rosybrown royalblue saddlebrown ' +
+  'salmon seagreen seashell sienna skyblue slateblue slategray slategrey snow springgreen steelblue tan thistle tomato ' +
+  'turquoise violet wheat whitesmoke yellowgreen').split(' ');
+var COLOR_NAMES = Object.create(null);
+NAMED_COLORS.forEach(function(c){ COLOR_NAMES[c] = true; });
+/** Looked-up colors modena.css defines on .root, usable in any paint value. */
+var MODENA_LOOKUPS = ['-fx-base', '-fx-background', '-fx-control-inner-background', '-fx-accent', '-fx-default-button',
+  '-fx-focus-color', '-fx-faint-focus-color', '-fx-text-base-color', '-fx-text-background-color', '-fx-text-inner-color',
+  '-fx-dark-text-color', '-fx-mid-text-color', '-fx-light-text-color', '-fx-mark-color', '-fx-selection-bar',
+  '-fx-selection-bar-non-focused', '-fx-selection-bar-text', '-fx-box-border', '-fx-text-box-border', '-fx-outer-border',
+  '-fx-inner-border', '-fx-body-color', '-fx-color', '-fx-hover-base', '-fx-pressed-base', '-fx-shadow-highlight-color'];
+var KIND_VALUES = {
+  paint: ['derive(-fx-base, -20%)', 'derive(-fx-accent, 30%)', 'ladder(-fx-background, white 49%, black 50%)',
+    'linear-gradient(to bottom, #ffffff, #e0e0e0)', 'radial-gradient(center 50% 50%, radius 50%, #ffffff, #cccccc)', 'rgba(0, 0, 0, 0.5)'],
+  color: ['derive(-fx-base, -20%)', 'derive(-fx-accent, 30%)', 'ladder(-fx-background, white 49%, black 50%)', 'rgba(0, 0, 0, 0.5)'],
+  size: ['0', '1px', '2px', '4px', '8px', '12px', '16px', '24px', '1em', '0.5em', '100%'],
+  insets: ['0', '4', '8', '4 8', '8 12', '2 4 2 4', '0 0 1 0'],
+  boolean: ['true', 'false'],
+  'font-weight': ['normal', 'bold', 'bolder', 'lighter', '100', '200', '300', '400', '500', '600', '700', '800', '900'],
+  'font-style': ['normal', 'italic', 'oblique'],
+  font: ['13px "System"', 'bold 14px "System"', 'italic 12px serif', '16px "Segoe UI"'],
+  duration: ['100ms', '200ms', '300ms', '500ms', '1s'],
+  effect: ['none', 'dropshadow(gaussian, rgba(0, 0, 0, 0.3), 10, 0, 0, 2)', 'dropshadow(three-pass-box, derive(-fx-accent, -20%), 8, 0.2, 0, 0)',
+    'innershadow(gaussian, rgba(0, 0, 0, 0.25), 6, 0, 0, 1)'],
+  cursor: ['default', 'hand', 'text', 'wait', 'crosshair', 'move', 'open-hand', 'closed-hand', 'h-resize', 'v-resize',
+    'n-resize', 'e-resize', 's-resize', 'w-resize', 'ne-resize', 'nw-resize', 'se-resize', 'sw-resize', 'disappear', 'none'],
+  'border-style': ['solid', 'dashed', 'dotted', 'none', 'segments(4, 4)', 'solid inside', 'solid outside', 'solid centered'],
+  'background-repeat': ['repeat', 'no-repeat', 'repeat-x', 'repeat-y', 'space', 'round', 'stretch'],
+  'background-position': ['center', 'left top', 'right bottom', 'center top', '50% 50%'],
+  'background-size': ['auto', 'cover', 'contain', '100% 100%', 'stretch'],
+  url: ['url("image.png")'],
+  shape: ['"M0 0 L10 0 L5 8 Z"', '"M0 0 H10 V10 H0 Z"']
+};
+var BY_NAME = {
+  '-fx-font-family': ['"System"', '"Segoe UI"', '"Arial"', '"Helvetica"', '"Verdana"', '"Monospaced"', '"Serif"', '"SansSerif"'],
+  '-fx-opacity': ['0', '0.25', '0.5', '0.75', '1'],
+  '-fx-background-radius': ['0', '2', '4', '8', '999', '4 4 0 0'],
+  '-fx-border-radius': ['0', '2', '4', '8', '999', '4 4 0 0'],
+  '-fx-border-width': ['0', '1', '2', '0 0 1 0'],
+  '-fx-background-insets': ['0', '0 0 -1 0', '0, 1', '-1, 0, 1'],
+  '-fx-pref-width': ['-1', '100', '200', 'Infinity'],
+  '-fx-pref-height': ['-1', '24', '32', '48'],
+  '-fx-max-width': ['-1', 'Infinity'],
+  '-fx-max-height': ['-1', 'Infinity']
+};
+var FINE_STEP = /opacity|scale|ratio|radius-ratio/;
+
+function propType(prop){
+  var t = state.styles && state.styles.types && state.styles.types[prop];
+  if (t) return t;
+  var p = String(prop || '').toLowerCase();
+  if (/color|fill|stroke$|^-fx-base$|^-fx-accent$|^-fx-background$/.test(p) || (p.indexOf('-') === 0 && MODENA_LOOKUPS.indexOf(p) >= 0)) return { kind: 'paint' };
+  if (/width|height|size|gap|spacing|radius|opacity|translate|rotate|scale/.test(p)) return { kind: 'size' };
+  if (/padding|insets/.test(p)) return { kind: 'insets' };
+  return { kind: 'other' };
+}
+function isColorKind(t){ return t.kind === 'paint' || t.kind === 'color'; }
+/** JavaFX prints colors as 0xrrggbbaa; the editors speak #rrggbb(aa). */
+function cssColorText(v){
+  var m = /^0x([0-9a-f]{6})([0-9a-f]{2})$/i.exec(String(v));
+  return m ? '#' + m[1] + (m[2].toLowerCase() === 'ff' ? '' : m[2]) : v;
+}
+function currentValue(prop){
+  var lc = String(prop).toLowerCase();
+  var p = ((state.styles && state.styles.properties) || []).filter(function(x){ return String(x.cssProperty).toLowerCase() === lc; })[0];
+  if (!p) return null;
+  if (p.winner && p.winner.text && !p.winner.property) return declValue(p.winner.text);
+  return typeof p.value === 'string' || typeof p.value === 'number' ? cssColorText(String(p.value)) : null;
+}
+/** Looked-up names this node can see: declared in a matching rule or referenced by one of its values. */
+function lookupNames(){
+  var out = [];
+  ((state.styles && state.styles.rules) || []).forEach(function(r){
+    (r.declarations || []).forEach(function(dc){
+      if (dc.status === 'inactive' && /^-[\w-]+$/.test(dc.property)) out.push(dc.property);
+      (String(dc.text || '').replace(/^[^:]*:/, '').match(/-fx-[\w-]+/g) || []).forEach(function(n){ out.push(n); });
+    });
+  });
+  return out;
+}
+function suggestions(prop){
+  var t = propType(prop), out = [], seen = Object.create(null);
+  function add(v, tag){
+    if (v == null || v === '') return;
+    v = String(v); var k = v.toLowerCase();
+    if (seen[k]) return;
+    seen[k] = true; out.push({ v: v, tag: tag || '' });
+  }
+  add(currentValue(prop), 'current');
+  if (t.initial != null) add(t.initial, 'default');
+  (t.choices || []).forEach(function(c){ add(c); });
+  (BY_NAME[String(prop).toLowerCase()] || []).forEach(function(v){ add(v); });
+  if (isColorKind(t)) {
+    lookupNames().forEach(function(n){ add(n, 'looked-up'); });
+    MODENA_LOOKUPS.forEach(function(n){ add(n, 'modena'); });
+    NAMED_COLORS.slice(0, 12).forEach(function(c){ add(c); });
+  }
+  (KIND_VALUES[t.kind] || []).forEach(function(v){ add(v); });
+  if (isColorKind(t)) NAMED_COLORS.forEach(function(c){ add(c); });
+  add('inherit');
+  return out;
+}
+function propertyNames(){
+  var types = (state.styles && state.styles.types) || {}, out = [], seen = Object.create(null);
+  Object.keys(types).sort().forEach(function(n){ seen[n] = true; out.push({ v: n, tag: types[n].kind === 'other' ? '' : types[n].kind }); });
+  lookupNames().concat(MODENA_LOOKUPS).forEach(function(n){ if (!seen[n]) { seen[n] = true; out.push({ v: n, tag: 'looked-up color' }); } });
+  return out;
+}
+
+// number tokens: "12px", "-0.5", "50%" — not the digits of #e8e8e8, -fx-… names or url(img2.png)
+var NUM_RE = /(?<![\w#.\-])(-?)(\d+\.?\d*|\.\d+)([a-z%]*)(?![\w.\-(])/gi;
+function numberTokens(v){
+  var out = [], m; NUM_RE.lastIndex = 0;
+  while ((m = NUM_RE.exec(v))) out.push({ start: m.index, end: m.index + m[0].length, n: parseFloat(m[1] + m[2]), unit: m[3], dec: m[2].indexOf('.') >= 0 });
+  return out;
+}
+function tokenAt(tokens, caret){
+  for (var i = 0; i < tokens.length; i++) if (caret >= tokens[i].start && caret <= tokens[i].end) return i;
+  return tokens.length ? 0 : -1;
+}
+function fmtNum(n){ n = Math.round(n * 1000) / 1000; return String(n === 0 ? 0 : n); }
+/**
+ * Steps the number at the caret (DevTools style): [by] null = the token's natural step (1, or 0.1 for em, decimals
+ * below 10 and opacity/scale), [all] steps every number (Ctrl/Cmd). Returns {value, caret} or null.
+ */
+function stepValue(v, caret, dir, by, all, prop){
+  var ts = numberTokens(v);
+  if (!ts.length) return null;
+  var idx = tokenAt(ts, caret), out = v, shift = 0, newCaret = caret;
+  ts.forEach(function(t, i){
+    if (!all && i !== idx) return;
+    var step = by != null ? by : (t.unit === 'em' || (t.dec && Math.abs(t.n) < 10) || (!t.unit && FINE_STEP.test(prop || '')) ? 0.1 : 1);
+    var txt = fmtNum(t.n + dir * step) + t.unit;
+    out = out.slice(0, t.start + shift) + txt + out.slice(t.end + shift);
+    if (i === idx) newCaret = t.start + shift + txt.length;
+    shift += txt.length - (t.end - t.start);
+  });
+  return { value: out, caret: newCaret };
+}
+
+// color tokens: #hex, rgb()/rgba()/hsb()/hsba(), named colors — not words of -fx-… names
+var COLOR_RE = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsba?)\([^)]*\)|(?<![\w-])[a-z]+(?![\w(-])/gi;
+function colorTokens(v){
+  var out = [], m; COLOR_RE.lastIndex = 0;
+  while ((m = COLOR_RE.exec(v))) {
+    if (/^[a-z]+$/i.test(m[0]) && !COLOR_NAMES[m[0].toLowerCase()]) continue;
+    var c = parseColor(m[0]);
+    if (c) out.push({ start: m.index, end: m.index + m[0].length, text: m[0], c: c });
+  }
+  return out;
+}
+var cctx = document.createElement('canvas').getContext('2d');
+/** {r,g,b,a,css} for a JavaFX color literal the browser (or the hsb() fallback) understands, else null. */
+function parseColor(t){
+  var h = /^hsba?\(\s*([-\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*(?:,\s*([\d.]+)\s*)?\)$/i.exec(t);
+  if (h) {
+    var hue = ((parseFloat(h[1]) % 360) + 360) % 360 / 60, s = parseFloat(h[2]) / 100, b = parseFloat(h[3]) / 100;
+    var f = function(n){ var k = (n + hue) % 6; return Math.round(255 * (b - b * s * Math.max(0, Math.min(k, 4 - k, 1)))); };
+    return withCss({ r: f(5), g: f(3), b: f(1), a: h[4] != null ? parseFloat(h[4]) : 1 });
+  }
+  if (!cctx) return null;
+  cctx.fillStyle = '#010203'; cctx.fillStyle = t;
+  var s2 = cctx.fillStyle;
+  if (s2 === '#010203' && t.toLowerCase() !== '#010203') return null;
+  var m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(s2);
+  if (m) return withCss({ r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16), a: 1 });
+  m = /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/.exec(s2);
+  return m ? withCss({ r: +m[1], g: +m[2], b: +m[3], a: m[4] != null ? parseFloat(m[4]) : 1 }) : null;
+}
+function hex2(n){ return ('0' + Math.max(0, Math.min(255, n)).toString(16)).slice(-2); }
+function withCss(c){ c.hex = '#' + hex2(c.r) + hex2(c.g) + hex2(c.b); c.css = colorText(c); return c; }
+function colorText(c){ return c.a >= 1 ? c.hex : 'rgba(' + c.r + ', ' + c.g + ', ' + c.b + ', ' + fmtNum(c.a) + ')'; }
+var CHECKER = 'conic-gradient(#bbb 25%, #fff 0 50%, #bbb 0 75%, #fff 0) 0 0/6px 6px';
+function swatch(css, onClick){
+  var s = el('span', 'sw' + (onClick ? ' click' : ''));
+  s.style.background = 'linear-gradient(' + css + ', ' + css + '), ' + CHECKER;
+  if (onClick) {
+    s.title = 'Pick a color';
+    s.addEventListener('click', function(ev){ ev.stopPropagation(); onClick(); });
+  }
+  return s;
+}
+/** A declaration value as text with a swatch before each color literal; [onColor(i)] makes swatch i clickable. */
+function valueWithSwatches(span, v, onColor){
+  var pos = 0;
+  colorTokens(v).forEach(function(t, i){
+    if (t.start > pos) span.appendChild(document.createTextNode(v.slice(pos, t.start)));
+    span.appendChild(swatch(t.c.css, onColor ? function(){ onColor(i); } : null));
+    span.appendChild(document.createTextNode(t.text));
+    pos = t.end;
+  });
+  if (pos < v.length) span.appendChild(document.createTextNode(v.slice(pos)));
+}
+
+/**
+ * Suggestion popup under [inp]: o.items() → [{v, tag}], o.pick(item, viaKey) when one is chosen,
+ * o.highlight(item) while arrowing through the list, o.foot = hint line.
+ */
+function combo(inp, host, o){
+  var pop = el('div', 'vpop'); pop.style.display = 'none'; pop.setAttribute('role', 'listbox');
+  host.appendChild(pop);
+  var items = [], idx = -1;
+  /** Fixed to the viewport so the pane never scrolls sideways; flips above the input when there is no room below. */
+  function place(){
+    var r = inp.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+    pop.style.left = Math.max(4, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+    pop.style.top = (r.bottom + h + 4 > window.innerHeight && r.top > h + 4 ? r.top - h - 2 : r.bottom + 2) + 'px';
+  }
+  $('stylesPane').addEventListener('scroll', function(){ if (pop.style.display !== 'none') place(); });
+  function render(){
+    clear(pop);
+    items.forEach(function(it, i){
+      var row = el('div', 'it' + (i === idx ? ' on' : '')); row.setAttribute('role', 'option');
+      var c = o.colors && o.colors() ? parseColor(it.v) : null;
+      if (c) row.appendChild(swatch(c.css));
+      row.appendChild(el('span', null, it.v));
+      if (it.tag) row.appendChild(el('span', 'tag', it.tag));
+      row.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
+      row.addEventListener('click', function(){ idx = i; o.pick(it, false); });
+      pop.appendChild(row);
+    });
+    if (o.foot) pop.appendChild(el('div', 'foot', o.foot()));
+    var on = pop.querySelector('.it.on');
+    if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest' });
+  }
+  var api = {
+    open: function(filter){
+      var all = o.items(), f = String(filter || '').trim().toLowerCase();
+      if (f) {
+        var pre = [], mid = [];
+        all.forEach(function(it){
+          var k = it.v.toLowerCase();
+          if (k.indexOf(f) === 0) pre.push(it); else if (k.indexOf(f) > 0) mid.push(it);
+        });
+        items = pre.concat(mid);
+        if (items.length === 1 && items[0].v.toLowerCase() === f) items = [];
+        idx = -1;
+      } else {
+        items = all;
+        var cur = inp.value.trim().toLowerCase();
+        idx = -1;
+        items.forEach(function(it, i){ if (idx < 0 && it.v.toLowerCase() === cur) idx = i; });
+      }
+      items = items.slice(0, 200);
+      if (!items.length) { api.close(); return; }
+      pop.style.display = 'block'; render(); place();
+    },
+    close: function(){ pop.style.display = 'none'; items = []; idx = -1; },
+    isOpen: function(){ return pop.style.display !== 'none' && items.length > 0; },
+    move: function(d){
+      if (!items.length) return;
+      idx = idx < 0 ? (d > 0 ? 0 : items.length - 1) : (idx + d + items.length) % items.length;
+      render();
+      if (o.highlight) o.highlight(items[idx]);
+    },
+    current: function(){ return idx >= 0 ? items[idx] : null; },
+    first: function(){ return items[0] || null; }
+  };
+  return api;
+}
+
+/**
+ * Inline value editor: free text plus suggestions (Ctrl+Space, ↓ or ▾), ↑/↓ steps the number at the caret
+ * (Shift ×10, Alt 0.1, Ctrl/Cmd every number, PageUp/PageDown ±10, mouse wheel), and a color picker with
+ * opacity for color literals. o: {property(), value, onInput(v), onPreview(v, mark), onCommit(v), onCancel(),
+ * commitOnBlur}. Returns {el, input, focus(colorIndex?)}.
+ */
+function valueEditor(o){
+  var wrap = el('span', 'vedit');
+  var inp = el('input', 'ed mono'); inp.value = o.value || ''; inp.spellcheck = false; inp.autocomplete = 'off';
+  inp.setAttribute('aria-label', 'Value of ' + (o.property() || 'property'));
+  var drop = el('button', 'vbtn', '▾'); drop.type = 'button'; drop.tabIndex = -1; drop.title = 'Suggestions (Ctrl+Space)';
+  var steps = el('span', 'steps');
+  var up = el('button', null, '▲'), down = el('button', null, '▼');
+  [up, down].forEach(function(b, i){
+    b.type = 'button'; b.tabIndex = -1; b.title = (i ? 'Decrease' : 'Increase') + ' (↑/↓, Shift ×10, Alt 0.1)';
+    b.addEventListener('mousedown', function(ev){ ev.preventDefault(); if (document.activeElement !== inp) inp.focus(); });
+    b.addEventListener('click', function(ev){ step(i ? -1 : 1, ev.shiftKey ? 10 : ev.altKey ? 0.1 : null, ev.ctrlKey || ev.metaKey); });
+    steps.appendChild(b);
+  });
+  var picker = el('input', 'vcolor'); picker.type = 'color'; picker.tabIndex = -1; picker.title = 'Pick a color';
+  var alpha = el('input', 'valpha'); alpha.type = 'range'; alpha.min = '0'; alpha.max = '1'; alpha.step = '0.01'; alpha.tabIndex = -1;
+  alpha.title = 'Opacity';
+  [inp, drop, steps, picker, alpha].forEach(function(x){ wrap.appendChild(x); });
+
+  var caret = 0, colorIdx = 0, typed = null, finished = false, pt = null;
+  var pop = combo(inp, wrap, {
+    items: function(){ return suggestions(o.property()); },
+    colors: function(){ return isColorKind(propType(o.property())); },
+    foot: function(){
+      var t = propType(o.property());
+      return (t.kind && t.kind !== 'other' ? t.kind + (t.list ? ' list' : '') + ' · ' : '') + 'type anything · ↑↓ pick · Enter apply · Esc close';
+    },
+    highlight: function(it){ inp.value = it.v; sync(); preview(); },
+    pick: function(it){
+      inp.value = it.v; pop.close(); sync();
+      if (o.commitOnBlur) finish(true); else { preview(); inp.focus(); }
+    }
+  });
+
+  function caretPos(){ return document.activeElement === inp && inp.selectionStart != null ? inp.selectionStart : caret; }
+  function fit(){ if (o.commitOnBlur) inp.style.width = Math.min(48, Math.max(8, inp.value.length + 2)) + 'ch'; }
+  function sync(){
+    fit();
+    var v = inp.value;
+    steps.style.display = numberTokens(v).length ? '' : 'none';
+    var cs = colorTokens(v), t = propType(o.property());
+    if (cs.length) {
+      var p = caretPos(), at = -1;
+      cs.forEach(function(c, i){ if (at < 0 && p >= c.start && p <= c.end) at = i; });
+      if (at >= 0) colorIdx = at;
+      if (colorIdx >= cs.length) colorIdx = 0;
+      var c = cs[colorIdx].c;
+      picker.value = c.hex; alpha.value = String(c.a);
+      alpha.title = 'Opacity ' + Math.round(c.a * 100) + '%';
+    }
+    picker.style.display = cs.length || isColorKind(t) ? '' : 'none';
+    alpha.style.display = cs.length ? '' : 'none';
+    drop.style.display = suggestions(o.property()).length ? '' : 'none';
+  }
+  function mark(ok, msg){ inp.classList.toggle('bad', !ok); inp.title = ok ? '' : (msg || 'not applied'); }
+  function preview(){
+    if (o.onInput) o.onInput(inp.value);
+    if (!o.onPreview) return;
+    clearTimeout(pt);
+    pt = setTimeout(function(){ o.onPreview(inp.value.trim(), mark); }, 120);
+  }
+  function set(v, at){
+    pop.close(); inp.value = v;
+    if (at != null) { caret = at; if (document.activeElement === inp) inp.setSelectionRange(at, at); }
+    sync(); preview();
+  }
+  function step(dir, by, all){
+    var r = stepValue(inp.value, caretPos(), dir, by, all, o.property());
+    if (r) set(r.value, r.caret);
+  }
+  function setColor(c){
+    var v = inp.value, cs = colorTokens(v), txt = colorText(c);
+    if (!cs.length) { set(txt, txt.length); return; }
+    var t = cs[Math.min(colorIdx, cs.length - 1)];
+    set(v.slice(0, t.start) + txt + v.slice(t.end), t.start + txt.length);
+  }
+  function pickedColor(){
+    var m = /^#(..)(..)(..)$/.exec(picker.value);
+    return withCss({ r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16), a: parseFloat(alpha.value) });
+  }
+  function finish(commit){
+    if (finished) return;
+    clearTimeout(pt); pop.close();
+    if (o.commitOnBlur) finished = true;
+    if (commit) o.onCommit(inp.value.trim()); else o.onCancel();
+  }
+
+  picker.addEventListener('input', function(){ setColor(pickedColor()); });
+  alpha.addEventListener('input', function(){ setColor(pickedColor()); });
+  drop.addEventListener('mousedown', function(ev){ ev.preventDefault(); });
+  drop.addEventListener('click', function(){ if (pop.isOpen()) pop.close(); else { inp.focus(); pop.open(''); } });
+  ['keyup', 'click', 'select'].forEach(function(e){ inp.addEventListener(e, function(){ caret = inp.selectionStart || 0; sync(); }); });
+  inp.addEventListener('input', function(){ typed = inp.value; sync(); preview(); pop.open(inp.value); });
+  inp.addEventListener('keydown', function(ev){
+    var k = ev.key, open = pop.isOpen();
+    if ((k === 'ArrowDown' || k === 'ArrowUp') && open) { pop.move(k === 'ArrowDown' ? 1 : -1); ev.preventDefault(); return; }
+    if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'PageUp' || k === 'PageDown') {
+      var dir = (k === 'ArrowUp' || k === 'PageUp') ? 1 : -1;
+      var by = (k === 'PageUp' || k === 'PageDown' || ev.shiftKey) ? 10 : ev.altKey ? 0.1 : null;
+      if (numberTokens(inp.value).length) step(dir, by, ev.ctrlKey || ev.metaKey);
+      else if (k === 'ArrowDown' || k === 'ArrowUp') { pop.open(''); pop.move(dir < 0 ? 1 : -1); }
+      ev.preventDefault(); return;
+    }
+    if (k === ' ' && (ev.ctrlKey || ev.metaKey)) { pop.open(''); ev.preventDefault(); return; }
+    if (k === 'Tab' && open && pop.current()) { inp.value = pop.current().v; pop.close(); sync(); preview(); ev.preventDefault(); return; }
+    if (k === 'Enter') {
+      ev.preventDefault();
+      if (open && pop.current()) { inp.value = pop.current().v; sync(); }
+      finish(true); return;
+    }
+    if (k === 'Escape') {
+      ev.preventDefault(); ev.stopPropagation();
+      if (open) { if (typed != null && pop.current()) { inp.value = typed; sync(); preview(); } pop.close(); }
+      else finish(false);
+    }
+  });
+  inp.addEventListener('wheel', function(ev){
+    if (document.activeElement !== inp || !numberTokens(inp.value).length) return;
+    ev.preventDefault();
+    step(ev.deltaY < 0 ? 1 : -1, ev.shiftKey ? 10 : ev.altKey ? 0.1 : null, ev.ctrlKey || ev.metaKey);
+  }, { passive: false });
+  if (o.commitOnBlur) wrap.addEventListener('focusout', function(){
+    setTimeout(function(){ if (!wrap.contains(document.activeElement)) finish(true); }, 0);
+  });
+  sync();
+  return {
+    el: wrap, input: inp,
+    refresh: sync,
+    focus: function(ci){
+      inp.focus(); inp.select(); caret = 0;
+      if (ci != null) {
+        colorIdx = ci; sync();
+        try { if (picker.showPicker) picker.showPicker(); else picker.click(); } catch(e){ picker.click(); }
+      }
+    }
+  };
+}
+/** Property-name input with suggestions from the node's styleable properties (kind shown on the right). */
+function nameInput(value, onInput, onEnter, onEscape){
+  var wrap = el('span', 'vedit');
+  var inp = el('input', 'pn mono'); inp.value = value || ''; inp.placeholder = '-fx-property'; inp.spellcheck = false;
+  inp.autocomplete = 'off'; inp.setAttribute('aria-label', 'Property');
+  wrap.appendChild(inp);
+  var pop = combo(inp, wrap, {
+    items: propertyNames,
+    foot: function(){ return 'properties of this node · Tab/Enter to pick'; },
+    pick: function(it){ inp.value = it.v; pop.close(); onInput(inp.value); onEnter(); }
+  });
+  inp.addEventListener('input', function(){ onInput(inp.value); pop.open(inp.value); });
+  inp.addEventListener('focus', function(){ if (!inp.value) pop.open(''); });
+  inp.addEventListener('blur', function(){ pop.close(); });
+  inp.addEventListener('keydown', function(ev){
+    var k = ev.key;
+    if ((k === 'ArrowDown' || k === 'ArrowUp')) {
+      if (!pop.isOpen()) pop.open(inp.value);
+      pop.move(k === 'ArrowDown' ? 1 : -1); ev.preventDefault(); return;
+    }
+    if (k === ' ' && (ev.ctrlKey || ev.metaKey)) { pop.open(''); ev.preventDefault(); return; }
+    var best = pop.isOpen() ? (pop.current() || pop.first()) : null;
+    if ((k === 'Enter' || (k === 'Tab' && !ev.shiftKey)) && best) {
+      inp.value = best.v; pop.close(); onInput(inp.value); ev.preventDefault(); onEnter(); return;
+    }
+    if (k === 'Enter' || (k === 'Tab' && !ev.shiftKey && inp.value.trim())) { ev.preventDefault(); pop.close(); onEnter(); return; }
+    if (k === 'Escape') { ev.preventDefault(); ev.stopPropagation(); if (pop.isOpen()) pop.close(); else if (onEscape) onEscape(); }
+  });
+  return { el: wrap, input: inp };
+}
+
+/**
+ * One editing session over the scratch sheet: previews post the sheet without re-rendering the pane (so the editor
+ * keeps focus), the end either applies the final list or restores the list from before the session.
+ */
+function editSession(){
+  var base = JSON.stringify(scratchItems()), dirty = false, busy = false, want = null;
+  state.editing = true;
+  function pump(){
+    var w = want; want = null; busy = true; dirty = true;
+    var empty = !w.items.some(function(it){ return it.declarations.length; });
+    (empty ? postText('/api/scratch/clear', '') : postText('/api/scratch/set', scratchCssText(w.items)))
+      .then(function(j){ state.scratch = j; w.mark(true); }, function(e){ w.mark(false, errText(e)); })
+      .then(function(){ busy = false; if (want) pump(); });
+  }
+  var s = {
+    items: function(){ return JSON.parse(base); },
+    preview: function(items, mark){ want = { items: items, mark: mark || function(){} }; if (!busy) pump(); },
+    /** Ends the session with [items] (null = restore what was there before). */
+    end: function(items, check){
+      state.editing = false;
+      if (items) return applyScratch(items, check).then(function(ok){ if (!ok && dirty) return applyScratch(s.items()); });
+      if (dirty) return applyScratch(s.items());
+      renderStyles(); return Promise.resolve();
+    }
+  };
+  return s;
+}
+
 // ---------- Try it live: scratch CSS (PRD 08 §5, FXLOOP_INSPECTOR_EDIT) ----------
 // Edits never touch source files: the page keeps the scratch rules as a list, renders them to CSS text and the agent
 // installs that text as the last scene stylesheet. Rules show up in the cascade as scratch:<n>.
@@ -684,23 +1193,62 @@ function toggleBox(dc, r, d){
   });
   return cb;
 }
-function startEdit(span, dc, r, d, value, imp){
-  var inp = el('input', 'ed mono'); inp.value = value; inp.setAttribute('aria-label', 'Value of ' + dc.property);
-  span.replaceWith(inp); inp.focus(); inp.select();
-  var done = false;
-  function commit(){
-    if (done) return; done = true;
-    var nv = inp.value.trim();
-    if (nv === value) { renderStyles(); return; }
-    if (badValue(nv)) { toast('A value cannot be empty or contain ; { }'); renderStyles(); return; }
-    var selector = r.scratch ? scratchSelector(r) : r.selector;
-    applyScratch(withDecl(scratchItems(), selector, dc.property, nv, imp || needsImportant(r, d)), dc.property);
-  }
-  inp.addEventListener('keydown', function(ev){
-    if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
-    else if (ev.key === 'Escape') { done = true; renderStyles(); }
+function startEdit(span, dc, r, d, value, imp, colorIndex){
+  var selector = r.scratch ? scratchSelector(r) : r.selector;
+  var important = imp || needsImportant(r, d);
+  var session = editSession();
+  var ed = valueEditor({
+    property: function(){ return dc.property; }, value: value, commitOnBlur: true,
+    onPreview: function(v, mark){
+      if (badValue(v)) { mark(false, 'A value cannot be empty or contain ; { }'); return; }
+      session.preview(withDecl(session.items(), selector, dc.property, v, important), mark);
+    },
+    onCommit: function(v){
+      if (v === value) { session.end(null); return; }
+      if (badValue(v)) { toast('A value cannot be empty or contain ; { }'); session.end(null); return; }
+      session.end(withDecl(session.items(), selector, dc.property, v, important), dc.property);
+    },
+    onCancel: function(){ session.end(null); }
   });
-  inp.addEventListener('blur', commit);
+  span.replaceWith(ed.el);
+  ed.focus(colorIndex);
+}
+/** "+" on a rule: property (with name suggestions) and value editor, previewed live once the property is valid. */
+function addDeclRow(r, d){
+  var row = el('div', 'decl adddecl');
+  var selector = r.scratch ? scratchSelector(r) : r.selector;
+  var important = needsImportant(r, d);
+  var session = editSession(), prop = '', done = false;
+  function validProp(){ return /^-?[a-zA-Z][\w-]*$/.test(prop.trim()); }
+  function end(commit){
+    if (done) return; done = true;
+    var v = ed.input.value.trim(), p = prop.trim();
+    if (commit && validProp() && !badValue(v)) session.end(withDecl(session.items(), selector, p, v, important), p);
+    else session.end(null);
+  }
+  var name = nameInput('', function(v){ prop = v; ed.refresh(); }, function(){ ed.input.focus(); ed.input.select(); }, function(){ end(false); });
+  var ed = valueEditor({
+    property: function(){ return prop.trim(); }, value: '',
+    onPreview: function(v, mark){
+      if (!validProp() || badValue(v)) { mark(true); return; }
+      session.preview(withDecl(session.items(), selector, prop.trim(), v, important), mark);
+    },
+    onCommit: function(v){
+      if (!validProp()) { toast('Enter a property such as -fx-padding'); name.input.focus(); return; }
+      if (badValue(v)) { toast('A value cannot be empty or contain ; { }'); return; }
+      end(true);
+    },
+    onCancel: function(){ end(false); }
+  });
+  row.appendChild(name.el);
+  row.appendChild(document.createTextNode(': '));
+  row.appendChild(ed.el);
+  row.appendChild(document.createTextNode(';'));
+  row.addEventListener('focusout', function(){
+    setTimeout(function(){ if (!row.contains(document.activeElement)) end(true); }, 0);
+  });
+  setTimeout(function(){ name.input.focus(); }, 0);
+  return row;
 }
 function defaultSelector(d){
   var t = d.target || {};
@@ -712,11 +1260,16 @@ function newRuleForm(d){
   var f = el('form', 'newrule');
   var dr = state.draft || (state.draft = { sel: defaultSelector(d), prop: '', val: '' });
   var sel = el('input', 'mono'); sel.value = dr.sel; sel.setAttribute('aria-label', 'Selector');
-  var prop = el('input', 'mono'); prop.placeholder = '-fx-property'; prop.value = dr.prop; prop.setAttribute('aria-label', 'Property');
-  var val = el('input', 'mono'); val.placeholder = 'value'; val.value = dr.val; val.setAttribute('aria-label', 'Value');
+  var name = nameInput(dr.prop, function(v){ dr.prop = v; ved.refresh(); }, function(){ val.focus(); val.select(); });
+  var prop = name.input;
+  var ved = valueEditor({
+    property: function(){ return dr.prop.trim(); }, value: dr.val,
+    onInput: function(v){ dr.val = v; },
+    onCommit: function(){ if (f.requestSubmit) f.requestSubmit(); else f.dispatchEvent(new Event('submit', { cancelable: true })); },
+    onCancel: function(){ state.newRule = false; state.draft = null; renderStyles(); }
+  });
+  var val = ved.input; val.placeholder = 'value';
   sel.addEventListener('input', function(){ dr.sel = sel.value; });
-  prop.addEventListener('input', function(){ dr.prop = prop.value; });
-  val.addEventListener('input', function(){ dr.val = val.value; });
   var ok = el('button', null, 'Add'); ok.type = 'submit';
   var cancel = el('button', null, 'Cancel'); cancel.type = 'button';
   cancel.addEventListener('click', function(){ state.newRule = false; state.draft = null; renderStyles(); });
@@ -730,7 +1283,7 @@ function newRuleForm(d){
       if (done) { state.newRule = false; state.draft = null; renderStyles(); }
     });
   });
-  [sel, prop, val, ok, cancel].forEach(function(x){ f.appendChild(x); });
+  [sel, name.el, ved.el, ok, cancel].forEach(function(x){ f.appendChild(x); });
   setTimeout(function(){ (dr.prop ? val : prop).focus(); }, 0);
   return f;
 }
