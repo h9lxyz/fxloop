@@ -90,8 +90,10 @@ internal object Reloads {
         val rel = ArrayList<String>()
         p.path("files").forEach { rel.add(it.asText().replace('\\', '/')) }
         if (p.hasNonNull("file")) rel.add(p.get("file").asText().replace('\\', '/'))
+        val carry = if (p.has("carryState")) p.get("carryState").asBoolean(true) else true
         return Fx.call {
             val registry = AgentRuntime.current().fxml
+            val stateCarried = ViewState.empty()
             val swapped = Json.array()
             val unregistered = Json.array()
             for (r in rel) {
@@ -111,15 +113,25 @@ internal object Reloads {
                         )
                     }
                     val where = NodePath.of(old)
+                    val snapshot = if (carry) runCatching { ViewState.capture(old) }.getOrNull() else null
                     swap(old, fresh as Node)
                     val controller = loader.getController<Any?>()
                     registry.replace(e, fresh, controller)
-                    swapped.add(Json.obj().put("file", r).put("at", where).put("controller", controller?.javaClass?.name))
+                    val carried = if (snapshot == null) ViewState.empty() else try {
+                        ViewState.restore(snapshot, fresh)
+                    } catch (ex: Exception) {
+                        ViewState.empty()
+                    }
+                    ViewState.merge(stateCarried, carried)
+                    val entry = Json.obj().put("file", r).put("at", where).put("controller", controller?.javaClass?.name)
+                    entry.set<ObjectNode>("stateCarried", carried)
+                    swapped.add(entry)
                 }
                 if (!any) unregistered.add(r)
             }
             val out = Json.obj()
             out.setNode("swapped", swapped)
+            out.setNode("stateCarried", stateCarried)
             if (unregistered.size() > 0) {
                 out.setNode("unregistered", unregistered)
                 out.put(
