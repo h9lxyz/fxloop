@@ -35,7 +35,7 @@ Then ask your agent to call `fx_get_app_status`: the first call builds the app, 
 | `fxloop-server` | The stdio MCP server (shaded `-all.jar`); builds, launches, supervises, reloads (Kotlin) |
 | `fxloop-maven-plugin` | `fxloop:prepare` writes `target/fxloop/launch.json` ([README](fxloop-maven-plugin/README.md)) |
 | `fxloop-gradle-plugin` | Gradle plugin `dev.fxloop`, task `fxloopPrepare` ([README](fxloop-gradle-plugin/README.md)); standalone Gradle build |
-| `sample-apps/*` | Java test targets: `fxloop-sample-app` (contacts), `fxloop-gauntlet-app` (dialogs, menus, tabs...), `fxloop-sample-app-gradle` |
+| `sample-apps/*` | Java test targets: `fxloop-sample-app` (contacts), `fxloop-gauntlet-app` (dialogs, menus, tabs...), `fxloop-sample-app-gradle`; `fxloop-showcase-app` (Kotlin/Gradle helpdesk with planted UI/UX issues for the skills demo, answer key in its `ISSUES.md`) |
 | `fxloop-acceptance` | End-to-end suite driving the server over MCP (`-Pacceptance`) |
 
 ## Documentation
