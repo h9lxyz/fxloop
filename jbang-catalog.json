@@ -1,0 +1,10 @@
+{
+  "catalogs": {},
+  "aliases": {
+    "fxloop": {
+      "script-ref": "dev.fxloop:fxloop-server:1.0.0-SNAPSHOT:all",
+      "description": "FXLoop MCP server: eyes, ears and hands for coding agents on JavaFX apps",
+      "main": "dev.fxloop.server.MainKt"
+    }
+  }
+}

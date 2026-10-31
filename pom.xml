@@ -361,6 +361,16 @@
             </executions>
           </plugin>
           <plugin>
+            <groupId>org.sonatype.central</groupId>
+            <artifactId>central-publishing-maven-plugin</artifactId>
+            <version>0.12.0</version>
+            <extensions>true</extensions>
+            <configuration>
+              <publishingServerId>central</publishingServerId>
+              <excludeArtifacts>fxloop-sample-app,fxloop-gauntlet-app,fxloop-acceptance</excludeArtifacts>
+            </configuration>
+          </plugin>
+          <plugin>
             <groupId>org.cyclonedx</groupId>
             <artifactId>cyclonedx-maven-plugin</artifactId>
             <executions>

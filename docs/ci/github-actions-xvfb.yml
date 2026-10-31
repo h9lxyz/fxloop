@@ -1,0 +1,33 @@
+# FXLoop in CI on Linux with a virtual X display (Xvfb): real Glass/Prism pipeline, works for every JavaFX line.
+# Copy to .github/workflows/ui-tests.yml in your JavaFX project.
+name: UI tests (Xvfb)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven            # use 'gradle' for Gradle projects
+      - name: Install Xvfb and fonts
+        run: sudo apt-get update && sudo apt-get install -y xvfb fonts-dejavu-core libgtk-3-0 libxtst6
+      # Stable tests run in the default surefire execution; @Tag("flaky") tests run in a separate
+      # non-failing execution during 'verify' (see docs/ci/README.md, "Flaky-test quarantine").
+      - name: Tests
+        run: xvfb-run -a -s "-screen 0 1600x1200x24" ./mvnw -B verify
+      # When driving the app through the FXLoop MCP server in CI, set FXLOOP_HEADLESS=xvfb instead
+      # (the server then wraps the launch in xvfb-run itself).
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fxloop-screens
+          path: target/fxloop/screens
+          if-no-files-found: ignore

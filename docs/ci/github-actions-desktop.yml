@@ -1,0 +1,33 @@
+# Non-headless "robot" lane on macOS and Windows runners (real windows, real java.awt.Robot input).
+# Use for the few tests that need genuine native behaviour; keep the bulk on Monocle/Xvfb.
+name: UI tests (desktop robot)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      # No headless properties: the runners provide an interactive session.
+      # macOS may need Accessibility permission for Robot input; if tests cannot click, prefer the Monocle lane there.
+      - run: ./mvnw -B verify -Dgroups=robot
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fxloop-screens-${{ matrix.os }}
+          path: target/fxloop/screens
+          if-no-files-found: ignore

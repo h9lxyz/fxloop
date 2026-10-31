@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "fxloop": {
+      "command": "java",
+      "args": ["-jar", "/abs/path/to/fxloop/fxloop-server/target/fxloop-server-1.0.0-SNAPSHOT-all.jar"],
+      "env": {
+        "FXLOOP_PROJECT_DIR": "/abs/path/to/fxloop/sample-apps/fxloop-sample-app",
+        "FXLOOP_APP_ARGS": "--seed"
+      }
+    }
+  }
+}

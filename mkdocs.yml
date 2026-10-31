@@ -1,0 +1,31 @@
+site_name: FXLoop
+site_description: Agentic dev-loop for JavaFX - MCP server + in-JVM agent
+repo_url: https://github.com/fxloop/fxloop
+theme:
+  name: material
+  features: [navigation.sections, content.code.copy]
+markdown_extensions:
+  - tables
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.superfences
+nav:
+  - Home: index.md
+  - Configuration: configuration.md
+  - Tools reference: tools.md
+  - Security: security.md
+  - Limitations: limitations.md
+  - Troubleshooting: troubleshooting.md
+  - CI:
+      - Overview: ci/README.md
+      - Monocle headless: ci/monocle.md
+  - Design:
+      - Overview: 00-overview.md
+      - PoC PRD: 01-prd-poc.md
+      - MVP PRD: 02-prd-mvp.md
+      - Production PRD: 03-prd-production.md
+      - Visual feedback PRD: 04-prd-visual-feedback.md
+      - Implementation tracking: 05-implementation-tracking.md
+  - Decisions:
+      - FXML load registry: decisions/fxml-load-registry.md
+      - Kotlin tooling: decisions/kotlin.md

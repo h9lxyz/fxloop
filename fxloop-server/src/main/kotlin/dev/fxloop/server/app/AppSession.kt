@@ -124,6 +124,8 @@ class AppSession(val config: Config) {
         cmd += d.jvmArgs
         cmd += config.jvmArgs
         if (config.testMode) cmd += "-Dfxloop.test=true"
+        // G10: JetBrains Runtime enhanced redefinition (structural hot-swaps); only meaningful on JBR via FXLOOP_JAVA_HOME
+        if (config.jbr) cmd += "-XX:+AllowEnhancedClassRedefinition"
         cmd += "-javaagent:${agentJar()}=handshake=$handshake,tokenFile=$tokenFile,state=${dir.resolve("state.json")},logs=${config.captureAppLogs}"
         val classpath = buildList {
             if (d.mainModule == null) add(d.outputDir)
