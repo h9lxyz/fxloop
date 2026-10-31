@@ -35,6 +35,8 @@ class AppSession(val config: Config) {
     val errors = EventRing(500)
     val appLogs = EventRing(2000)
     private val restartListeners = ArrayList<() -> Unit>()
+    private val eventListeners = java.util.concurrent.CopyOnWriteArrayList<(String, JsonNode) -> Unit>()
+    private val connectedListeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
 
     @Volatile var state = State.NEW
         private set
@@ -60,6 +62,16 @@ class AppSession(val config: Config) {
     /** Called after every (re)launch, e.g. to re-baseline reload change detection. */
     fun onLaunched(listener: () -> Unit) {
         restartListeners += listener
+    }
+
+    /** Receives agent events other than uiError/appLog (humanAction, humanPick, humanRestartRequest, controlModeChanged). */
+    fun onAgentEvent(listener: (String, JsonNode) -> Unit) {
+        eventListeners += listener
+    }
+
+    /** Called after [connectExisting] succeeded (embedded or attached agents; supervised launches use [onLaunched]). */
+    fun onConnected(listener: () -> Unit) {
+        connectedListeners += listener
     }
 
     /** Implicit start on first use (PRD 01 §14 Q1). Returns true when this call started the app. */
@@ -234,6 +246,7 @@ class AppSession(val config: Config) {
         when (event) {
             Fcp.Event.UI_ERROR -> errors.add(payload)
             Fcp.Event.APP_LOG -> appLogs.add(payload)
+            else -> eventListeners.forEach { l -> runCatching { l(event, payload) } }
         }
     }
 
@@ -330,11 +343,14 @@ class AppSession(val config: Config) {
                 "use fx_start_app for supervised apps")
             connect(hs.port, token)
             mode = newMode
+            // embedded apps are built from this project: reload tiers need its source roots and output dir (attach has none)
+            if (newMode == Mode.EMBEDDED && descriptor == null) descriptor = try { build.prepare() } catch (e: RuntimeException) { null }
             state = State.RUNNING
             pid = hs.pid
             startedAt = hs.startedAt
             process = null
             newLaunch()
+            connectedListeners.forEach { l -> runCatching { l() } }
             return status()
         } catch (e: IOException) {
             throw ToolException("CONNECT_FAILED", "cannot connect via $handshakeFile: ${e.message}",
@@ -361,6 +377,7 @@ class AppSession(val config: Config) {
                 s.set<JsonNode>("windows", st["windows"])
                 s.set<JsonNode>("fxml", st["fxml"])
                 s.put("redefineSupported", st.path("redefineSupported").asBoolean())
+                listOf("human", "mounts", "pickActive").forEach { k -> st[k]?.let { s.set<JsonNode>(k, it) } }
                 s.put("fcpVersion", c.hello.path("fcpVersion").asInt())
                 s.put("javaVersion", c.hello.path("javaVersion").asText())
                 s.put("vmName", c.hello.path("vmName").asText())

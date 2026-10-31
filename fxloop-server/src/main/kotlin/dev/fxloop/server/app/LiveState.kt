@@ -1,0 +1,187 @@
+package dev.fxloop.server.app
+
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.ArrayNode
+import com.fasterxml.jackson.databind.node.ObjectNode
+import dev.fxloop.protocol.Fcp
+import dev.fxloop.protocol.FcpException
+import dev.fxloop.protocol.Json
+import dev.fxloop.server.Config
+import dev.fxloop.server.mcp.ToolException
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+
+/** One entry of the dev bar's "action needed" segment and of `fx_get_app_status.actionNeeded` (PRD 07 §7.1). */
+data class ActionNeeded(val kind: String, val reason: String, val next: String, val button: String? = null) {
+    fun toJson(): ObjectNode = Json.obj {
+        put("kind", kind)
+        put("reason", reason)
+        put("next", next)
+        button?.let { put("button", it) }
+    }
+}
+
+/**
+ * Server-side live-session state (PRD 07 §6–7): control mode, the developer's activity, the action-needed list and
+ * the last reload. It is the single source of truth for the dev bar: every change is pushed to the agent as a full
+ * `setBarState` and to the live viewer as an SSE `status` event. See docs/decisions/live-dev-loop.md.
+ */
+class LiveState(private val config: Config, private val session: AppSession) {
+    enum class Control { AGENT, SHARED }
+
+    @Volatile var control: Control = if (config.control == "shared") Control.SHARED else Control.AGENT
+        private set
+
+    /** Current watch mode (`css-only|all|off`); set by the owner of the watcher. */
+    @Volatile var watchMode: () -> String = { "off" }
+
+    /** Receives the compact JSON of every pushed state (the live viewer's `status` event). */
+    @Volatile var statusSink: ((String) -> Unit)? = null
+
+    @Volatile private var lastHumanMs = 0L
+    @Volatile private var lastPickMs = 0L
+    @Volatile private var lastPickTarget: JsonNode? = null
+    @Volatile private var autoLocked = config.control != "auto"
+    @Volatile private var drivingNow = false
+    @Volatile private var items: List<ActionNeeded> = emptyList()
+    @Volatile private var lastReloadText = ""
+    @Volatile private var lastReloadOk = true
+    @Volatile private var reloadSeq = 0
+    private val pushQueued = AtomicBoolean(false)
+    private val pusher = Executors.newSingleThreadExecutor { r -> Thread(r, "fxloop-live-push").apply { isDaemon = true } }
+
+    /** Number of recorded reloads; lets a caller tell whether somebody else already reported one. */
+    fun reloadCount(): Int = reloadSeq
+
+    /** Switches control (`via`: tool, bar, auto) and pushes; returns `{control, previous, via}`. */
+    fun setControl(mode: Control, via: String): ObjectNode {
+        val previous = control
+        control = mode
+        if (via != "auto") autoLocked = true
+        push()
+        return Json.obj {
+            put("control", mode.name.lowercase())
+            put("previous", previous.name.lowercase())
+            put("via", via)
+        }
+    }
+
+    /** A `humanAction` event arrived: records activity; `FXLOOP_CONTROL=auto` switches agent → shared once. */
+    fun onHumanAction(payload: JsonNode) {
+        lastHumanMs = System.currentTimeMillis()
+        if (!autoLocked && control == Control.AGENT) {
+            autoLocked = true
+            setControl(Control.SHARED, "auto")
+        }
+    }
+
+    /** A `humanPick` event arrived (remembered for `status`). */
+    fun onHumanPick(payload: JsonNode) {
+        lastPickMs = payload.path("ts").asLong(System.currentTimeMillis())
+        lastPickTarget = payload["target"]
+    }
+
+    /** True when a restart must wait for the developer: control is shared, or human input within FXLOOP_HUMAN_IDLE_MS. */
+    fun shouldDeferRestart(): Boolean =
+        control == Control.SHARED || (lastHumanMs > 0 && System.currentTimeMillis() - lastHumanMs < config.humanIdleMs)
+
+    /** Records the outcome of a reload (bar "last reload" + action-needed list) and pushes. */
+    fun reloaded(lastReload: String, ok: Boolean, actionNeeded: List<ActionNeeded>) {
+        lastReloadText = lastReload
+        lastReloadOk = ok
+        reloadSeq++
+        items = actionNeeded.toList()
+        push()
+    }
+
+    /** Replaces the action-needed list (e.g. cleared after a restart) and pushes. */
+    fun setActionNeeded(items: List<ActionNeeded>) {
+        this.items = items.toList()
+        push()
+    }
+
+    /** The current action-needed entries. */
+    fun actionItems(): List<ActionNeeded> = items
+
+    fun actionNeeded(): ArrayNode = Json.array().also { a -> items.forEach { a.add(it.toJson()) } }
+
+    /** Replay / agent-driven phases: the bar shows "Agent is driving — hands off" while active. */
+    fun driving(active: Boolean) {
+        drivingNow = active
+        push()
+    }
+
+    /** The full `setBarState` payload. */
+    fun barState(): ObjectNode = Json.obj {
+        put("bar", barSetting())
+        put("mode", modeText())
+        put("control", control.name.lowercase())
+        put("driving", drivingNow)
+        put("watch", watchMode())
+        putObject("lastReload").put("text", lastReloadText).put("ok", lastReloadOk).put("seq", reloadSeq)
+        set<JsonNode>("actionNeeded", actionNeeded())
+        putObject("config").put("recordHuman", config.recordHuman).put("pickKey", config.pickKey).put("restartKey", config.restartKey)
+    }
+
+    private fun barSetting(): String = when (config.bar) {
+        "on", "pill", "off" -> config.bar
+        else -> if (config.headless != null) "off" else "on"
+    }
+
+    private fun modeText(): String = when (session.mode) {
+        AppSession.Mode.EMBEDDED -> "embedded"
+        AppSession.Mode.ATTACHED -> "attached"
+        AppSession.Mode.LAUNCHED -> when {
+            config.headless == null -> "dev loop"
+            config.headless.equals("xvfb", true) -> "headless (xvfb)"
+            else -> "headless (monocle)"
+        }
+    }
+
+    /** Best-effort, non-blocking push of [barState] to the agent and of a `status` event to the viewer. Bursts coalesce. */
+    fun push() {
+        if (!pushQueued.compareAndSet(false, true)) return
+        try {
+            pusher.execute { doPush() }
+        } catch (_: RuntimeException) {
+            pushQueued.set(false)
+        }
+    }
+
+    private fun doPush() {
+        pushQueued.set(false)
+        val state = barState()
+        if (session.connected) {
+            try {
+                session.call(Fcp.Method.SET_BAR_STATE, state, 3000)
+            } catch (_: FcpException) {
+                // older agents answer UNKNOWN_METHOD; the bar is optional
+            } catch (_: ToolException) {
+                // app went away between the check and the call
+            }
+        }
+        statusSink?.let { runCatching { it(state.toString()) } }
+    }
+
+    /** `{control, controlSetting, human:{lastActivityMs?, focusedWindow?, …}, actionNeeded, bar}` for fx_get_app_status. */
+    fun status(agentHuman: JsonNode?): ObjectNode {
+        val human = (agentHuman as? ObjectNode)?.deepCopy() ?: Json.obj()
+        val now = System.currentTimeMillis()
+        if (lastHumanMs > 0) {
+            val server = now - lastHumanMs
+            val agent = if (human.has("lastActivityMs")) human.path("lastActivityMs").asLong(Long.MAX_VALUE) else Long.MAX_VALUE
+            human.put("lastActivityMs", minOf(server, agent))
+        }
+        if (lastPickMs > 0) {
+            human.put("lastPickAgoMs", now - lastPickMs)
+            lastPickTarget?.let { human.set<JsonNode>("lastPickTarget", it) }
+        }
+        return Json.obj {
+            put("control", control.name.lowercase())
+            put("controlSetting", config.control)
+            set<JsonNode>("human", human)
+            set<JsonNode>("actionNeeded", actionNeeded())
+            put("bar", barSetting())
+        }
+    }
+}

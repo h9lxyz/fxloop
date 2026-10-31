@@ -28,9 +28,15 @@ Errors come back as tool results with `isError`, an error `code`, a message and 
 | `BAD_REQUEST` | Bad parameters, or a path outside the project dir |
 | `WINDOW_NOT_FOUND`, `PROPERTY_NOT_FOUND`, `COERCION_FAILED`, `UNSUPPORTED_TARGET`, `FXML_NOT_REGISTERED` | Wrong target or value type; use `fx_get_app_status`, `fx_get_node_details`, `fx_get_property` to discover valid ones |
 | `UNAUTHORIZED`, `VERSION_MISMATCH` | FCP token/protocol mismatch: stale agent jar (`FXLOOP_AGENT_JAR`) or wrong handshake |
+| `PICK_STALE` | `fx_get_picked` or a `{"picked": true}` target: the pick is older than 10 minutes or its node left the scene; pick again |
 
 ## Common situations
 
 * **Nothing appears on Linux CI/SSH:** no display. Use `FXLOOP_HEADLESS=monocle` or `xvfb`, see [CI](ci/README.md).
 * **Server prints to stdout and the client breaks:** never wrap the server in scripts that echo to stdout; logs belong on stderr.
 * **Screenshots missing:** they are under `target/fxloop/screens` (`build/fxloop/screens` for Gradle); `FXLOOP_SCREENS_KEEP` limits retention.
+* **My code-built view did not change after `fx_reload`:** the view is not wrapped in `FxLoopDev.view`, so only code that runs again changes. Wrap it with a method reference (`FxLoopDev.view("key", this::buildX)`). Then check the `remount` tier in the result: `remounted` lists the key, and `skipped` or `failed` give the reason. If you added a lambda or a method, that is a structural change and needs a restart (`REDEFINE_REJECTED`).
+* **`fx_reload` says `restartDeferred: "humanActive"`:** the developer is active (shared control, or human input within `FXLOOP_HUMAN_IDLE_MS`, 10 s), so nothing restarted and the PID is unchanged. Restart when the developer is ready: click **Restart** on the bar, press `Ctrl+Shift+F5`, call `fx_restart_app`, or call `fx_reload{restartWhenHumanActive:true}`.
+* **The dev bar is not visible:** it is off when `FXLOOP_BAR=off`, and `auto` turns it off on headless runs. There, mode, control and pending actions show in the live viewer (`FXLOOP_VIEWER`) instead. On Wayland, macOS fullscreen spaces and tiling window managers the bar can fall back to a corner pill or be off; try `FXLOOP_BAR=pill`. Bar failures are logged (`FXLOOP_LOG=debug`), and `fx_get_app_status` always reports the same state.
+* **The agent moves my mouse:** the agent is in `agent` control, where robot input moves the real pointer and types into the focused window. Click **Let me drive** on the bar, call `fx_set_control_mode{mode:"shared"}`, or set `FXLOOP_CONTROL=shared`. Actions then default to synthetic events. An explicit `mode:"robot"` still moves the pointer, and the bar shows **Agent is using your mouse** while it runs.
+* **`fx_get_picked` returns `PICK_STALE`:** the pick is older than 10 minutes, or its node has left the scene. Pick again with the bar's **Pick** button or `Ctrl+Shift+F12`, then ask the agent to check it.

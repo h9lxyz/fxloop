@@ -33,6 +33,14 @@ data class Config(
     val screenshotRatePerSec: Double = 2.0,
     val testMode: Boolean = false,
     val replayOnRestart: Boolean = true,
+    // Live dev loop (PRD 07 §9)
+    val restage: Boolean = false,
+    val recordHuman: Boolean = true,
+    val humanIdleMs: Long = 10_000,
+    val control: String = "auto",
+    val bar: String = "auto",
+    val pickKey: String = "Ctrl+Shift+F12",
+    val restartKey: String = "Ctrl+Shift+F5",
 ) {
     companion object {
         const val PROJECT_FILE = "fxloop.properties"
@@ -76,6 +84,13 @@ data class Config(
                 screenshotRatePerSec = str("FXLOOP_SCREENSHOT_RATE")?.toDouble() ?: 2.0,
                 testMode = bool("FXLOOP_TEST"),
                 replayOnRestart = !"false".equals(str("FXLOOP_REPLAY"), ignoreCase = true),
+                restage = bool("FXLOOP_RESTAGE"),
+                recordHuman = !"false".equals(str("FXLOOP_RECORD_HUMAN"), ignoreCase = true),
+                humanIdleMs = str("FXLOOP_HUMAN_IDLE_MS")?.toLong() ?: 10_000,
+                control = str("FXLOOP_CONTROL")?.lowercase() ?: "auto",
+                bar = str("FXLOOP_BAR")?.lowercase() ?: "auto",
+                pickKey = str("FXLOOP_PICK_KEY") ?: "Ctrl+Shift+F12",
+                restartKey = str("FXLOOP_RESTART_KEY") ?: "Ctrl+Shift+F5",
             )
         }
 

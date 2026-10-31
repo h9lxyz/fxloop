@@ -206,7 +206,7 @@ internal class FcpServer(private val runtime: AgentRuntime) {
     }
 
     /** Called on application threads (FX thread, loggers): never blocks — drops the oldest event when full. */
-    private fun emit(event: String, payload: ObjectNode) {
+    internal fun emit(event: String, payload: ObjectNode) {
         if (current.get() == null) return
         val frame = FcpFrame.event(event, payload)
         while (!events.offer(frame)) events.poll()

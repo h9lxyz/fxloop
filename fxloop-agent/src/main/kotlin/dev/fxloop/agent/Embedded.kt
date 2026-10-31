@@ -16,6 +16,7 @@ object Embedded {
         val options = AgentOptions(
             handshake, null, state?.let { Path.of(it) },
             "true".equals(System.getProperty("fxloop.logs"), ignoreCase = true), inst != null,
+            recordHuman = !"false".equals(System.getProperty("fxloop.recordHuman"), ignoreCase = true),
         )
         return AgentRuntime.start(options, inst, "embedded")
     }

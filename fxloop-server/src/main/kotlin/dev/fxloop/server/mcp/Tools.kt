@@ -76,6 +76,7 @@ class Schema {
         str("path", "Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn")
         str("query", "CSS selector that must match exactly one node, e.g. #addBtn")
         integer("windowIndex", "Window index (see fx_get_app_status.windows); default: focused window")
+        bool("picked", "Target the node the developer picked in pick mode (see fx_get_picked)")
     }
 
     fun effects() = bool("effects", "Attach the scene-diff 'effects' of this action (default true)")

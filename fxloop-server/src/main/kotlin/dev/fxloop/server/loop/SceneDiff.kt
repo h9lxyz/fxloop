@@ -103,8 +103,9 @@ class Journal(private val capacity: Int = 500) {
     private var seq = 0L
 
     @Synchronized
-    fun record(tool: String, args: ObjectNode, target: ObjectNode?, effects: ObjectNode?, windowFingerprint: String): JournalEntry {
-        val e = JournalEntry(++seq, tool, args, target, effects, windowFingerprint, System.currentTimeMillis())
+    fun record(tool: String, args: ObjectNode, target: ObjectNode?, effects: ObjectNode?, windowFingerprint: String,
+        source: String = "agent", redacted: Boolean = false): JournalEntry {
+        val e = JournalEntry(++seq, tool, args, target, effects, windowFingerprint, System.currentTimeMillis(), source, redacted)
         ring.addLast(e)
         while (ring.size > capacity) ring.removeFirst()
         return e

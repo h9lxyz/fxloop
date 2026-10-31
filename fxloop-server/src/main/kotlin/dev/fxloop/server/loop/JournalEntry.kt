@@ -12,6 +12,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode
  * @property effects scene-diff effects observed after the action (`{added, removed, changed, windowChanges,
  *   overflow}`), or `null` when effects were disabled
  * @property windowFingerprint pre-action window list fingerprint, e.g. `"Stage:FXLoop Sample — Contacts|"`
+ * @property source `agent` (an MCP action tool) or `human` (the developer's own input, PRD 07 §5)
+ * @property redacted true for human edits of a `PasswordField`: the value was never recorded and replay skips it
  */
 data class JournalEntry(
     val seq: Long,
@@ -21,4 +23,6 @@ data class JournalEntry(
     val effects: ObjectNode?,
     val windowFingerprint: String,
     val ts: Long,
+    val source: String = "agent",
+    val redacted: Boolean = false,
 )

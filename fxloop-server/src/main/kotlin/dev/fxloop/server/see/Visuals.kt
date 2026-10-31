@@ -76,6 +76,19 @@ class Visuals(private val session: AppSession, val store: ScreenStore, private v
         return Capture(f, png, out)
     }
 
+    /**
+     * Persists the node snapshot of an agent result carrying `pngB64` (e.g. `getPicked`) like a node screenshot and
+     * returns the frame description merged with the result's other fields.
+     */
+    fun persistNodeShot(r: ObjectNode, label: String): Capture {
+        val png = Base64.getDecoder().decode(r["pngB64"].asText())
+        val meta = r.deepCopy().apply { remove("pngB64") }
+        val f = store.save(png, label, "screenshot")
+        val out = describe(f)
+        out.setAll<JsonNode>(meta)
+        return Capture(f, png, out)
+    }
+
     /** Small internal window capture for automatic diffs (no image block). */
     fun captureForDiff(label: String): Frame =
         capture(Json.obj { put("target", "window"); put("maxWidth", DIFF_WIDTH); put("settleMs", 150) }, label).frame

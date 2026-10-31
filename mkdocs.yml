@@ -32,3 +32,4 @@ nav:
   - Decisions:
       - FXML load registry: decisions/fxml-load-registry.md
       - Kotlin tooling: decisions/kotlin.md
+      - Live dev loop: decisions/live-dev-loop.md

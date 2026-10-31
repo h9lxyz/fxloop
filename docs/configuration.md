@@ -34,6 +34,13 @@ headless=xvfb
 | `FXLOOP_SCREENS_KEEP` / `--screens-keep` | `100` | Persisted screenshots retained (ring). |
 | `FXLOOP_SCREENSHOT_RATE` / `--screenshot-rate` | `2.0` | Max screenshots per second (rate cap). |
 | `FXLOOP_REPLAY` / `--replay` | `true` | Replay the action journal after a restart; `false` disables by default. |
+| `FXLOOP_RESTAGE` / `--restage` | `false` | Experimental zero-config remount: when no `FxLoopDev.view` mounts exist, re-runs `Application.start` on the primary stage after clearing its scene (tier `restage`). `start()` may start services or timers twice. |
+| `FXLOOP_RECORD_HUMAN` / `--record-human` | `true` | Journal the developer's own clicks, key presses and text commits (`source: human`) in launched and embedded modes. Memory only; `PasswordField` content is never recorded. `false` disables capture. |
+| `FXLOOP_HUMAN_IDLE_MS` / `--human-idle-ms` | `10000` | Human input within this window defers restarts (`restartDeferred: humanActive`). |
+| `FXLOOP_CONTROL` / `--control` | `auto` | `auto` starts in `agent` and switches to `shared` on the first human input, never back. `agent`: the agent may drive with robot input. `shared`: actions default to synthetic events. |
+| `FXLOOP_BAR` / `--bar` | `auto` | Dev bar on the app window: `on`, `pill` (corner pill) or `off`. `auto` is `on` with a real display and `off` headless. |
+| `FXLOOP_PICK_KEY` / `--pick-key` | `Ctrl+Shift+F12` | Hotkey that toggles pick mode on the focused window. |
+| `FXLOOP_RESTART_KEY` / `--restart-key` | `Ctrl+Shift+F5` | Hotkey for the bar's **Restart** button: restarts with replay. |
 | `FXLOOP_TEST` / `--test` | `false` | Adds `-Dfxloop.test=true` to the app and exposes test-only tool `fx_test_block_fx_thread`. Not for normal use. |
 | `FXLOOP_LOG` | slf4j default | Server log level (stderr), e.g. `debug`. stdout is reserved for MCP frames. |
 
@@ -53,3 +60,16 @@ What runs on start: Maven `compile dev.fxloop:fxloop-maven-plugin:<server versio
 ## Maven fallback without the plugin
 
 If the Maven run fails because `fxloop-maven-plugin` cannot be resolved, the server falls back to `compile` + `dependency:build-classpath` (runtime scope) and builds a classpath-mode descriptor with `target/classes` and `src/main/java`/`src/main/resources` as roots. This path **requires `FXLOOP_MAIN_CLASS`** (error `CONFIG` otherwise) and does not support module-path launches. Gradle has no fallback.
+
+## Live dev loop (fxloop-dev API)
+
+Code-built views re-render after a HotSwap only when they are wrapped in `FxLoopDev.view`. Wrapping is a plain passthrough when FXLoop is absent, so it is safe to leave in dev builds:
+
+```java
+tabs.getTabs().add(new Tab("Edit", FxLoopDev.view("edit-form", this::buildEditForm)));
+FxLoopDev.onReload(() -> table.refresh());
+```
+
+* `FxLoopDev.view(key, supplier)` re-runs the supplier after each successful HotSwap and swaps the new node into the old node's place.
+* `FxLoopDev.onReload(runnable)` runs after each successful reload, on the FX thread. Exceptions are reported, not thrown into the app.
+* **Use method references, not lambdas**, for the supplier (`this::buildEditForm`). A lambda body is a synthetic method of its class, so adding one is a structural change that stock HotSwap rejects. Editing the body of `buildEditForm` is a plain method-body swap. The same applies to `onReload` lambdas: a new one needs a restart, so change existing ones instead.

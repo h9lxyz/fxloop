@@ -26,6 +26,7 @@ class Harness(
     app: String = "fxloop-sample-app",
     webview: Boolean = false,
     headlessOverride: String? = null,
+    configure: (Config) -> Config = { it },
 ) : AutoCloseable {
     val repo: Path = Path.of(System.getProperty("fxloop.repo") ?: "..").toAbsolutePath().normalize()
     val project: Path = copyOf(repo, app)
@@ -44,7 +45,7 @@ class Harness(
 
     private fun createCtx(appArgs: List<String>, webview: Boolean, headlessOverride: String?): Ctx {
         val headless = headlessOverride ?: System.getenv("FXLOOP_ACCEPTANCE_HEADLESS") ?: "xvfb"
-        val config = Config(
+        val config = configure(Config(
             projectDir = project,
             // Maven apps use the repo wrapper; Gradle apps find their own gradlew (wrapper preference, PRD 03 §2)
             // Gradle runs without a daemon here: test runs must not leave ~1 GB daemons behind.
@@ -58,7 +59,7 @@ class Harness(
             screenshotRatePerSec = 0.0,
             watchMode = "off",
             startupTimeoutMs = 60_000,
-        )
+        ))
         return Ctx(config)
     }
 

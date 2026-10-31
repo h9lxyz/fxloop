@@ -75,7 +75,11 @@ object TestExporter {
 
         fun step(e: JournalEntry) {
             body.append('\n')
-            line("// step ${e.seq}: ${e.tool}")
+            line("// step ${e.seq}: ${e.tool}" + if (e.source == "human") " (recorded from the developer's own input)" else "")
+            if (e.redacted) {
+                todo("step ${e.seq} edited a password field; its value was not recorded — enter it by hand")
+                return
+            }
             val args = e.args
             when (e.tool) {
                 "fx_click_node" -> click(e)
