@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fxloop.dev/schema/launch.schema.json",
+  "title": "FXLoop launch descriptor",
+  "description": "Emitted by fxloop:prepare (Maven) and fxloopPrepare (Gradle); consumed by fxloop-server.",
+  "type": "object",
+  "required": ["schemaVersion", "buildTool", "mainClass", "workingDir", "outputDir"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "buildTool": {"enum": ["maven", "gradle"]},
+    "mainClass": {"type": "string", "minLength": 1},
+    "mainModule": {"type": "string"},
+    "classpath": {"type": "array", "items": {"type": "string"}},
+    "modulePath": {"type": "array", "items": {"type": "string"}},
+    "addModules": {"type": "array", "items": {"type": "string"}},
+    "jvmArgs": {"type": "array", "items": {"type": "string"}},
+    "appArgs": {"type": "array", "items": {"type": "string"}},
+    "workingDir": {"type": "string"},
+    "sourceRoots": {"type": "array", "items": {"type": "string"}},
+    "resourceRoots": {"type": "array", "items": {"type": "string"}},
+    "outputDir": {"type": "string"},
+    "release": {"type": "string"},
+    "annotationProcessors": {"type": "boolean"},
+    "fcp": {"type": "object", "description": "Reserved for FCP overrides."}
+  },
+  "additionalProperties": false
+}
