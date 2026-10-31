@@ -89,9 +89,13 @@ class AppSession(val config: Config) {
         return true
     }
 
-    /** Connected FCP client or an actionable error. Auto-starts a never-started app. */
+    /**
+     * Connected FCP client or an actionable error. Auto-starts a never-started app. Takes the monitor only for that
+     * first start: a reload holding the [dev.fxloop.server.loop.Reloader] lock calls in here while a restart holds
+     * this monitor and waits for the Reloader lock (re-baselining after launch), which deadlocked.
+     */
     fun fcp(): FcpClient {
-        ensureStarted()
+        if (state == State.NEW) ensureStarted()
         val c = fcp
         if (c == null || !c.isOpen) {
             refreshExit()
@@ -294,7 +298,7 @@ class AppSession(val config: Config) {
         fcp?.close()
         fcp = null
         killProcess()
-        state = State.NEW
+        state = State.STOPPED // not NEW: a concurrent fcp() must fail fast instead of queueing an implicit start
         val reused = reuseDescriptor && descriptor != null
         start(reused)
         return Json.obj {

@@ -323,8 +323,11 @@ class Ctx(val config: Config) {
     }
 
     /** Restart (tier 4 / `fx_restart_app`), optionally replaying the journal recorded before it. */
-    /** @param rebuild false skips the build-tool prepare (see [Reloader.rebuildOnRestart]) */
-    fun restartWithReplay(replay: Boolean, rebuild: Boolean = true): ObjectNode {
+    /**
+     * @param rebuild false skips the build-tool prepare; by default only when every edit since the last checkpoint is
+     * already compiled into `outputDir` ([Reloader.upToDate], [Reloader.rebuildOnRestart])
+     */
+    fun restartWithReplay(replay: Boolean, rebuild: Boolean = !reloader.upToDate()): ObjectNode {
         val entries = journal.entries()
         val r = session.restart(reuseDescriptor = !rebuild)
         if (replay && entries.isNotEmpty()) r.set<JsonNode>("replay", replay(entries))

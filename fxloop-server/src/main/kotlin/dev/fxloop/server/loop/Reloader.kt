@@ -55,6 +55,30 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
     private val sources = ChangeScanner()
     private val outputs = ChangeScanner()
 
+    /**
+     * Source/resource file → (mtime, live) for every file a reload since the last checkpoint already brought into
+     * `outputDir`; `live` = also swapped into the running app. Watch-mode reloads do not advance the baseline, so this
+     * keeps a watch reload and an explicit `fx_reload` from compiling the same edit twice, and tells a restart whether
+     * `outputDir` is already current ([upToDate]).
+     */
+    private val applied = HashMap<Path, Pair<Long, Boolean>>()
+
+    private fun markApplied(files: List<Path>, live: Boolean) {
+        for (f in files) applied[f] = f.toFile().lastModified() to live
+    }
+
+    private fun appliedLive(f: Path): Boolean = applied[f]?.let { it.second && it.first == f.toFile().lastModified() } == true
+
+    /** Whether every change since the last checkpoint is already in `outputDir`, so a restart may skip the build-tool prepare. */
+    @Synchronized
+    fun upToDate(): Boolean {
+        val d = session.descriptor ?: return false
+        if (session.config.externalCompile) return false
+        return sources.changes(watchedRoots(d)).all { c ->
+            !c.deleted && c.file.name !in BUILD_FILES && applied[c.file]?.first == c.file.toFile().lastModified()
+        }
+    }
+
     /** Re-baselines change detection; called after launch and after each reload. */
     @Synchronized
     /** @param sinceMs for an app started outside fxloop: its start time, so edits made before connecting still reload */
@@ -62,6 +86,7 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
         val d = session.descriptor ?: return
         sources.checkpoint(watchedRoots(d), sinceMs)
         outputs.checkpoint(listOf(Path.of(d.outputDir)), sinceMs)
+        applied.clear()
     }
 
     fun watchedRoots(d: LaunchDescriptor): List<Path> =
@@ -87,7 +112,12 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
         val kotlin = ArrayList<Path>()
         val other = ArrayList<Path>()
         val reasons = Json.array()
+        val alreadyApplied = ArrayList<Path>()
         for (c in changes(opt, d)) {
+            if (!c.deleted && appliedLive(c.file)) {
+                alreadyApplied.add(c.file) // a concurrent watch/explicit reload already swapped this exact edit
+                continue
+            }
             val name = c.file.name
             val lower = name.lowercase()
             when {
@@ -106,11 +136,13 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
         var sourcesCompiled = false
         var fxmlSwapped = 0
 
+        if (alreadyApplied.isNotEmpty()) out.set<JsonNode>("alreadyApplied", Json.strings(alreadyApplied.map(visuals::relative)))
         if (other.isNotEmpty()) {
             val t0 = System.currentTimeMillis()
             tiers.add(tier("resources", copyResources(d, other), t0, Json.obj { put("note", "copied to outputDir; takes effect on next load") }))
+            markApplied(other, false)
         }
-        if (css.isNotEmpty()) cssTier(d, css, opt, tiers, out)
+        if (css.isNotEmpty()) cssTier(d, css, opt, tiers, out).also { markApplied(css, true) }
         else if (opt.clearScratch) scratchTier(tiers)
         if (fxml.isNotEmpty()) {
             val t0 = System.currentTimeMillis()
@@ -121,6 +153,7 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
             }) as ObjectNode
             tiers.add(tier("fxml", rels, t0, r))
             fxmlSwapped = r.path("swapped").size()
+            markApplied(fxml, r["unregistered"] == null)
             r["stateCarried"]?.let { mergeCarried(out, it) }
             r["unregistered"]?.let { u ->
                 needsRestart = true
@@ -144,8 +177,12 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
                     false -> {
                         sourcesCompiled = true
                         needsRestart = true
+                        markApplied(java + kotlin, false)
                     }
-                    true -> sourcesCompiled = true
+                    true -> {
+                        sourcesCompiled = true
+                        markApplied(java + kotlin, true)
+                    }
                 }
             }
         }
@@ -174,7 +211,8 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
                 RestartDecision.NONE -> {}
             }
         }
-        if (tiers.isEmpty) out.put("note", "no changes detected since the last reload/launch")
+        if (tiers.isEmpty && alreadyApplied.isNotEmpty()) out.put("note", "already applied by an earlier reload (watch mode); nothing to do")
+        else if (tiers.isEmpty) out.put("note", "no changes detected since the last reload/launch")
         else for (l in listeners) runCatching { l(out) }
         if (opt.consume) checkpoint()
         return out
@@ -225,7 +263,7 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
         return files.map { f ->
             val p = if (Path.of(f).isAbsolute) Path.of(f) else visuals.confine(f)
             ChangeScanner.Change(p, !p.exists())
-        }
+        }.filter { opt.consume || it.deleted || !sources.unchanged(it.file) } // watch: an explicit fx_reload already took it
     }
 
     /** Drops the inspector's scratch stylesheet (PRD 08 §5); an older agent without it is ignored. */

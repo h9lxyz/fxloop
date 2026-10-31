@@ -28,6 +28,10 @@ class ChangeScanner {
             (baseline.keys - now.keys).map { Change(it, true) }
     }
 
+    /** Whether [file] still has the modification time recorded at the last checkpoint (an edit already reloaded). */
+    @Synchronized
+    fun unchanged(file: Path): Boolean = baseline[file]?.let { it == file.toFile().lastModified() } == true
+
     private fun scan(roots: List<Path>): Map<Path, Long> = buildMap {
         for (r in roots) {
             when {
