@@ -6,6 +6,8 @@ import javafx.fxml.FXMLLoader
 import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.function.Supplier
+import javafx.scene.Node
 
 /**
  * Embedded mode (PRD 02 §9, F9) and Plan B of the FXML load-registry (PRD 02 §4) — public API for apps launched
@@ -51,6 +53,34 @@ object FxLoopDev {
         val location = loader.location ?: return
         val root = loader.getRoot<Any?>() ?: return
         AgentRuntime.get()?.fxml?.record(location, root, loader.getController<Any?>(), "track")
+    }
+
+    /**
+     * Registers a view factory for live remounting (PRD 07 §3) and returns the node it builds. After a hotswap the
+     * agent calls [supplier] again and swaps the fresh node into the scene, so edits to the builder's body show up
+     * without a restart. Plain passthrough (`supplier.get()`) when the agent is absent or disabled.
+     *
+     * Why method references: pass `this::buildEditForm`, not a lambda such as `() -> new EditForm()` — the lambda
+     * body is compiled into a synthetic method of the enclosing class that a hotswap cannot always replace, and it
+     * captures state at registration time. A method reference re-resolves to the live method on every call, so the
+     * redefined body is what runs.
+     *
+     * ```java
+     * root.setCenter(FxLoopDev.view("edit-form", this::buildEditForm));
+     * ```
+     * [key] identifies the mount; registering the same key again replaces it.
+     */
+    @JvmStatic
+    fun <T : Node> view(key: String, supplier: Supplier<T>): T {
+        val node = supplier.get()
+        AgentRuntime.get()?.mounts?.register(key, supplier, node)
+        return node
+    }
+
+    /** Runs [callback] on the FX thread after every successful hotswap or FXML tier (no-op without the agent). */
+    @JvmStatic
+    fun onReload(callback: Runnable) {
+        AgentRuntime.get()?.mounts?.onReload(callback)
     }
 
     private fun handshakePath(): Path {
