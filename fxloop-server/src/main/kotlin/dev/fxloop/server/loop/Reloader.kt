@@ -39,6 +39,7 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
         val remount: Boolean = true,
         val carryState: Boolean = true,
         val restartWhenHumanActive: Boolean = false,
+        val clearScratch: Boolean = false,
     )
 
     /** What tier 4 does with a needed restart (PRD 07 §6). */
@@ -105,6 +106,7 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
             tiers.add(tier("resources", copyResources(d, other), t0, Json.obj { put("note", "copied to outputDir; takes effect on next load") }))
         }
         if (css.isNotEmpty()) cssTier(d, css, opt, tiers, out)
+        else if (opt.clearScratch) scratchTier(tiers)
         if (fxml.isNotEmpty()) {
             val t0 = System.currentTimeMillis()
             val rels = copyResources(d, fxml)
@@ -218,11 +220,30 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
         }
     }
 
+    /** Drops the inspector's scratch stylesheet (PRD 08 §5); an older agent without it is ignored. */
+    private fun clearScratch(): ObjectNode? = try {
+        session.call(Fcp.Method.CSS_SCRATCH_CLEAR, Json.obj()) as? ObjectNode
+    } catch (e: FcpException) {
+        if (e.code != Fcp.Error.UNKNOWN_METHOD) throw e
+        null
+    }
+
+    private fun scratchTier(tiers: ArrayNode) {
+        val t0 = System.currentTimeMillis()
+        clearScratch()?.let { tiers.add(tier("scratch", emptyList(), t0, Json.obj { put("cleared", true) })) }
+    }
+
+    /**
+     * With [Options.clearScratch] the "before" frame still shows the scratch CSS and the "after" frame shows only the
+     * edited stylesheets, so a near-zero diff confirms the source edit reproduces what the developer tried live.
+     */
     private fun cssTier(d: LaunchDescriptor, css: List<Path>, opt: Options, tiers: ArrayNode, out: ObjectNode) {
         val before = if (opt.visualDiff) safeCapture("css-before") else null
         val t0 = System.currentTimeMillis()
         val rels = copyResources(d, css)
+        val cleared = opt.clearScratch && clearScratch() != null
         val r = session.call(Fcp.Method.RELOAD_CSS, Json.obj { set<JsonNode>("files", Json.strings(rels)) }) as ObjectNode
+        if (cleared) r.put("scratchCleared", true)
         tiers.add(tier("css", rels, t0, r))
         if (before == null) return
         val after = safeCapture("css-after") ?: return
@@ -230,7 +251,14 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
         val vd = c.structured
         vd.put("beforeSeq", before.seq)
         vd.put("afterSeq", after.seq)
+        r["scratchRules"]?.let {
+            vd.put("scratchCss", "${it.asInt()} inspector scratch rule(s) are active: part of this frame comes from scratch CSS, not source")
+        }
         when {
+            cleared && c.diff.changedPct < NO_CHANGE_PCT -> vd.put("hint",
+                "the stylesheet edits reproduce the scratch CSS: no visual change after clearing it")
+            cleared -> vd.put("hint",
+                "the frame changed after clearing the scratch CSS: the stylesheet edits do not fully reproduce it (see regions)")
             // "≈ 0": below 0.05 % only caret blink / AA noise can be left (PRD 04 §4)
             c.diff.changedPct < NO_CHANGE_PCT -> vd.put("hint",
                 "no visual change — the edited selector may not match any node; check fx_explain_style on the intended target")

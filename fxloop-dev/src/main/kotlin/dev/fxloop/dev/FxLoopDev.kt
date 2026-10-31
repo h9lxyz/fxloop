@@ -46,13 +46,12 @@ object FxLoopDev {
         return root
     }
 
-    /** Registers an already-loaded [FXMLLoader] (its location, root and controller) for live swaps. */
+    /** Registers an already-loaded [FXMLLoader] (its location, root, controller and loader settings) for live swaps. */
     @JvmStatic
     fun track(loader: FXMLLoader) {
         if (AgentRuntime.get() == null && System.getProperty("fxloop.dev").toBoolean()) install()
-        val location = loader.location ?: return
         val root = loader.getRoot<Any?>() ?: return
-        AgentRuntime.get()?.fxml?.record(location, root, loader.getController<Any?>(), "track")
+        AgentRuntime.get()?.fxml?.record(loader, root, "track")
     }
 
     /**

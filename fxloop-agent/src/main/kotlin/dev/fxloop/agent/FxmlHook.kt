@@ -49,7 +49,7 @@ internal object FxmlHook {
         @JvmStatic
         @Advice.OnMethodExit(suppress = Throwable::class)
         fun exit(@Advice.This self: javafx.fxml.FXMLLoader?, @Advice.Return root: Any?) {
-            FxmlRegistry.recordFromHook(self?.location, root, self?.getController<Any?>())
+            FxmlRegistry.recordFromHook(self, root)
         }
     }
 }

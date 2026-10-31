@@ -407,7 +407,7 @@ class AppSession(val config: Config) {
                 s.set<JsonNode>("windows", st["windows"])
                 s.set<JsonNode>("fxml", st["fxml"])
                 s.put("redefineSupported", st.path("redefineSupported").asBoolean())
-                listOf("human", "mounts", "pickActive").forEach { k -> st[k]?.let { s.set<JsonNode>(k, it) } }
+                listOf("human", "mounts", "pickActive", "scratchCss").forEach { k -> st[k]?.let { s.set<JsonNode>(k, it) } }
                 s.put("fcpVersion", c.hello.path("fcpVersion").asInt())
                 s.put("javaVersion", c.hello.path("javaVersion").asText())
                 s.put("vmName", c.hello.path("vmName").asText())

@@ -151,7 +151,9 @@ internal class Engine(val roots: SourceRoots) {
         o.put("origin", m.origin.name)
         if (forProperty != null && !c.property.equals(forProperty, ignoreCase = true)) o.put("property", c.property)
         val ref = m.sheet
-        if (ref != null) {
+        if (ref != null && ref.scratch) {
+            o.put("file", Sheets.scratchLabel(ref, m.rule)).put("scratch", true)
+        } else if (ref != null) {
             o.put("sheet", ref.url)
             val abs = ref.parsed.absFile
             o.put("file", roots.projectFile(abs) ?: Sheets.shortName(ref.url))
@@ -183,6 +185,7 @@ internal class Engine(val roots: SourceRoots) {
         val m = c.matched ?: return "code"
         if (m.ruleId == "inline") return "inline style"
         val ref = m.sheet ?: return m.selectorText
+        if (ref.scratch) return Sheets.scratchLabel(ref, m.rule)
         val file = Sheets.shortName(ref.url)
         val line = ref.parsed.sources[m.rule]?.let { lineOf(c, it) }
         return if (line != null) "$file:$line" else file
@@ -443,7 +446,7 @@ internal class Explainer(val node: Node, val engine: Engine) {
                     val why = Selectors.failure(sel, node) ?: continue
                     if (!Selectors.related(sel, node)) continue
                     val line = ref.parsed.sources[rule]?.line
-                    val where = Sheets.shortName(ref.url) + (line?.let { ":$it" } ?: "")
+                    val where = if (ref.scratch) Sheets.scratchLabel(ref, rule) else Sheets.shortName(ref.url) + (line?.let { ":$it" } ?: "")
                     out += Json.obj().put("kind", "no-match")
                         .put("cause", "rule ${Sheets.key(sel.toString())} ($where) does not match: $why")
                         .put("next", "fix the selector or add the missing class/id (node: ${Selectors.describe(node)})")

@@ -25,13 +25,14 @@ import kotlin.io.path.readText
 
 /**
  * PRD 08 §7 acceptance on the gauntlet "Cascade" tab: A-F2 (winner/overridden/blockers per conflict), A-F3 (suggested
- * override applied to the throwaway project copy, reload, verified), A-F4 (viewer HTTP + SSE), A-F1 (simulation
- * conformance over every node of the gauntlet, the sample app and the showcase app).
+ * override applied to the throwaway project copy, reload, verified), A-F4 (viewer HTTP + SSE), A-F5 (scratch CSS,
+ * `FXLOOP_INSPECTOR_EDIT`), A-F1 (simulation conformance over every node of the gauntlet, the sample app and the
+ * showcase app).
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 class CssInspectorAcceptanceTest {
-    private val h = Harness(app = "fxloop-gauntlet-app")
+    private val h = Harness(app = "fxloop-gauntlet-app", configure = { it.copy(inspectorEdit = true) })
     private val http: HttpClient = HttpClient.newHttpClient()
     private val sheetRel = "src/main/resources/dev/fxloop/gauntlet/gauntlet.css"
 
@@ -186,6 +187,17 @@ class CssInspectorAcceptanceTest {
         return Json.parse(r.body())
     }
 
+    private fun postCss(pathAndQuery: String, css: String): JsonNode {
+        viewerUrl()
+        val r = http.send(
+            HttpRequest.newBuilder(URI.create(base + pathAndQuery)).header("Content-Type", "text/css; charset=utf-8")
+                .POST(HttpRequest.BodyPublishers.ofString(css)).build(),
+            HttpResponse.BodyHandlers.ofString(),
+        )
+        assertThat(r.statusCode()).describedAs(pathAndQuery + " -> " + r.body()).isEqualTo(200)
+        return Json.parse(r.body())
+    }
+
     private fun pathOf(query: String): String = h.ok("fx_find_nodes", args("query" to query))["items"][0]["path"].asText()
 
     // ---------------------------------------------------------------------------------------------- A-F3
@@ -290,6 +302,76 @@ class CssInspectorAcceptanceTest {
         assertThat(r["opened"].asBoolean()).isFalse()
         assertThat(r["reason"].asText()).contains("FXLOOP_BROWSER=none")
         assertThat(get("/inspect?t=$tok")).contains("<html")
+    }
+
+    // ---------------------------------------------------------------------------------------------- A-F5
+
+    /** SHA-256 of every file under the project copy's src/, so "no source file modified" is checked, not assumed. */
+    private fun sourceChecksums(): Map<String, String> {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        return Files.walk(h.project.resolve("src")).use { s ->
+            s.filter(Files::isRegularFile).toList().associate { f ->
+                h.project.relativize(f).toString() to md.digest(Files.readAllBytes(f)).joinToString("") { "%02x".format(it) }
+            }
+        }
+    }
+
+    private fun shot(label: String): Int =
+        h.ok("fx_take_screenshot", args("label" to label, "includeImage" to false))["seq"].asInt()
+
+    private fun changedPct(before: Int, after: Int): Double =
+        h.ok("fx_compare_screenshots", args("before" to before, "after" to after))["changedPct"].asDouble()
+
+    @Test @Order(40)
+    fun `A-F5 toggling a declaration goes through scratch CSS and Clear restores the frame`() {
+        showCascadeTab()
+        val path = pathOf("#cxSpecific")
+        val sums = sourceChecksums()
+        val before = shot("scratch-before")
+
+        // what the page does when the developer unticks the winning background: same selector, next value down
+        val styles = Json.parse(get("/api/styles?t=$tok&path=${enc(path)}"))
+        assertThat(styles["edit"].asBoolean()).isTrue()
+        val bg = styles["properties"].first { it["cssProperty"].asText() == "-fx-background-color" }
+        val winner = bg["winner"]["selector"].asText()
+        val fallback = bg["overridden"][0]["text"].asText().substringAfter(':').trim().removeSuffix(";")
+        val set = postCss("/api/scratch/set?t=$tok", "$winner { -fx-background-color: $fallback; }\n")
+        assertThat(set["active"].asBoolean()).isTrue()
+        assertThat(set["rules"].asInt()).isEqualTo(1)
+
+        val after = Json.parse(get("/api/styles?t=$tok&path=${enc(path)}"))
+        val now = after["properties"].first { it["cssProperty"].asText() == "-fx-background-color" }
+        assertThat(now["winner"]["file"].asText()).describedAs(now.toString()).isEqualTo("scratch:1")
+        assertThat(now["simulation"].asText()).isEqualTo("ok")
+        assertThat(after["rules"].any { it.path("scratch").asBoolean() }).isTrue()
+        assertThat(changedPct(before, shot("scratch-on"))).isGreaterThan(0.0)
+
+        val status = h.ok("fx_get_app_status")
+        assertThat(status["scratchCss"]["rules"].asInt()).isEqualTo(1)
+        assertThat(status["scratchCss"]["css"].asText()).contains(fallback)
+        assertThat(sourceChecksums()).describedAs("scratch CSS never touches source").isEqualTo(sums)
+
+        assertThat(post("/api/scratch/clear?t=$tok")["active"].asBoolean()).isFalse()
+        assertThat(changedPct(before, shot("scratch-cleared"))).isLessThan(0.05)
+        assertThat(h.ok("fx_get_app_status").has("scratchCss")).isFalse()
+    }
+
+    @Test @Order(41)
+    fun `A-F5 rejected scratch CSS installs nothing and fx_reload clearScratch drops it`() {
+        showCascadeTab()
+        viewerUrl()
+        val bad = http.send(
+            HttpRequest.newBuilder(URI.create("$base/api/scratch/set?t=$tok")).header("Content-Type", "text/css")
+                .POST(HttpRequest.BodyPublishers.ofString("@import url(\"http://example.invalid/x.css\");")).build(),
+            HttpResponse.BodyHandlers.ofString(),
+        )
+        assertThat(bad.body()).contains("\"code\":\"BAD_REQUEST\"")
+        assertThat(h.ok("fx_get_app_status").has("scratchCss")).isFalse()
+
+        postCss("/api/scratch/set?t=$tok", "#cxInline { -fx-font-size: 30px; }")
+        val r = h.ok("fx_reload", args("clearScratch" to true))
+        assertThat(r["tiersApplied"].map { it["tier"].asText() }).contains("scratch")
+        assertThat(h.ok("fx_get_app_status").has("scratchCss")).isFalse()
     }
 
     // ---------------------------------------------------------------------------------------------- A-F1

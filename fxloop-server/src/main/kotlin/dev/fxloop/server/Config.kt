@@ -44,6 +44,8 @@ data class Config(
     // CSS inspector (PRD 08)
     val editorUrl: String? = null,
     val browser: String = "auto",
+    /** Inspector "Try it live" (PRD 08 §5): the Styles pane may edit a scratch stylesheet; off keeps the viewer read-only. */
+    val inspectorEdit: Boolean = false,
     /** `fxloop:run` helper (no MCP): serves the viewer and CSS inspector while no agent session is connected. */
     val sidecar: Boolean = false,
 ) {
@@ -101,6 +103,7 @@ data class Config(
                 restartKey = str("FXLOOP_RESTART_KEY") ?: "Ctrl+Shift+F5",
                 editorUrl = str("FXLOOP_EDITOR_URL"),
                 browser = str("FXLOOP_BROWSER")?.lowercase() ?: "auto",
+                inspectorEdit = bool("FXLOOP_INSPECTOR_EDIT"),
                 sidecar = bool("FXLOOP_SIDECAR"),
             )
         }

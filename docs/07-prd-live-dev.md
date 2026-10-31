@@ -31,7 +31,7 @@ The gaps, in order of impact:
 
 ## 2. Target scenario
 
-1. The developer asks: "open the app, I'll click around". The agent calls `fx_start_app` (real display). A thin dev bar on top of the window reads `dev loop · You can interact · watch: css-only`.
+1. The developer asks: "open the app, I'll click around". The agent calls `fx_start_app` (real display). A thin dev bar on top of the window reads `dev loop · You can interact · Saves apply CSS live`.
 2. The developer opens *Contacts → Edit* and types into a field. They say "the Save button should be primary and the form needs more spacing".
 3. The agent edits CSS and the Java method that builds the form, then calls `fx_reload`.
 4. Within ~1 s the form re-renders in place with the new spacing; the text the developer typed is still there; the bar shows "CSS applied · hot-swapped 1 class · remounted edit-form · 380 ms" for a few seconds.
@@ -120,7 +120,7 @@ This keeps Principle 5 ("no surprise background mutations"): nothing restarts th
 A thin status bar the agent lays over the top edge of each app window. It works like Chrome's "controlled by automated test software" infobar, and it also carries the reload story. It is the developer's channel for what the agent already gets in tool results (dual-channel rule, Principle 8).
 
 ```
- dev loop · You can interact · watch: css-only │ CSS applied · 12 ms │        Restart needed · pom.xml changed  [Restart] [Pick] [⌄]
+ dev loop · You can interact · Saves apply CSS live │ CSS applied · 12 ms │        Restart needed · pom.xml changed  [Restart] [Pick] [⌄]
  └── session (left) ─────────────────────────┘ └ last reload (fades) ┘        └── action needed (right, stays) ──┘
 ```
 
@@ -132,7 +132,7 @@ A thin status bar the agent lays over the top edge of each app window. It works 
 |---|---|
 | Mode | `dev loop` (launched by FXLoop: all tiers and restart) · `embedded` (IDE-launched with `FxLoopDev`: no restart) · `attached` (pid attach: no reload tiers, no restart) |
 | Control (§7.2) | `You can interact` (shared) · `Agent is driving — hands off` (agent mode while robot input or replay runs) · `Agent is using your mouse` (a robot action in shared mode, for its duration) |
-| Watch | `watch: css-only` / `all` / `off` |
+| Watch | `Saves apply CSS live` (css-only) / `Saves apply CSS, FXML and code` (all) / `Saves apply on reload` (off) |
 
 **Last reload (transient, fades after 3 s):** `CSS applied · 12 ms` · `Hot-swapped 2 classes · remounted edit-form` · `FXML main-view.fxml swapped (7 states restored)` · `No visual change — selector may not match`.
 

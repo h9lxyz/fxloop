@@ -47,9 +47,11 @@ internal object Reloads {
                     }
                 }
             }
+            dev.fxloop.agent.css.Scratch.reassert()
             val out = Json.obj()
             out.put("replaced", replaced)
             out.setNode("stylesheets", hits)
+            dev.fxloop.agent.css.Scratch.ruleCount().takeIf { it > 0 }?.let { out.put("scratchRules", it) }
             if (replaced == 0) {
                 out.put("hint", "no live Scene/Parent references these stylesheets; the change applies when they are next added")
             }
@@ -104,7 +106,7 @@ internal object Reloads {
                     val old = e.root.get()
                     if (old !is Node || old.scene == null) continue
                     any = true
-                    val loader = FXMLLoader(freshUrl(e.location))
+                    val loader = e.loader?.newLoader(freshUrl(e.location)) ?: FXMLLoader(freshUrl(e.location))
                     val fresh: Any = try {
                         loader.load<Any>()
                     } catch (ex: Exception) {

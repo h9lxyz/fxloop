@@ -12,8 +12,8 @@ import kotlin.io.path.isDirectory
 import kotlin.io.path.name
 
 /**
- * Secondary, human-facing watch mode (PRD 02 §3): `css-only` applies CSS on save, `all` also hot-swaps Java/FXML;
- * never restarts. Uses `io.methvin:directory-watcher` (native macOS events, JDK WatchService elsewhere) with a
+ * Secondary, human-facing watch mode (PRD 02 §3): `css-only` applies CSS on save, `all` also swaps FXML and hot-swaps
+ * Java/Kotlin; never restarts. Uses `io.methvin:directory-watcher` (native macOS events, JDK WatchService elsewhere) with a
  * 150 ms debounce.
  */
 class WatchMode(private val apply: (List<String>) -> ObjectNode?) : AutoCloseable {
@@ -49,11 +49,8 @@ class WatchMode(private val apply: (List<String>) -> ObjectNode?) : AutoCloseabl
     private fun onEvent(e: DirectoryChangeEvent) {
         val path = e.path() ?: return
         if (e.eventType() != DirectoryChangeEvent.EventType.CREATE && e.eventType() != DirectoryChangeEvent.EventType.MODIFY || e.isDirectory) return
-        val name = path.name.lowercase()
-        val css = name.endsWith(".css")
-        val code = name.endsWith(".java") || name.endsWith(".fxml")
         synchronized(this) {
-            if (!(css || mode == "all" && code)) return
+            if (!applies(mode, path.name)) return
             pending.add(path)
             scheduled?.cancel(false)
             scheduled = debounce.schedule(::flush, 150, TimeUnit.MILLISECONDS)
@@ -85,5 +82,15 @@ class WatchMode(private val apply: (List<String>) -> ObjectNode?) : AutoCloseabl
 
     companion object {
         val MODES = listOf("css-only", "all", "off")
+
+        /** Whether a save of [fileName] is applied in [mode]: CSS always, FXML/Java/Kotlin only in `all`. */
+        fun applies(mode: String, fileName: String): Boolean {
+            val name = fileName.lowercase()
+            return when (mode) {
+                "off" -> false
+                "all" -> name.endsWith(".css") || name.endsWith(".fxml") || name.endsWith(".java") || name.endsWith(".kt")
+                else -> name.endsWith(".css")
+            }
+        }
     }
 }

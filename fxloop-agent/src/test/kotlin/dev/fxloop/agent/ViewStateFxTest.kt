@@ -204,4 +204,24 @@ class ViewStateFxTest {
         val after = fx { holder.children[0] as Pane }
         assertThat((after.lookup("#who") as TextField).text).isEmpty()
     }
+
+    @Test
+    fun reloadFxmlReusesControllerFactoryAndResources() {
+        val url = javaClass.getResource("/dev/fxloop/agent/factory.fxml")!!
+        val bundle = object : java.util.ListResourceBundle() {
+            override fun getContents() = arrayOf(arrayOf<Any>("greeting", "Hallo"))
+        }
+        fx {
+            val loader = FXMLLoader(url, bundle)
+            loader.setControllerFactory { FactoryController("store") }
+            val root = loader.load<VBox>()
+            holder.children.setAll(root)
+            rt.fxml.record(loader, root, "test")
+        }
+        val r = Reloads.reloadFxml(Json.obj().apply { putArray("files").add("factory.fxml") })
+        assertThat(r.path("swapped")).hasSize(1)
+        assertThat(r.path("swapped").get(0).path("controller").asText()).isEqualTo(FactoryController::class.java.name)
+        val now = fx { holder.children[0] as Pane }
+        assertThat((now.lookup("Label") as javafx.scene.control.Label).text).isEqualTo("Hallo")
+    }
 }

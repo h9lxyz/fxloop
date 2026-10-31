@@ -89,6 +89,19 @@ tr.mismatch td{background:rgba(229,83,75,.18);color:var(--bad)}
 .mb{padding:6px 24px;text-align:center;font-size:11px;border:1px dashed var(--border);position:relative;color:var(--mb-fg)}
 .mb.b{background:var(--mb-border)}.mb.p{background:var(--mb-pad)}.mb.c{background:var(--mb-content)}
 .mb .lab{position:absolute;left:4px;top:1px;font-size:9px;opacity:.7}
+.scratch{margin:8px 10px;padding:8px 10px;border:1px dashed var(--accent);border-radius:4px;background:var(--panel)}
+.scratch .hd{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.scratch .chips{margin-top:6px}
+.newrule{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.newrule input{min-width:0;flex:1 1 110px}
+.rule.scratch-rule{border-left:3px solid var(--accent)}
+.decl{position:relative}
+.decl .editable{cursor:text;border-bottom:1px dotted transparent}
+.decl .editable:hover{border-bottom-color:var(--val)}
+.decl input.ed{font:inherit;padding:0 4px;width:16em;max-width:100%}
+.tog{position:absolute;left:1px;top:3px;margin:0;width:12px;height:12px;cursor:pointer}
+.x{border:0;background:none;color:var(--dim);padding:0 4px;margin-left:6px}
+.x:hover{color:var(--bad)}
 #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--border);padding:6px 12px;border-radius:4px;display:none;z-index:9}
 </style>
 </head>
@@ -133,7 +146,11 @@ var state = {
   tab: 'styles', filter: '',
   suggest: Object.create(null),
   rows: [],
-  picking: false
+  picking: false,
+  scratch: null,                    // {active, rules, css, items} when FXLOOP_INSPECTOR_EDIT is on
+  disabled: Object.create(null),    // "selector|property" toggled off through a scratch fallback rule
+  newRule: false,
+  draft: null                       // {sel, prop, val} of the open new-rule form, kept across re-renders and errors
 };
 
 // ---------- API ----------
@@ -144,15 +161,21 @@ function api(path, params, method){
     if (v !== null && v !== undefined && v !== '') u.set(k, v);
   });
   u.set('t', TOKEN);
-  return fetch(path + '?' + u.toString(), { method: method || 'GET', cache: 'no-store' }).then(function(r){
-    return r.text().then(function(txt){
-      var j;
-      try { j = txt ? JSON.parse(txt) : {}; } catch(e){ throw { code: 'BAD_RESPONSE', message: 'HTTP ' + r.status + ' (not JSON)' }; }
-      if (j && j.error) throw j.error;
-      if (!r.ok) throw { code: 'HTTP_' + r.status, message: 'HTTP ' + r.status };
-      return j;
-    });
+  return fetch(path + '?' + u.toString(), { method: method || 'GET', cache: 'no-store' }).then(asJson);
+}
+function asJson(r){
+  return r.text().then(function(txt){
+    var j;
+    try { j = txt ? JSON.parse(txt) : {}; } catch(e){ throw { code: 'BAD_RESPONSE', message: 'HTTP ' + r.status + ' (not JSON)' }; }
+    if (j && j.error) throw j.error;
+    if (!r.ok) throw { code: 'HTTP_' + r.status, message: 'HTTP ' + r.status };
+    return j;
   });
+}
+function postText(path, text){
+  return fetch(path + '?t=' + encodeURIComponent(TOKEN), {
+    method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'text/css; charset=utf-8' }, body: text
+  }).then(asJson);
 }
 function errText(e){
   if (e && e.code) return e.code + ': ' + (e.message || '');
@@ -351,6 +374,7 @@ function loadStyles(){
     showBanner(null);
     state.styles = res[0].ok; state.layout = res[1];
     renderStyles();
+    if (state.styles.edit && !state.scratch) return loadScratch().then(renderStyles);
   });
 }
 function reloadAll(){
@@ -389,22 +413,39 @@ function locLink(obj, d){
   }
   return wrap;
 }
-function declEl(dc){
-  var d = el('div', 'decl' + (dc.status === 'overridden' ? ' overridden' : ''));
-  if (dc.reason) d.title = dc.reason;
-  d.appendChild(el('span', 'p', dc.property));
-  d.appendChild(document.createTextNode(': '));
+function declValue(text){
+  return text ? String(text).replace(/^[^:]*:\s*/, '').replace(/;\s*$/, '').replace(/\s*!important\s*$/i, '') : '';
+}
+function declEl(dc, r, d){
+  var line = el('div', 'decl' + (dc.status === 'overridden' ? ' overridden' : ''));
+  if (dc.reason) line.title = dc.reason;
+  var tog = canEdit() && editable(r) ? toggleBox(dc, r, d) : null;
+  if (tog) line.appendChild(tog);
+  line.appendChild(el('span', 'p', dc.property));
+  line.appendChild(document.createTextNode(': '));
   var v = dc.text ? String(dc.text).replace(/^[^:]*:\s*/, '').replace(/;\s*$/, '') : '';
   var imp = !!dc.important;
   if (/\s*!important\s*$/i.test(v)) { v = v.replace(/\s*!important\s*$/i, ''); imp = true; }
-  d.appendChild(el('span', 'v', v));
-  if (imp) { d.appendChild(document.createTextNode(' ')); d.appendChild(el('span', 'imp', '!important')); }
-  d.appendChild(document.createTextNode(';'));
-  if (dc.status === 'overridden' && dc.reason) d.appendChild(el('span', 'why', '— ' + dc.reason));
-  return d;
+  var vs = el('span', 'v', v);
+  line.appendChild(vs);
+  if (canEdit() && editable(r)) {
+    vs.classList.add('editable'); vs.title = 'Click to edit (applies as scratch CSS)'; vs.tabIndex = 0;
+    var start = function(){ startEdit(vs, dc, r, d, v, imp); };
+    vs.addEventListener('click', start);
+    vs.addEventListener('keydown', function(ev){ if (ev.key === 'Enter') { ev.preventDefault(); start(); } });
+  }
+  if (imp) { line.appendChild(document.createTextNode(' ')); line.appendChild(el('span', 'imp', '!important')); }
+  line.appendChild(document.createTextNode(';'));
+  if (dc.status === 'overridden' && dc.reason) line.appendChild(el('span', 'why', '— ' + dc.reason));
+  if (canEdit() && r.scratch) {
+    var x = el('button', 'x', '×'); x.title = 'Remove from scratch CSS'; x.setAttribute('aria-label', 'Remove ' + dc.property);
+    x.addEventListener('click', function(){ applyScratch(withoutDecl(scratchItems(), scratchSelector(r), dc.property)); });
+    line.appendChild(x);
+  }
+  return line;
 }
 function ruleEl(r, d){
-  var box = el('div', 'rule');
+  var box = el('div', 'rule' + (r.scratch ? ' scratch-rule' : ''));
   var hd = el('div', 'hd');
   hd.appendChild(el('span', 'sel-t mono', r.selector));
   if (r.specificity) hd.appendChild(el('span', 'spec', r.specificity));
@@ -414,7 +455,7 @@ function ruleEl(r, d){
   var shown = 0;
   (r.declarations || []).forEach(function(dc){
     if (state.filter && !matches(dc.property) && !matches(dc.text)) return;
-    box.appendChild(declEl(dc)); shown++;
+    box.appendChild(declEl(dc, r, d)); shown++;
   });
   if (state.filter && !shown && !matches(r.selector)) return null;
   return box;
@@ -456,6 +497,7 @@ function renderStyles(){
 }
 
 function renderRules(pane, d){
+  if (canEdit()) renderScratchBar(pane, d);
   var shown = 0;
   (d.rules || []).forEach(function(r){ var e = ruleEl(r, d); if (e) { pane.appendChild(e); shown++; } });
   if (!shown) pane.appendChild(el('div', 'empty', state.filter ? 'No matching declarations.' : 'No matching rules.'));
@@ -534,6 +576,194 @@ function fillSuggest(out, r){
   out.appendChild(s);
 }
 
+// ---------- Try it live: scratch CSS (PRD 08 §5, FXLOOP_INSPECTOR_EDIT) ----------
+// Edits never touch source files: the page keeps the scratch rules as a list, renders them to CSS text and the agent
+// installs that text as the last scene stylesheet. Rules show up in the cascade as scratch:<n>.
+function canEdit(){ return !!(state.styles && state.styles.edit); }
+function editable(r){ return r && r.ruleId !== 'inline' && r.ruleId !== 'code' && r.origin !== 'INLINE' && !!r.selector; }
+function loadScratch(){
+  return api('/api/scratch').then(function(j){ state.scratch = j; }, function(){ state.scratch = { active: false, rules: 0 }; });
+}
+function scratchItems(){
+  return ((state.scratch && state.scratch.items) || []).map(function(it){
+    return { selector: it.selector, declarations: (it.declarations || []).map(function(x){
+      return { property: x.property, value: x.value, important: !!x.important };
+    }) };
+  });
+}
+function scratchCssText(items){
+  return items.filter(function(it){ return it.declarations.length; }).map(function(it){
+    return it.selector + ' {\n' + it.declarations.map(function(x){
+      return '  ' + x.property + ': ' + x.value + (x.important ? ' !important' : '') + ';';
+    }).join('\n') + '\n}';
+  }).join('\n\n') + '\n';
+}
+function withDecl(items, selector, property, value, important){
+  var it = items.filter(function(x){ return x.selector === selector; })[0];
+  if (!it) { it = { selector: selector, declarations: [] }; items.push(it); }
+  var lc = property.toLowerCase();
+  var ex = it.declarations.filter(function(x){ return x.property.toLowerCase() === lc; })[0];
+  if (ex) { ex.value = value; ex.important = important; }
+  else it.declarations.push({ property: property, value: value, important: important });
+  return items;
+}
+function withoutDecl(items, selector, property){
+  var lc = property.toLowerCase();
+  items.forEach(function(it){
+    if (it.selector === selector) it.declarations = it.declarations.filter(function(x){ return x.property.toLowerCase() !== lc; });
+  });
+  return items.filter(function(it){ return it.declarations.length; });
+}
+/** The selector as the developer wrote it, for a scratch rule shown as scratch:<n>. */
+function scratchSelector(r){
+  var n = parseInt(String(r.file || '').split(':')[1], 10);
+  var it = ((state.scratch && state.scratch.items) || [])[n - 1];
+  return it ? it.selector : r.selector;
+}
+/**
+ * Scratch CSS sits on the Scene, so a rule from a Parent's own stylesheet beats it on source order at equal
+ * specificity; such overrides are marked !important.
+ */
+function needsImportant(r, d){
+  if (r.scratch || r.origin !== 'AUTHOR') return false;
+  var id = String(r.ruleId || '').split(':')[0];
+  var sh = (d.sheets || []).filter(function(x){ return x.id === id; })[0];
+  return !!sh && sh.on !== 'Scene' && sh.on !== 'Application';
+}
+function badValue(v){ return !v || /[;{}]/.test(v); }
+/**
+ * Applies the scratch list; [check] = property whose scratch declaration should now win (toast when it does not).
+ * Resolves to true when the app accepted it; a rejection (parse error) is toasted and resolves to false.
+ */
+function applyScratch(items, check){
+  var empty = !items.some(function(it){ return it.declarations.length; });
+  var req = empty ? postText('/api/scratch/clear', '') : postText('/api/scratch/set', scratchCssText(items));
+  return req.then(function(j){
+    state.scratch = j;
+    if (!j.active) state.disabled = Object.create(null);
+    return loadStyles().then(function(){ if (check) checkWins(check); return true; });
+  }, function(e){ toast(errText(e)); renderStyles(); return false; });
+}
+function checkWins(property){
+  var lc = property.toLowerCase(), hit = null;
+  ((state.styles && state.styles.rules) || []).forEach(function(r){
+    if (!r.scratch) return;
+    (r.declarations || []).forEach(function(dc){ if (String(dc.property).toLowerCase() === lc) hit = hit || dc; });
+  });
+  if (hit && hit.status !== 'winner') toast('Scratch ' + property + ' does not win: ' + (hit.reason || hit.status));
+}
+function fallbackFor(dc, r, d){
+  var lc = String(dc.property).toLowerCase();
+  var p = (d.properties || []).filter(function(x){
+    return String(x.cssProperty).toLowerCase() === lc && x.winner && x.winner.ruleId === r.ruleId;
+  })[0];
+  var next = p && (p.overridden || [])[0];
+  if (!next || next.property || !next.text || next.ruleId === 'code' || next.ruleId === 'inline') return null;
+  return { value: declValue(next.text), from: next.selector };
+}
+/** DevTools-style checkbox: unticking a winning declaration adds a scratch rule with the next value in the cascade. */
+function toggleBox(dc, r, d){
+  if (r.scratch) return null;
+  var key = r.selector + '|' + String(dc.property).toLowerCase();
+  var off = !!state.disabled[key];
+  if (!off && dc.status !== 'winner') return null;
+  var cb = el('input', 'tog'); cb.type = 'checkbox'; cb.checked = !off;
+  var fb = off ? null : fallbackFor(dc, r, d);
+  if (!off && !fb) { cb.disabled = true; cb.title = 'Nothing to fall back to: no lower-priority value for ' + dc.property; return cb; }
+  cb.title = off ? 'Re-enable (removes the scratch override)' : 'Disable: falls back to ' + fb.value + ' from ' + fb.from;
+  cb.setAttribute('aria-label', (off ? 'Enable ' : 'Disable ') + dc.property);
+  cb.addEventListener('change', function(){
+    if (off) {
+      delete state.disabled[key];
+      applyScratch(withoutDecl(scratchItems(), r.selector, dc.property));
+    } else {
+      state.disabled[key] = true;
+      applyScratch(withDecl(scratchItems(), r.selector, dc.property, fb.value, !!dc.important || needsImportant(r, d)), dc.property)
+        .then(function(ok){ if (!ok) { delete state.disabled[key]; renderStyles(); } });
+    }
+  });
+  return cb;
+}
+function startEdit(span, dc, r, d, value, imp){
+  var inp = el('input', 'ed mono'); inp.value = value; inp.setAttribute('aria-label', 'Value of ' + dc.property);
+  span.replaceWith(inp); inp.focus(); inp.select();
+  var done = false;
+  function commit(){
+    if (done) return; done = true;
+    var nv = inp.value.trim();
+    if (nv === value) { renderStyles(); return; }
+    if (badValue(nv)) { toast('A value cannot be empty or contain ; { }'); renderStyles(); return; }
+    var selector = r.scratch ? scratchSelector(r) : r.selector;
+    applyScratch(withDecl(scratchItems(), selector, dc.property, nv, imp || needsImportant(r, d)), dc.property);
+  }
+  inp.addEventListener('keydown', function(ev){
+    if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+    else if (ev.key === 'Escape') { done = true; renderStyles(); }
+  });
+  inp.addEventListener('blur', commit);
+}
+function defaultSelector(d){
+  var t = d.target || {};
+  if (t.fxId) return '#' + t.fxId;
+  var c = String(d.styleClass || '').split(/\s+/).filter(Boolean)[0];
+  return c ? '.' + c : (t.type || '*');
+}
+function newRuleForm(d){
+  var f = el('form', 'newrule');
+  var dr = state.draft || (state.draft = { sel: defaultSelector(d), prop: '', val: '' });
+  var sel = el('input', 'mono'); sel.value = dr.sel; sel.setAttribute('aria-label', 'Selector');
+  var prop = el('input', 'mono'); prop.placeholder = '-fx-property'; prop.value = dr.prop; prop.setAttribute('aria-label', 'Property');
+  var val = el('input', 'mono'); val.placeholder = 'value'; val.value = dr.val; val.setAttribute('aria-label', 'Value');
+  sel.addEventListener('input', function(){ dr.sel = sel.value; });
+  prop.addEventListener('input', function(){ dr.prop = prop.value; });
+  val.addEventListener('input', function(){ dr.val = val.value; });
+  var ok = el('button', null, 'Add'); ok.type = 'submit';
+  var cancel = el('button', null, 'Cancel'); cancel.type = 'button';
+  cancel.addEventListener('click', function(){ state.newRule = false; state.draft = null; renderStyles(); });
+  f.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    var s = sel.value.trim(), p = prop.value.trim(), v = val.value.trim();
+    if (!s || /[;{}]/.test(s)) { toast('Enter a selector'); return; }
+    if (!/^-?[a-zA-Z][\w-]*$/.test(p)) { toast('Enter a property such as -fx-padding'); return; }
+    if (badValue(v)) { toast('A value cannot be empty or contain ; { }'); return; }
+    applyScratch(withDecl(scratchItems(), s, p, v, false), p).then(function(done){
+      if (done) { state.newRule = false; state.draft = null; renderStyles(); }
+    });
+  });
+  [sel, prop, val, ok, cancel].forEach(function(x){ f.appendChild(x); });
+  setTimeout(function(){ (dr.prop ? val : prop).focus(); }, 0);
+  return f;
+}
+function renderScratchBar(pane, d){
+  var n = state.scratch && state.scratch.active ? state.scratch.rules : 0;
+  var box = el('div', 'scratch'), hd = el('div', 'hd');
+  hd.appendChild(el('strong', null, n ? 'Scratch CSS · ' + n + (n === 1 ? ' rule' : ' rules') : 'Try it live'));
+  hd.appendChild(el('span', 't-text', n ? 'applied in the app, not saved to your files'
+    : 'click a value to edit it, untick a declaration, or add a rule. Nothing is written to your files.'));
+  box.appendChild(hd);
+  var bar = el('div', 'chips');
+  var add = el('button', null, '+ New rule');
+  add.addEventListener('click', function(){ state.newRule = !state.newRule; state.draft = null; renderStyles(); });
+  bar.appendChild(add);
+  if (n) {
+    var css = state.scratch.css || '';
+    var cp = el('button', null, 'Copy as CSS');
+    cp.addEventListener('click', function(){ copy(css, 'Scratch CSS copied'); });
+    var ask = el('button', null, 'Ask agent to apply');
+    ask.title = 'Copies a prompt for your coding agent';
+    ask.addEventListener('click', function(){
+      copy('Apply these FXLoop scratch rules to the project\'s stylesheets, then call fx_reload with clearScratch=true:\n\n' + css,
+        'Prompt copied: paste it to your agent');
+    });
+    var clr = el('button', null, 'Clear');
+    clr.addEventListener('click', function(){ applyScratch([]); });
+    [cp, ask, clr].forEach(function(b){ bar.appendChild(b); });
+  }
+  box.appendChild(bar);
+  if (state.newRule) box.appendChild(newRuleForm(d));
+  pane.appendChild(box);
+}
+
 function renderComputed(pane, d){
   var tbl = el('table'), thead = el('tr');
   ['Property', 'Value', 'Origin', 'Simulation'].forEach(function(h){ thead.appendChild(el('th', null, h)); });
@@ -603,6 +833,13 @@ function connect(){
   es.onopen = function(){ $('dot').className = 'on'; $('stxt').textContent = 'connected'; };
   es.onerror = function(){ $('dot').className = ''; $('stxt').textContent = 'disconnected'; };
   es.addEventListener('reload', function(){ flash(); reloadAll(); });
+  es.addEventListener('scratch', function(ev){
+    var j; try { j = JSON.parse(ev.data); } catch(e){ return; }
+    var was = state.scratch && state.scratch.css, now = j && j.css;
+    state.scratch = j;
+    if (!j.active) state.disabled = Object.create(null);
+    if (was !== now) loadStyles();
+  });
   es.addEventListener('pick', function(ev){
     var j; try { j = JSON.parse(ev.data); } catch(e){ return; }
     setPicking(false);

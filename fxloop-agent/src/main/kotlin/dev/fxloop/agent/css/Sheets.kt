@@ -34,8 +34,18 @@ internal class ParsedSheet(
     val stamp: Long,
 )
 
-/** One stylesheet as it applies to a node: the sheet, its origin, where it is installed, and its precedence slot. */
-internal class SheetRef(val id: String, val parsed: ParsedSheet, val origin: StyleOrigin, val on: String, val order: Int) {
+/**
+ * One stylesheet as it applies to a node: the sheet, its origin, where it is installed, and its precedence slot.
+ * [scratch] marks the inspector's scratch stylesheet ([Scratch]).
+ */
+internal class SheetRef(
+    val id: String,
+    val parsed: ParsedSheet,
+    val origin: StyleOrigin,
+    val on: String,
+    val order: Int,
+    val scratch: Boolean = false,
+) {
     val url: String get() = parsed.url
 }
 
@@ -93,7 +103,8 @@ internal object Sheets {
         fun add(url: String?, origin: StyleOrigin, on: String) {
             if (url.isNullOrBlank()) return
             val resolved = resolveUrl(url) ?: return
-            out += SheetRef("s${out.size}", load(resolved), origin, on, out.size)
+            val scratch = Scratch.isScratch(url)
+            out += SheetRef("s${out.size}", load(resolved), origin, if (scratch) "Scratch CSS" else on, out.size, scratch)
         }
         val scene = node.scene
         val ua = scene?.userAgentStylesheet ?: Application.getUserAgentStylesheet()
@@ -149,6 +160,7 @@ internal object Sheets {
     }
 
     fun load(url: String): ParsedSheet {
+        if (url.startsWith("data:", ignoreCase = true)) return parse(url, null, 0L) // content is in the URL: never stale, not cached
         val abs = fileOf(url)
         val stamp = abs?.let { runCatching { Files.getLastModifiedTime(it).toMillis() }.getOrNull() } ?: 0L
         cache[url]?.let { if (it.stamp == stamp) return it }
@@ -164,8 +176,13 @@ internal object Sheets {
         val bare = url.substringBefore('?')
         val errors = CssParser.errorsProperty()
         val before = errors.size
+        val inline = runCatching { Scratch.dataUrlText(url) }.getOrNull()
         val sheet = try {
-            if (bare.endsWith(".bss")) Stylesheet.loadBinary(URL(url)) else CssParser().parse(URL(url))
+            when {
+                inline != null -> CssParser().parse(inline)
+                bare.endsWith(".bss") -> Stylesheet.loadBinary(URL(url))
+                else -> CssParser().parse(URL(url))
+            }
         } catch (e: Exception) {
             return ParsedSheet(url, null, emptyMap(), "unavailable", "cannot load: ${e.message}", emptyList(), abs, stamp)
         }
@@ -173,7 +190,7 @@ internal object Sheets {
         if (errors.size > before) errors.remove(before, errors.size) // ours, not the app's
         if (sheet == null) return ParsedSheet(url, null, emptyMap(), "unavailable", "stylesheet not found", ours, abs, stamp)
         if (bare.endsWith(".bss")) return ParsedSheet(url, sheet, emptyMap(), "binary", "binary .bss stylesheet has no source", ours, abs, stamp)
-        val text = try {
+        val text = inline ?: try {
             URL(url).openStream().use { String(it.readAllBytes(), StandardCharsets.UTF_8) }
         } catch (e: Exception) {
             return ParsedSheet(url, sheet, emptyMap(), "unavailable", "cannot read source: ${e.message}", ours, abs, stamp)
@@ -224,14 +241,21 @@ internal object Sheets {
     }
 
     /** Short display name for sheets outside the project (`modena.css`). */
-    fun shortName(url: String): String = url.substringBefore('?').substringAfterLast('/').substringAfterLast('!')
+    fun shortName(url: String): String =
+        if (url.startsWith("data:", ignoreCase = true)) "data: stylesheet"
+        else url.substringBefore('?').substringAfterLast('/').substringAfterLast('!')
+
+    /** `scratch:<n>` for a rule of the scratch sheet (1-based, in the order the developer wrote them). */
+    fun scratchLabel(ref: SheetRef, rule: Rule): String =
+        "scratch:" + ((ref.parsed.stylesheet?.rules?.indexOf(rule) ?: -1) + 1)
 
     fun describe(ref: SheetRef, roots: SourceRoots): ObjectNode = Json.obj {
         put("id", ref.id)
         put("url", ref.url)
         put("origin", ref.origin.name)
         put("on", ref.on)
-        put("file", roots.projectFile(ref.parsed.absFile) ?: shortName(ref.url))
+        put("file", if (ref.scratch) "scratch CSS" else roots.projectFile(ref.parsed.absFile) ?: shortName(ref.url))
+        if (ref.scratch) put("scratch", true)
         put("sourceMap", ref.parsed.sourceMap)
         ref.parsed.reason?.let { put("reason", it) }
         set<com.fasterxml.jackson.databind.JsonNode>("parseErrors", Json.strings(ref.parsed.parseErrors))

@@ -26,7 +26,9 @@ typealias ViewerApi = (method: String, params: ObjectNode, timeoutMs: Long) -> J
 
 /**
  * Opt-in, loopback-only, token-guarded live viewer (PRD 04 §3.7) plus the CSS inspector API (PRD 08): read-only
- * except `POST /api/highlight` and `POST /api/pick`, which are visual-only and ephemeral.
+ * except `POST /api/highlight` and `POST /api/pick`, which are visual-only and ephemeral. With [editEnabled]
+ * (`FXLOOP_INSPECTOR_EDIT`) the scratch-CSS endpoints exist too (PRD 08 §5): they accept CSS text only, which the
+ * agent parses before installing, and never touch source files. Without it they answer 404.
  */
 class Viewer(
     private val requestedPort: Int,
@@ -35,6 +37,7 @@ class Viewer(
     private val api: ViewerApi? = null,
     private val connected: () -> Boolean = { false },
     private val editorUrl: String? = null,
+    private val editEnabled: Boolean = false,
 ) : AutoCloseable {
     private var server: HttpServer? = null
     private var executor: ExecutorService? = null
@@ -105,6 +108,10 @@ class Viewer(
     private fun handle(ex: HttpExchange) {
         try {
             val path = ex.requestURI.path
+            if (!editEnabled && path.startsWith(SCRATCH_PREFIX)) {
+                send(ex, 404, "text/plain", "not found".toByteArray())
+                return
+            }
             val allowed = if (path in POST_PATHS) "POST" else "GET"
             if (ex.requestMethod != allowed) {
                 send(ex, 405, "text/plain", "method not allowed".toByteArray())
@@ -194,6 +201,22 @@ class Viewer(
                 p("window")?.toIntOrNull()?.let { params.put("windowIndex", it) }
                 if (p("cancel") in TRUE) params.put("cancel", true)
             }
+            "scratch" -> method = Fcp.Method.STATUS
+            "scratch/set" -> {
+                method = Fcp.Method.CSS_SCRATCH_SET
+                val type = ex.requestHeaders.getFirst("Content-Type").orEmpty().lowercase()
+                if (!type.startsWith("text/css") && !type.startsWith("text/plain")) {
+                    send(ex, 415, "application/json", Json.write(error("BAD_REQUEST", "send the scratch CSS as text/css")).toByteArray())
+                    return
+                }
+                val body = ex.requestBody.readNBytes(MAX_SCRATCH_BYTES + 1)
+                if (body.size > MAX_SCRATCH_BYTES) {
+                    send(ex, 413, "application/json", Json.write(error("BAD_REQUEST", "scratch CSS is larger than 64 KB")).toByteArray())
+                    return
+                }
+                params.put("css", String(body, StandardCharsets.UTF_8))
+            }
+            "scratch/clear" -> method = Fcp.Method.CSS_SCRATCH_CLEAR
             else -> {
                 send(ex, 404, "text/plain", "not found".toByteArray())
                 return
@@ -208,7 +231,13 @@ class Viewer(
             val r = backend(method, params, timeout)
             when (name) {
                 "windows" -> r.path("windows")
-                "styles" -> if (r is ObjectNode && editorUrl != null) r.put("editorUrl", editorUrl) else r
+                "styles" -> {
+                    if (r is ObjectNode && editorUrl != null) r.put("editorUrl", editorUrl)
+                    if (r is ObjectNode && editEnabled) r.put("edit", true)
+                    r
+                }
+                "scratch" -> r.path("scratchCss").takeIf { it.isObject } ?: Json.obj { put("active", false); put("rules", 0) }
+                "scratch/set", "scratch/clear" -> r.also { publish("scratch", it) }
                 else -> r
             }
         } catch (e: FcpException) {
@@ -321,7 +350,9 @@ class Viewer(
     private companion object {
         const val RATE_PER_SEC = 30
         const val INSPECT_RESOURCE = "/dev/fxloop/server/inspect/inspect.html"
-        val POST_PATHS = setOf("/api/highlight", "/api/pick")
+        val POST_PATHS = setOf("/api/highlight", "/api/pick", "/api/scratch/set", "/api/scratch/clear")
+        const val SCRATCH_PREFIX = "/api/scratch"
+        const val MAX_SCRATCH_BYTES = 64 * 1024
         val TRUE = setOf("1", "true")
         val SAFE_NAME = Regex("^\\d{4,}-[a-z0-9-]+\\.png$")
     }

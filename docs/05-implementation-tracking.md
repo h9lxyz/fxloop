@@ -158,7 +158,7 @@ Baseline: Java 17 bytecode (`--release 17`), built and tested locally on JDK 25 
 |---|---|---|---|---|---|
 | F1 | Cascade engine (sheet order, matching, specificity, inheritance, shorthands, self-check), source mapping, blockers, `fx_explain_style` rule-level output, `fx_suggest_override`, gauntlet *CSS cascade* tab | 08 §3 | agent, server, gauntlet | ✅ | A-F1–A-F3 (`CssInspectorAcceptanceTest`, unit: `CascadeTest`). A-F1 first run: 99.93 % (1494/1495 over gauntlet, sample, showcase); the one mismatch is a MenuBar skin label (see limitations). Bound properties report `simulation: skipped` |
 | F2 | Browser inspector `/inspect` on the viewer: tree (+ skin nodes), styles, computed, box model, highlight overlay, pick/reload SSE | 08 §4 | server, agent | ✅ | A-F4 (`CssInspectorAcceptanceTest`, scripted HTTP + SSE); manual browser walkthrough pending. Overlay shared with E6. Opened from the dev bar's Inspect CSS button or `fx_open_inspector`; contract in [css-inspector-contract](decisions/css-inspector-contract.md) |
-| F3 | Try it live: scratch stylesheet (`FXLOOP_INSPECTOR_EDIT`), copy / ask-agent hand-over, `scratchCss` in status | 08 §5 | server, agent | ⬜ | A-F5. Open: not started |
+| F3 | Try it live: scratch stylesheet (`FXLOOP_INSPECTOR_EDIT`), copy / ask-agent hand-over, `scratchCss` in status | 08 §5 | server, agent | ✅ | A-F5 (`CssInspectorAcceptanceTest`, scripted HTTP; unit: `ScratchFxTest`, `ViewerTest`); manual browser walkthrough pending. `fx_reload{clearScratch}` drops the scratch sheet after the agent applied it (the css visualDiff then compares scratch vs. source); dev bar shows `Scratch CSS active · n rules [Clear]` |
 
 ## Items requiring external resources (cannot be completed in this local session)
 

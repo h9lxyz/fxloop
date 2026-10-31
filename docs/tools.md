@@ -43,7 +43,7 @@ _Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-ref
 
 ## fx_get_app_status
 
-Application state (starting/running/exited/stopped), pid, uptime, mode, FCP connection, showing windows (index, title, type STAGE|POPUP|DIALOG) and the FXML load registry. Auto-starts a never-started app, or connects to the one the developer already runs from this project (mvn fxloop:run, gradle fxloopRun, FxLoopDev.install()).
+Application state (starting/running/exited/stopped), pid, uptime, mode, FCP connection, showing windows (index, title, type STAGE|POPUP|DIALOG), the FXML load registry and scratchCss? (CSS the developer tried live in the inspector: apply it to the stylesheets, then fx_reload{clearScratch:true}). Auto-starts a never-started app, or connects to the one the developer already runs from this project (mvn fxloop:run, gradle fxloopRun, FxLoopDev.install()).
 
 _No parameters._
 
@@ -335,6 +335,7 @@ Apply your edits: detects changed files since the last launch/reload (or takes f
 | `remount` | boolean |  | Rebuild registered views after a HotSwap (default true) |
 | `carryState` | boolean |  | Carry view state (selection, scroll, text, …) across a remount/FXML swap (default true) |
 | `restartWhenHumanActive` | boolean |  | Restart even while the developer is using the app (default false: the restart is deferred) |
+| `clearScratch` | boolean |  | Remove the inspector's scratch CSS (fx_get_app_status.scratchCss) once you have applied it to the stylesheets; the css visualDiff then compares scratch vs. source (default false) |
 | `effects` | boolean |  | Attach the scene-diff 'effects' of this action (default true) |
 
 ## fx_reload_fxml
@@ -348,7 +349,7 @@ Force a live swap of one FXML document (project-relative path): re-copies it, re
 
 ## fx_set_watch_mode
 
-Human-facing auto-apply on save: css-only (default) re-applies CSS instantly; all also hot-swaps Java/FXML; off disables. Never restarts.
+Human-facing auto-apply on save: css-only (default) re-applies CSS instantly; all also swaps FXML and hot-swaps Java/Kotlin; off disables. Never restarts.
 
 | Param | Type | Required | Description |
 |---|---|---|---|

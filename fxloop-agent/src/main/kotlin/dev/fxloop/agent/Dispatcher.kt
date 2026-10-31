@@ -56,6 +56,8 @@ internal class Dispatcher(private val rt: AgentRuntime) {
         handlers[Method.EXPLAIN_STYLE] = Introspect::explainStyle
         handlers[Method.CSS_CASCADE] = CssInspect::cascade
         handlers[Method.CSS_SUGGEST] = CssInspect::suggest
+        handlers[Method.CSS_SCRATCH_SET] = dev.fxloop.agent.css.Scratch::set
+        handlers[Method.CSS_SCRATCH_CLEAR] = dev.fxloop.agent.css.Scratch::clear
         handlers[Method.EXPLAIN_LAYOUT] = Introspect::explainLayout
         handlers[Method.EVAL_JS] = Probes::evalJs
         handlers[Method.BLOCK_FX_THREAD] = Probes::blockFxThread
@@ -96,6 +98,7 @@ internal class Dispatcher(private val rt: AgentRuntime) {
         o.setNode("mounts", rt.mounts.describe())
         o.setNode("human", rt.human.describe())
         o.put("pickActive", rt.pick.active)
+        if (dev.fxloop.agent.css.Scratch.active) o.setNode("scratchCss", dev.fxloop.agent.css.Scratch.describe())
         o
     }
 

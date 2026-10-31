@@ -13,6 +13,8 @@ Shared shapes between the agent (`fxloop-agent`), the server (`fxloop-server`) a
 | `HIGHLIGHT` | `highlight` | target, or `{clear:true}` | `{shown:bool, bounds?:{x,y,w,h}}` — screen coordinates |
 | `PICK_START` | `pickStart` | `windowIndex?`, `cancel?` | `{armed:bool}`; the next primary click on that window is consumed and emitted as `humanPick` |
 | `SET_BAR_STATE` | `setBarState` | `{text?}` | `{bars:int}` — number of bar popups showing |
+| `CSS_SCRATCH_SET` | `cssScratchSet` | `{css}` — style rules only, ≤ 64 KB; parsed with `CssParser` first, rejected (`BAD_REQUEST`) on parse errors, at-rules or no rules | *Scratch JSON* |
+| `CSS_SCRATCH_CLEAR` | `cssScratchClear` | — | *Scratch JSON* (`active:false`) |
 | `GET_SCENE_GRAPH` | `getSceneGraph` | gains `skin:bool` — when true, children are `Parent.getChildrenUnmodifiable()` (skin internals) instead of `LogicalTree.children` | unchanged shape; skin-only nodes carry `"skin":true` and are addressed by handle `h` (their `path` may not resolve) |
 
 ## FCP events (`Fcp.Event`, agent → server)
@@ -20,6 +22,7 @@ Shared shapes between the agent (`fxloop-agent`), the server (`fxloop-server`) a
 | Constant | Name | Payload |
 |---|---|---|
 | `INSPECTOR_REQUESTED` | `inspectorRequested` | `{path?, h?}` — node to preselect (the last pick in that window, else its focus owner) |
+| `SCRATCH_CHANGED` | `scratchChanged` | *Scratch JSON* — the dev bar's *Clear* removed the sheet; the server forwards it as SSE `scratch` |
 | `HUMAN_PICK` | `humanPick` | `{target, ts, path, window:int}` (PRD 07 payload plus `path`/`window` for the inspector page) |
 
 ## Agent options
@@ -65,6 +68,18 @@ the inline style is `{"ruleId":"inline","selector":"style=\"…\"","origin":"INL
 `rules` is in cascade order, most precedent first (DevTools order). `specificity` is `"a,b,c"` (ids, classes +
 pseudo-classes, types).
 
+## Scratch JSON (`cssScratchSet`/`cssScratchClear` result, `status.scratchCss`, `/api/scratch` body)
+
+```json
+{"active":true,"rules":2,"css":".go { -fx-text-fill: blue; }\n…",
+ "items":[{"n":1,"selector":".go","declarations":[{"property":"-fx-text-fill","value":"blue","important":false}]}]}
+```
+
+The sheet is the last stylesheet of every app scene (a `data:text/css;base64,` URL on JavaFX 17+, else a temp file
+next to `state.json`). In the cascade its rules carry `"file":"scratch:<n>"` and `"scratch":true` (no `line`/`absFile`);
+origin stays `AUTHOR` because that is what JavaFX applies. `status.scratchCss` is present only while active.
+CSS reloads keep it last and report `scratchRules`; a restart drops it.
+
 ## Viewer HTTP (all GET unless noted, `?t=<token>` required, loopback only)
 
 | Path | Proxies | Notes |
@@ -72,12 +87,15 @@ pseudo-classes, types).
 | `/inspect` | — | the page (static resource `dev/fxloop/server/inspect/inspect.html`, inline CSS/JS) |
 | `/api/windows` | `status` → `windows` | |
 | `/api/tree?window=&skin=` | `getSceneGraph` (maxDepth 64, maxNodes 3000) | |
-| `/api/styles?h=&path=` | `cssCascade` | `h` preferred, `path` fallback |
+| `/api/styles?h=&path=` | `cssCascade` | `h` preferred, `path` fallback; adds `edit:true` with `FXLOOP_INSPECTOR_EDIT` |
 | `/api/layout?h=&path=` | `explainLayout` | |
 | `/api/suggest?h=&path=&property=` | `cssSuggest` | |
 | `POST /api/highlight?h=&path=` / `?clear=1` | `highlight` | visual only |
 | `POST /api/pick?window=` | `pickStart` | |
-| `/sse` | — | adds events `reload` (`{files:[…]}` after a CSS/FXML reload) and `pick` (`{path,h,window}`) next to `frame` |
+| `GET /api/scratch` | `status` → `scratchCss` | only with `FXLOOP_INSPECTOR_EDIT` (else 404); `{active:false,rules:0}` when none |
+| `POST /api/scratch/set` | `cssScratchSet` | only with the flag; body is the whole scratch sheet as `text/css` (415 otherwise, 413 above 64 KB) |
+| `POST /api/scratch/clear` | `cssScratchClear` | only with the flag |
+| `/sse` | — | adds events `reload` (`{files:[…]}` after a CSS/FXML reload), `pick` (`{path,h,window}`) and `scratch` (*Scratch JSON*) next to `frame` |
 
 Errors: HTTP 200 with `{"error":{"code","message"}}` when the agent call fails; 503 `{"error":{"code":"NO_APP"}}`
 when no app is connected.

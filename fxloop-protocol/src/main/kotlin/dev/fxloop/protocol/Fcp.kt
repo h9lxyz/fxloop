@@ -68,6 +68,13 @@ object Fcp {
         /** Arms pick mode on a window: the next click is consumed and reported as a [Event.HUMAN_PICK] event (PRD 07 pick mode). */
         const val PICK_START = "pickStart"
 
+        /**
+         * Inspector "Try it live" (PRD 08 §5): `{css}` replaces the scratch stylesheet (the last scene stylesheet; parsed
+         * before installing, rejected on errors), `cssScratchClear` removes it. Both return the scratch description.
+         */
+        const val CSS_SCRATCH_SET = "cssScratchSet"
+        const val CSS_SCRATCH_CLEAR = "cssScratchClear"
+
         /** Test-only: blocks the FX thread; only honoured with `-Dfxloop.test=true`. */
         const val BLOCK_FX_THREAD = "blockFxThread"
     }
@@ -83,6 +90,9 @@ object Fcp {
 
         /** The developer clicked *Inspect CSS* on the dev bar: `{path?}` (node to preselect). */
         const val INSPECTOR_REQUESTED = "inspectorRequested"
+
+        /** The scratch stylesheet changed inside the app (dev bar *Clear*): `{active, rules}`. */
+        const val SCRATCH_CHANGED = "scratchChanged"
     }
 
     /** Machine-readable error codes carried in [FcpError.code]. */

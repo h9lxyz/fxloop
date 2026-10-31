@@ -115,4 +115,12 @@ class LiveStateTest {
         assertThat(s["control"].asText()).isEqualTo("shared")
         assertThat(s["controlSetting"].asText()).isEqualTo("auto")
     }
+
+    @Test
+    fun `failed bar pushes are retried with backoff except for agents without the method`() {
+        assertThat(LiveState.barRetryDelayMs("FX_TIMEOUT", 0)).isEqualTo(500)
+        assertThat(LiveState.barRetryDelayMs("FX_TIMEOUT", 5)).isEqualTo(15000)
+        assertThat(LiveState.barRetryDelayMs("FX_TIMEOUT", 6)).isNull()
+        assertThat(LiveState.barRetryDelayMs("UNKNOWN_METHOD", 0)).isNull()
+    }
 }

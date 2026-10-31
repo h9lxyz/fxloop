@@ -24,7 +24,8 @@ object CoreTools {
 
         reg.tool("fx_get_app_status", "App status", Kind.READ,
             "Application state (starting/running/exited/stopped), pid, uptime, mode, FCP connection, showing windows " +
-                "(index, title, type STAGE|POPUP|DIALOG) and the FXML load registry. Auto-starts a never-started app, or connects " +
+                "(index, title, type STAGE|POPUP|DIALOG), the FXML load registry and scratchCss? (CSS the developer tried live in " +
+                "the inspector: apply it to the stylesheets, then fx_reload{clearScratch:true}). Auto-starts a never-started app, or connects " +
                 "to the one the developer already runs from this project (mvn fxloop:run, gradle fxloopRun, FxLoopDev.install()).",
             Schema.obj()) {
             val started = s.ensureStarted()

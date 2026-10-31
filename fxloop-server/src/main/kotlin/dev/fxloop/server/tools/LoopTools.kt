@@ -43,6 +43,8 @@ object LoopTools {
                 .bool("remount", "Rebuild registered views after a HotSwap (default true)")
                 .bool("carryState", "Carry view state (selection, scroll, text, …) across a remount/FXML swap (default true)")
                 .bool("restartWhenHumanActive", "Restart even while the developer is using the app (default false: the restart is deferred)")
+                .bool("clearScratch", "Remove the inspector's scratch CSS (fx_get_app_status.scratchCss) once you have applied it " +
+                    "to the stylesheets; the css visualDiff then compares scratch vs. source (default false)")
                 .effects()) { a ->
             s.ensureStarted()
             if (s.mode == AppSession.Mode.ATTACHED) {
@@ -60,6 +62,7 @@ object LoopTools {
                 remount = a.path("remount").asBoolean(true),
                 carryState = a.path("carryState").asBoolean(true),
                 restartWhenHumanActive = a.path("restartWhenHumanActive").asBoolean(false),
+                clearScratch = a.path("clearScratch").asBoolean(false),
             )) { replay -> ctx.restartWithReplay(replay) }
             publish(ctx, r)
             if (before != null && s.connected) {
@@ -86,7 +89,7 @@ object LoopTools {
         }
 
         reg.tool("fx_set_watch_mode", "Set watch mode", Kind.IDEMPOTENT_WRITE,
-            "Human-facing auto-apply on save: css-only (default) re-applies CSS instantly; all also hot-swaps Java/FXML; " +
+            "Human-facing auto-apply on save: css-only (default) re-applies CSS instantly; all also swaps FXML and hot-swaps Java/Kotlin; " +
                 "off disables. Never restarts.",
             Schema.obj().strEnum("mode", "css-only | all | off", "css-only", "all", "off").required("mode")) { a ->
             ctx.applyWatchMode(a["mode"].asText())

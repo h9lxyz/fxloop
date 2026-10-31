@@ -9,6 +9,7 @@ import dev.fxloop.protocol.Json
 import dev.fxloop.server.Config
 import dev.fxloop.server.mcp.ToolException
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** One entry of the dev bar's "action needed" segment and of `fx_get_app_status.actionNeeded` (PRD 07 §7.1). */
@@ -48,7 +49,7 @@ class LiveState(private val config: Config, private val session: AppSession) {
     @Volatile private var lastReloadOk = true
     @Volatile private var reloadSeq = 0
     private val pushQueued = AtomicBoolean(false)
-    private val pusher = Executors.newSingleThreadExecutor { r -> Thread(r, "fxloop-live-push").apply { isDaemon = true } }
+    private val pusher = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "fxloop-live-push").apply { isDaemon = true } }
 
     /** Number of recorded reloads; lets a caller tell whether somebody else already reported one. */
     fun reloadCount(): Int = reloadSeq
@@ -75,7 +76,6 @@ class LiveState(private val config: Config, private val session: AppSession) {
         }
     }
 
-    /** A `humanPick` event arrived (remembered for `status`). */
     /** Connected to an app the developer started (`fxloop:run`, IDE): `FXLOOP_CONTROL=auto` starts out shared. */
     fun developerOwnsApp() {
         if (!autoLocked && control == Control.AGENT) {
@@ -84,6 +84,7 @@ class LiveState(private val config: Config, private val session: AppSession) {
         }
     }
 
+    /** A `humanPick` event arrived (remembered for `status`). */
     fun onHumanPick(payload: JsonNode) {
         lastPickMs = payload.path("ts").asLong(System.currentTimeMillis())
         lastPickTarget = payload["target"]
@@ -160,16 +161,30 @@ class LiveState(private val config: Config, private val session: AppSession) {
     private fun doPush() {
         pushQueued.set(false)
         val state = barState()
-        if (session.connected) {
-            try {
-                session.call(Fcp.Method.SET_BAR_STATE, state, 3000)
-            } catch (_: FcpException) {
-                // older agents answer UNKNOWN_METHOD; the bar is optional
-            } catch (_: ToolException) {
-                // app went away between the check and the call
-            }
-        }
+        sendBarState(state, 0)
         statusSink?.let { runCatching { it(state.toString()) } }
+    }
+
+    /**
+     * Sends the bar state; a freshly launched app is often too busy starting up to answer within the timeout, and the
+     * push after launch is the only one until something changes, so a failed send is retried with the then-current state.
+     */
+    private fun sendBarState(state: ObjectNode, attempt: Int) {
+        if (!session.connected) return
+        val code = try {
+            session.call(Fcp.Method.SET_BAR_STATE, state, 3000)
+            return
+        } catch (e: FcpException) {
+            e.code
+        } catch (_: ToolException) {
+            return // app went away between the check and the call
+        }
+        val delay = barRetryDelayMs(code, attempt) ?: return
+        try {
+            pusher.schedule({ sendBarState(barState(), attempt + 1) }, delay, TimeUnit.MILLISECONDS)
+        } catch (_: RuntimeException) {
+            // executor shut down
+        }
     }
 
     /** `{control, controlSetting, human:{lastActivityMs?, focusedWindow?, …}, actionNeeded, bar}` for fx_get_app_status. */
@@ -192,5 +207,13 @@ class LiveState(private val config: Config, private val session: AppSession) {
             set<JsonNode>("actionNeeded", actionNeeded())
             put("bar", barSetting())
         }
+    }
+
+    companion object {
+        private val BAR_RETRY_MS = longArrayOf(500, 1000, 2000, 4000, 8000, 15000)
+
+        /** Delay before resending a failed `setBarState`, or null to give up (older agent, or retries exhausted). */
+        fun barRetryDelayMs(code: String, attempt: Int): Long? =
+            if (code == Fcp.Error.UNKNOWN_METHOD) null else BAR_RETRY_MS.getOrNull(attempt)
     }
 }

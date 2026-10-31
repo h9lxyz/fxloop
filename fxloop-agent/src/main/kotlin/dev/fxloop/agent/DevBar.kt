@@ -96,6 +96,20 @@ class DevBar(private val rt: AgentRuntime) {
     /** Connected to the `fxloop:run` inspector helper rather than an agent session. */
     private fun isSidecar(): Boolean = state.path("sidecar").asBoolean(false)
 
+    /** The inspector's scratch stylesheet changed ([dev.fxloop.agent.css.Scratch]); re-renders its segment. Any thread. */
+    fun scratchChanged() {
+        Platform.runLater { refresh() }
+    }
+
+    private fun scratchText(): String? = dev.fxloop.agent.css.Scratch.ruleCount().takeIf { it > 0 }
+        ?.let { "Scratch CSS active · $it rule${if (it == 1) "" else "s"}" }
+
+    /** Bar *Clear*: drops the scratch sheet and tells the server so an open inspector page refreshes. */
+    private fun clearScratch() {
+        val r = dev.fxloop.agent.css.Scratch.clear()
+        rt.emitEvent(Fcp.Event.SCRATCH_CHANGED, r)
+    }
+
     /** Called by [HumanInput] when a robot bracket opens/closes; shows the driving text for its duration. Any thread. */
     fun agentInput(active: Boolean) {
         synchronized(lock) {
@@ -115,6 +129,7 @@ class DevBar(private val rt: AgentRuntime) {
         val texts = o.putObject("texts")
         texts.put("session", sessionText())
         texts.put("lastReload", reloadVisible ?: "")
+        texts.put("scratch", scratchText() ?: "")
         val arr = texts.putArray("actionNeeded")
         visibleActions().forEach { arr.add(it.reason) }
         val h = o.putArray("controlHistory")
@@ -375,6 +390,10 @@ class DevBar(private val rt: AgentRuntime) {
                 val session = label(synchronized(lock) { sessionText() }).apply { HBox.setHgrow(this, Priority.SOMETIMES) }
                 kids.add(session)
                 synchronized(lock) { reloadVisible }?.let { kids.add(label("· $it")) }
+                scratchText()?.let {
+                    kids.add(label("· $it"))
+                    kids.add(button("Clear") { clearScratch() })
+                }
                 val spacer = Region().apply { HBox.setHgrow(this, Priority.ALWAYS); minWidth = 0.0 }
                 kids.add(spacer)
                 for (a in actions) {

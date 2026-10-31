@@ -180,6 +180,60 @@ class ViewerTest {
         }
     }
 
+    private fun postCss(url: String, css: String, type: String = "text/css; charset=utf-8"): HttpResponse<String> =
+        http.send(
+            HttpRequest.newBuilder(URI.create(url)).header("Content-Type", type).POST(HttpRequest.BodyPublishers.ofString(css)).build(),
+            HttpResponse.BodyHandlers.ofString(),
+        )
+
+    @Test
+    fun scratchEndpointsDoNotExistWithoutTheFlag(@TempDir dir: Path) {
+        val calls = mutableListOf<String>()
+        viewer(dir, api = { m, _, _ -> calls += m; Json.obj() }).use { v ->
+            v.start()
+            val base = "http://127.0.0.1:${v.port}"
+            assertThat(req("$base/api/scratch?t=tok").statusCode()).isEqualTo(404)
+            assertThat(postCss("$base/api/scratch/set?t=tok", ".a { -fx-padding: 1; }").statusCode()).isEqualTo(404)
+            assertThat(req("$base/api/scratch/clear?t=tok", "POST").statusCode()).isEqualTo(404)
+            assertThat(req("$base/api/styles?t=tok&h=1").body()).doesNotContain("\"edit\"")
+            assertThat(calls).containsExactly(Fcp.Method.CSS_CASCADE)
+        }
+    }
+
+    @Test
+    fun scratchEndpointsWithTheFlag(@TempDir dir: Path) {
+        val seen = mutableListOf<Pair<String, ObjectNode>>()
+        Viewer(0, "tok", ScreenStore(dir, 10), { m, p, _ ->
+            seen += m to p
+            when (m) {
+                Fcp.Method.STATUS -> Json.obj { putObject("scratchCss").put("active", true).put("rules", 1) }
+                Fcp.Method.CSS_SCRATCH_SET ->
+                    if (p.path("css").asText().contains("oops")) throw FcpException("BAD_REQUEST", "scratch CSS has parse errors")
+                    else Json.obj { put("active", true); put("rules", 1) }
+                else -> Json.obj { put("active", false); put("rules", 0) }
+            }
+        }, { true }, editEnabled = true).use { v ->
+            v.start()
+            val base = "http://127.0.0.1:${v.port}"
+            assertThat(postCss("$base/api/scratch/set", ".a { }").statusCode()).isEqualTo(403)
+            assertThat(req("$base/api/scratch/set?t=tok").statusCode()).isEqualTo(405)
+            assertThat(postCss("$base/api/scratch/set?t=tok", ".a { }", "application/json").statusCode()).isEqualTo(415)
+            assertThat(postCss("$base/api/scratch/set?t=tok", "x".repeat(64 * 1024 + 1)).statusCode()).isEqualTo(413)
+            assertThat(seen).isEmpty()
+
+            val ok = postCss("$base/api/scratch/set?t=tok", ".a { -fx-padding: 1; }")
+            assertThat(ok.statusCode()).isEqualTo(200)
+            assertThat(ok.body()).contains("\"active\":true")
+            assertThat(seen.last().first).isEqualTo(Fcp.Method.CSS_SCRATCH_SET)
+            assertThat(seen.last().second["css"].asText()).isEqualTo(".a { -fx-padding: 1; }")
+            assertThat(postCss("$base/api/scratch/set?t=tok", ".oops {").body()).contains("\"code\":\"BAD_REQUEST\"")
+            assertThat(req("$base/api/scratch?t=tok").body()).isEqualTo("{\"active\":true,\"rules\":1}")
+            assertThat(req("$base/api/scratch/clear?t=tok", "POST").body()).contains("\"active\":false")
+            assertThat(seen.last().first).isEqualTo(Fcp.Method.CSS_SCRATCH_CLEAR)
+            assertThat(req("$base/api/styles?t=tok&h=1").body()).contains("\"edit\":true")
+        }
+    }
+
     @Test
     fun noAppIs503(@TempDir dir: Path) {
         viewer(dir, connected = false, api = { _, _, _ -> Json.obj() }).use { v ->

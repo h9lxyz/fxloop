@@ -50,7 +50,8 @@ class Ctx(val config: Config) {
     /** Builds the viewer with the inspector API wired to [session] and starts it (port 0 = ephemeral). */
     @Synchronized
     fun ensureViewer(port: Int = 0): Viewer = viewer ?: Viewer(port, Tokens.generate(), visuals.store,
-        api = { m, p, t -> session.call(m, if (m in CSS_METHODS) withCssRoots(p) else p, t) }, connected = { session.connected }, editorUrl = config.editorUrl).also {
+        api = { m, p, t -> session.call(m, if (m in CSS_METHODS) withCssRoots(p) else p, t) }, connected = { session.connected }, editorUrl = config.editorUrl,
+        editEnabled = config.inspectorEdit).also {
         it.start()
         viewer = it
         log.info("live viewer: {}", it.url())
@@ -113,6 +114,7 @@ class Ctx(val config: Config) {
                 live.onHumanPick(payload)
                 publish("pick", payload) // an open inspector page selects the picked node
             }
+            Fcp.Event.SCRATCH_CHANGED -> publish("scratch", payload)
             Fcp.Event.INSPECTOR_REQUESTED -> inspector.open(payload.path("h").takeIf { it.isInt }?.asInt(), payload.path("path").asText(null))
             Fcp.Event.CONTROL_MODE_CHANGED -> {
                 val mode = if (payload.path("mode").asText() == "shared") LiveState.Control.SHARED else LiveState.Control.AGENT
