@@ -25,6 +25,9 @@ import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.paint.Paint;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -62,12 +65,16 @@ public class GauntletApp extends Application {
                 tab("Visual", visual()),
                 tab("Web", web()),
                 tab("Big", big()),
-                tab("RTL", rtl(tabs)));
+                tab("RTL", rtl(tabs)),
+                tab("Cascade", cascade()));
         for (Tab t : tabs.getTabs()) {
             t.setClosable(false);
         }
         Scene scene = new Scene(tabs, 900, 700);
         stage.setTitle("FXLoop Gauntlet");
+        // gauntlet.css on the scene so its .root rules (the looked-up colour of the Cascade tab) apply; cascade-panel.css
+        // is installed on a parent pane inside cascade().
+        scene.getStylesheets().add(getClass().getResource("gauntlet.css").toExternalForm());
         stage.setScene(scene);
         stage.show();
 
@@ -314,5 +321,40 @@ public class GauntletApp extends Application {
             rtlLabel.setText(o.name());
         });
         return page(toggle, rtlLabel);
+    }
+
+    // 9. CSS cascade: one node per conflict class of the CSS inspector (PRD 08 §7). Rules live in gauntlet.css
+    // (scene sheet) and cascade-panel.css (installed on the cx-panel pane).
+    private Node cascade() {
+        Button specific = button("cxSpecific", "Specificity");
+        specific.getStyleClass().add("primary");
+        HBox bar = new HBox(specific);
+        bar.getStyleClass().add("cx-bar");
+
+        Label inline = label("cxInline", "inline beats sheet");
+        inline.setStyle("-fx-text-fill: blue;");
+        Label important = label("cxImportant", "!important beats inline");
+        important.setStyle("-fx-text-fill: blue;");
+        Label bound = label("cxBound", "bound textFill");
+        bound.getStyleClass().add("cx-accented");
+        bound.textFillProperty().bind(new SimpleObjectProperty<Paint>(Color.PINK));
+        Button miss = button("cxMiss", "missing style class");
+        Button skin = button("cxSkin", "skin-only -fx-fill");
+        Label lookup = label("cxLookup", "looked-up color");
+        lookup.getStyleClass().add("cx-accented");
+        Label unresolved = label("cxUnresolved", "unresolved lookup");
+        unresolved.getStyleClass().add("cx-unresolved");
+        Label fonted = label("cxFont", "font shorthand");
+        fonted.getStyleClass().add("cx-fonted");
+        Label child = label("cxChild", "inherits font size");
+        VBox big = new VBox(child);
+        big.setId("cxBigBox");
+        big.setStyle("-fx-font-size: 18px;");
+
+        VBox panel = new VBox(8, bar, inline, important, bound, miss, skin, lookup, unresolved, fonted, big);
+        panel.setId("cxPanel");
+        panel.getStyleClass().add("cx-panel");
+        panel.getStylesheets().add(getClass().getResource("cascade-panel.css").toExternalForm());
+        return page(panel);
     }
 }

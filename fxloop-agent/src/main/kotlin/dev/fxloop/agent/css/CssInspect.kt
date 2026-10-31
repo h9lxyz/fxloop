@@ -215,9 +215,10 @@ internal object CssInspect {
     /** The author stylesheet closest to the node that the project owns (never Modena or a dependency jar). */
     private fun defaultFile(ex: Explainer): String? {
         val roots = ex.engine.roots
-        return ex.cascade.sheets.asReversed()
-            .firstOrNull { it.origin == StyleOrigin.AUTHOR && it.parsed.absFile != null && roots.owns(it.parsed.absFile) }
-            ?.let { roots.projectFile(it.parsed.absFile) }
+        val owned = ex.cascade.sheets.asReversed()
+            .filter { it.origin == StyleOrigin.AUTHOR && it.parsed.absFile != null && roots.owns(it.parsed.absFile) }
+        // prefer a sheet that parses cleanly: a rule appended after a syntax error may be swallowed by it
+        return (owned.firstOrNull { it.parsed.parseErrors.isEmpty() } ?: owned.firstOrNull())?.let { roots.projectFile(it.parsed.absFile) }
     }
 
     private fun sheetBlockers(ex: Explainer): ArrayNode {

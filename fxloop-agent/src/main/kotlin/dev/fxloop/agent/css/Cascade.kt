@@ -155,7 +155,7 @@ internal class Engine(val roots: SourceRoots) {
             o.put("sheet", ref.url)
             val abs = ref.parsed.absFile
             o.put("file", roots.projectFile(abs) ?: Sheets.shortName(ref.url))
-            if (abs != null) o.put("absFile", abs.toString())
+            roots.sourceFile(abs)?.let { o.put("absFile", it.toString()) }
             val src = ref.parsed.sources[m.rule]
             if (src != null) o.put("line", lineOf(c, src))
         }
@@ -309,6 +309,12 @@ internal class Explainer(val node: Node, val engine: Engine) {
     /** Principle 1: the engine explains, the live value is the truth. */
     private fun verify(o: ObjectNode, v: PropertyView, r: Result) {
         val live = v.property.styleOrigin
+        val p = v.property
+        if (p is javafx.beans.property.Property<*> && p.isBound) {
+            // a bound value never comes from CSS; the `bound` blocker explains it, there is nothing to verify
+            o.put("simulation", "skipped").put("simulationNote", "property is bound in code")
+            return
+        }
         var sim = r.winner?.origin ?: r.inheritedFrom?.second?.origin
         if (v.shorthand != null) {
             // sub-properties share the composite's origin: one sub set by an author rule makes the whole value AUTHOR

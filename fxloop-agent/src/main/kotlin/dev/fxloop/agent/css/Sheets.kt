@@ -41,18 +41,22 @@ internal class SheetRef(val id: String, val parsed: ParsedSheet, val origin: Sty
 
 /** Project layout hints the server passes along so `file` points at the source, not the build copy. */
 internal class SourceRoots(val projectDir: Path?, val outputDirs: List<Path>, val resourceRoots: List<Path>) {
-    /** Project-relative path of the file to edit, or `null` when the sheet lives outside the project. */
-    fun projectFile(abs: Path?): String? {
+    /** The source file behind a build copy in an output dir (reverse of `Reloader.copyResources`), else [abs] itself. */
+    fun sourceFile(abs: Path?): Path? {
         if (abs == null) return null
-        var p = abs.toAbsolutePath().normalize()
+        val p = abs.toAbsolutePath().normalize()
         for (out in outputDirs) {
             if (p.startsWith(out)) {
                 val rel = out.relativize(p)
-                val src = resourceRoots.map { it.resolve(rel) }.firstOrNull { Files.isRegularFile(it) }
-                if (src != null) p = src
-                break
+                return resourceRoots.map { it.resolve(rel) }.firstOrNull { Files.isRegularFile(it) } ?: p
             }
         }
+        return p
+    }
+
+    /** Project-relative path of the file to edit, or `null` when the sheet lives outside the project. */
+    fun projectFile(abs: Path?): String? {
+        val p = sourceFile(abs) ?: return null
         val project = projectDir ?: return p.toString()
         return if (p.startsWith(project)) project.relativize(p).toString().replace('\\', '/') else p.toString()
     }

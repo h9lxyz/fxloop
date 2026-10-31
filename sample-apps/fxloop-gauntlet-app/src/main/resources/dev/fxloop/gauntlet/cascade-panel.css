@@ -1,0 +1,4 @@
+/* Installed on #cxPanel in the Gauntlet "Cascade" tab. */
+.cx-panel { -accent: #0000ff; }
+/* deliberate parse error (the inspector must surface it as a sheet blocker) */
+.cx-oops { -fx-text-fill: ; }

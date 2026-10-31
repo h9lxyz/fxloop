@@ -185,7 +185,7 @@ object WhyTools {
             Schema.obj().target().str("property", "One CSS property, e.g. -fx-text-fill").integer("limit", "Page size", 1, 200)
                 .integer("offset", "Page offset")
                 .bool("rules", "Rule-level cascade: winner rule with file:line, overridden rules with reasons, blockers (default true). false = origin-only output as before")) { a ->
-            val r = s.call(Fcp.Method.EXPLAIN_STYLE, a) as ObjectNode
+            val r = s.call(Fcp.Method.EXPLAIN_STYLE, ctx.withCssRoots(a)) as ObjectNode
             ok(r["items"].joinToString("\n") { styleLine(it) }
                 .ifEmpty { "no CSS-styled properties" } + "\nstylesheets: " + r["candidateStylesheets"].joinToString { it["url"].asText() }, r)
         }
@@ -196,7 +196,7 @@ object WhyTools {
             Schema.obj().target().str("property", "CSS property, e.g. -fx-background-color")
                 .str("value", "Desired value, e.g. #ff0000").str("file", "Stylesheet to put the rule in (project-relative); default: best match")
                 .required("property")) { a ->
-            val r = s.call(Fcp.Method.CSS_SUGGEST, a) as ObjectNode
+            val r = s.call(Fcp.Method.CSS_SUGGEST, ctx.withCssRoots(a)) as ObjectNode
             ok(buildString {
                 append(r.path("snippet").asText(""))
                 r.path("why").asText(null)?.let { append("\nwhy: ").append(it) }

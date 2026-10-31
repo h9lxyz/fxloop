@@ -37,10 +37,21 @@ class Ctx(val config: Config) {
     /** Builds the viewer with the inspector API wired to [session] and starts it (port 0 = ephemeral). */
     @Synchronized
     fun ensureViewer(port: Int = 0): Viewer = viewer ?: Viewer(port, Tokens.generate(), visuals.store,
-        api = { m, p, t -> session.call(m, p, t) }, connected = { session.connected }, editorUrl = config.editorUrl).also {
+        api = { m, p, t -> session.call(m, if (m in CSS_METHODS) withCssRoots(p) else p, t) }, connected = { session.connected }, editorUrl = config.editorUrl).also {
         it.start()
         viewer = it
         log.info("live viewer: {}", it.url())
+    }
+
+    /** Project layout for the CSS engine, so `file` names the source stylesheet rather than its build copy (PRD 08 §3.2). */
+    fun withCssRoots(p: ObjectNode): ObjectNode {
+        val d = session.descriptor ?: return p.put("projectDir", config.projectDir.toString())
+        val wd = java.nio.file.Path.of(d.workingDir)
+        fun abs(s: String) = wd.resolve(s).toAbsolutePath().normalize().toString()
+        p.put("projectDir", config.projectDir.toString())
+        p.set<JsonNode>("outputDirs", Json.strings(listOf(abs(d.outputDir))))
+        p.set<JsonNode>("resourceRoots", Json.strings(d.resourceRoots.map(::abs)))
+        return p
     }
 
     private fun publish(event: String, json: JsonNode) {
@@ -177,6 +188,8 @@ class Ctx(val config: Config) {
     }
 
     companion object {
+        val CSS_METHODS = setOf(Fcp.Method.EXPLAIN_STYLE, Fcp.Method.CSS_CASCADE, Fcp.Method.CSS_SUGGEST)
+
         val METHODS = mapOf(
             "fx_click_node" to Fcp.Method.CLICK,
             "fx_type_keys" to Fcp.Method.TYPE_KEYS,

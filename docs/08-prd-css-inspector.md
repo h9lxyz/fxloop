@@ -1,4 +1,7 @@
 # PRD 08 — CSS Inspector: "which rule wins, and why" (Stage F)
+
+**Status:** F1 and F2 shipped (F1 with documented deviations: no gauntlet *CSS cascade* tab and no A-F1–A-F3 acceptance yet). F3 (Try it live) is open. Wire contract as built: [decisions/css-inspector-contract.md](decisions/css-inspector-contract.md).
+
 **Objective:** answer the most expensive JavaFX styling question — *"why doesn't my CSS apply, and what do I have to write to override it?"* — exactly, for both the agent and the developer. FXLoop reconstructs the CSS cascade per node from the public `javafx.css` API, maps every rule to `file:line`, says why each losing declaration loses, and proposes the smallest override that wins. The developer gets a browser-based inspector in the style of Chrome DevTools' Elements → Styles panel, next to the running app.
 
 **Audience:** developers styling complex apps (Modena overrides, library themes, several stylesheets, custom controls) and the coding agent doing the same work through tools.
