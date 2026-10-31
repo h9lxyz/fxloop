@@ -28,6 +28,7 @@ JavaFX-implemented dialogs (`Alert`, `Dialog`, `ChoiceDialog`) appear as windows
 | Edit | Result |
 |---|---|
 | Method body change | Swapped live (tier `hotswap`) |
+| Code-built view wrapped in `FxLoopDev.view` | Re-rendered in place after the swap (tier `remount`) |
 | CSS change | Re-applied live, with `visualDiff` |
 | FXML change (document loaded via `FXMLLoader`/`FxLoopDev`) | Swapped live; unregistered FXML triggers restart |
 | Add/remove methods or fields, change signatures | `REDEFINE_REJECTED` then restart (+ replay) |
@@ -38,6 +39,17 @@ JavaFX-implemented dialogs (`Alert`, `Dialog`, `ChoiceDialog`) appear as windows
 Plain JVM HotSwap only changes method bodies. With JetBrains Runtime you can opt in to enhanced redefinition: launch on JBR (`FXLOOP_JAVA_HOME`) and set `FXLOOP_JBR=true` (fxloop then adds `-XX:+AllowEnhancedClassRedefinition`). Enhanced redefinition is a JBR feature, not guaranteed by FXLoop.
 
 Existing instances keep their state; code in constructors or static initialisers does not re-run after a swap. Restart with replay (`FXLOOP_REPLAY`) re-applies recorded actions to get back to the same screen.
+
+### Live dev loop
+
+* **Code-built views:** only views wrapped in `FxLoopDev.view` re-render after a HotSwap. UI built in `start()`, constructors or `initialize()` changes only when that code runs again. See [fxloop-dev](configuration.md#live-dev-loop-fxloop-dev-api).
+* **View state is carried over, model state is not:** text, caret and selection, list/table/tree selections, scroll positions, selected tab, expanded panes, toggles and focus are restored onto the new nodes. Controller, model and service fields are not: the FXML controller is re-created and a remounted factory runs again from scratch. `fx_reload{carryState:false}` opts out.
+* **Restoring state can fire listeners:** setting a selection or tab can run app listeners, which may load data or call services again.
+* **Remount can leak external resources:** a view holding a `WebView`, media player or similar may leave the old instance running. Release it in an `FxLoopDev.onReload` callback.
+* **Human and agent input are told apart by timing:** a human click during an agent action may be missed or counted as a conflict (`conflicts`, `skippedHuman`).
+* **Shared control is synthetic:** in `shared` control, actions use synthetic events, which skip hover, real picking and some native behaviour. Re-check critical flows in `agent` mode before trusting a result.
+* **The dev bar is an overlay window:** on Wayland, macOS fullscreen spaces and tiling window managers it can fall back to a corner pill or be off. The same state is always in `fx_get_app_status`.
+* **Restage is experimental:** `FXLOOP_RESTAGE` re-runs `start()`, which may start services or connections twice.
 
 ## Input and inspection
 

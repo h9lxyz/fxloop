@@ -16,6 +16,7 @@ FXLoop is a **developer tool** that lets an MCP client (an LLM agent) inspect an
 | Silent hijack of running JVMs | `fx_attach` is explicit, audit-logged (`dev.fxloop.audit` logger: `AUDIT attach requested/attached pid=...`) and can be disabled with `-Dfxloop.attach=false` on the server. |
 | Arbitrary script execution in the app | `fx_eval_js` is **off** unless `FXLOOP_WEBVIEW=true`. |
 | Data exfiltration | **No telemetry.** The server makes no network calls of its own (build tools may fetch dependencies as usual). The optional live viewer binds `127.0.0.1` and requires a token. |
+| Developer input kept for the journal (clicks, keys, text) is persisted or leaked | Kept only in the server's **in-memory ring (500 entries)**; nothing is written to disk. `PasswordField` content is never recorded (entry stored `redacted`, skipped on replay). `FXLOOP_RECORD_HUMAN=false` disables capture. |
 
 Out of scope: a malicious process running as the same OS user (it can read your files anyway), and untrusted MCP clients: anything connected to the MCP server can drive the app, so only configure it for agents you trust.
 
