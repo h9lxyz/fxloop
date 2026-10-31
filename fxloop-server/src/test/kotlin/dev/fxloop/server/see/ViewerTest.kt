@@ -306,4 +306,47 @@ class ViewerTest {
             conn.disconnect()
         }
     }
+
+    private fun postJson(url: String, json: String, type: String = "application/json"): HttpResponse<String> =
+        http.send(
+            HttpRequest.newBuilder(URI.create(url)).header("Content-Type", type).POST(HttpRequest.BodyPublishers.ofString(json)).build(),
+            HttpResponse.BodyHandlers.ofString(),
+        )
+
+    @Test
+    fun promptEndpointsQueueForTheAgent(@TempDir dir: Path) {
+        val prompts = Prompts()
+        Viewer(0, "tok", ScreenStore(dir, 10), prompts = prompts).use { v ->
+            v.start()
+            prompts.onChange = { v.publish("prompts", it) }
+            val base = "http://127.0.0.1:${v.port}"
+            assertThat(req("$base/api/prompt?t=tok").statusCode()).isEqualTo(405)
+            assertThat(postJson("$base/api/prompt?t=tok", "{}", "text/plain").statusCode()).isEqualTo(415)
+            assertThat(postJson("$base/api/prompt?t=tok", "{\"text\":\"  \"}").statusCode()).isEqualTo(400)
+            assertThat(postJson("$base/api/prompt?t=tok", "not json").statusCode()).isEqualTo(400)
+            assertThat(postJson("$base/api/prompt?t=wrong", "{\"text\":\"x\"}").statusCode()).isEqualTo(403)
+            val r = postJson("$base/api/prompt?t=tok",
+                "{\"text\":\"make it blue\",\"h\":7,\"path\":\"Stage[0]//Button#ok\",\"property\":\"-fx-background-color\",\"evil\":{\"a\":1}}")
+            assertThat(r.statusCode()).isEqualTo(200)
+            val j = Json.parse(r.body())
+            assertThat(j["status"].asText()).isEqualTo("pending")
+            assertThat(j["context"]["h"].asInt()).isEqualTo(7)
+            assertThat(j["context"]["property"].asText()).isEqualTo("-fx-background-color")
+            assertThat(j["context"].has("evil")).isFalse()
+            val taken = prompts.take(1000)!!
+            assertThat(taken.text).isEqualTo("make it blue")
+            prompts.reply(taken.id, "done: app.css:12", true)
+            val list = Json.parse(req("$base/api/prompts?t=tok").body())
+            assertThat(list["listening"].asBoolean()).isFalse()
+            assertThat(list["items"][0]["status"].asText()).isEqualTo("answered")
+            assertThat(list["items"][0]["replies"][0]["text"].asText()).isEqualTo("done: app.css:12")
+            val second = Json.parse(postJson("$base/api/prompt?t=tok", "{\"text\":\"never mind\"}").body())
+            assertThat(Json.parse(req("$base/api/prompt/cancel?t=tok&id=${second["id"]}", "POST").body())["cancelled"].asBoolean()).isTrue()
+            assertThat(prompts.take(50)).isNull()
+        }
+        Viewer(0, "tok", ScreenStore(dir, 10)).use { v ->
+            v.start()
+            assertThat(req("http://127.0.0.1:${v.port}/api/prompts?t=tok").statusCode()).isEqualTo(404)
+        }
+    }
 }

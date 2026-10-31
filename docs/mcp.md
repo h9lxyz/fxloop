@@ -60,6 +60,8 @@ agent losing its connection. Your app needs no FXLoop dependency: the agent is i
 | [`fx_suggest_override`](tools.md#fx_suggest_override) | The smallest CSS rule that would make a value stick, ready to paste |
 | [`fx_explain_property`](tools.md#fx_explain_property) | Why a property has its value: the binding dependency tree and the CSS origin |
 | [`fx_open_inspector`](tools.md#fx_open_inspector) | Opens a DevTools-style CSS inspector in *your* browser, next to the running app |
+| [`fx_wait_for_prompt`](tools.md#fx_wait_for_prompt) | Waits for a request you type into the inspector's *Ask agent* box, with the node and declaration it is about |
+| [`fx_reply_to_prompt`](tools.md#fx_reply_to_prompt) | Shows the agent's answer (or a progress note) under your prompt in the inspector |
 
 ### Find problems
 
@@ -141,6 +143,11 @@ Restarts wait while you are using the app. The details, including JetBrains Runt
   into a scratch stylesheet in the running app. *Apply to file…* shows which lines of which stylesheet would change and,
   once you confirm, writes them there, reloads the CSS and clears the scratch; *Ask agent to apply* hands them to the
   agent instead ([configuration](configuration.md)).
+- **Ask agent (prototype).** The inspector's *Ask agent* box sends a request about the selected node; click a property
+  name first to scope it to that declaration (selector and `file:line` go along). An agent that is listening
+  (`fx_wait_for_prompt`, a long poll it calls in a loop) receives your text, the node's path and a screenshot of it,
+  plus any unapplied scratch CSS, and answers with `fx_reply_to_prompt`; answers appear under your prompt. The box
+  shows whether an agent is listening right now; prompts sent while none is wait in the queue (in memory, last 50).
 - **Watching the agent.** The bar always says what the agent is doing ("Agent: clicking Button#save") and whether you
   have access. Before it clicks through the UI like a person, the agent can lock your input with `fx_lock_input`: your
   clicks and keys in the app are dropped, inspector editing pauses, and the bar reads "you're watching". **Take over**

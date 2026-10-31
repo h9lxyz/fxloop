@@ -9,6 +9,7 @@ import dev.fxloop.server.tools.ActTools
 import dev.fxloop.server.tools.CoreTools
 import dev.fxloop.server.tools.Ctx
 import dev.fxloop.server.tools.LoopTools
+import dev.fxloop.server.tools.PromptTools
 import dev.fxloop.server.tools.SeeTools
 import dev.fxloop.server.tools.WhyTools
 import io.modelcontextprotocol.json.jackson2.JacksonMcpJsonMapper
@@ -35,6 +36,7 @@ fun registry(ctx: Ctx): ToolRegistry = ToolRegistry().also { reg ->
     SeeTools.register(reg, ctx)
     LoopTools.register(reg, ctx)
     WhyTools.register(reg, ctx)
+    PromptTools.register(reg, ctx)
     reg.observer = ctx::toolActivity
 }
 
