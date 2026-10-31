@@ -28,6 +28,7 @@ nav:
       - Implementation tracking: 05-implementation-tracking.md
       - Skills PRD: 06-prd-skills.md
       - Live dev loop PRD: 07-prd-live-dev.md
+      - CSS inspector PRD: 08-prd-css-inspector.md
   - Decisions:
       - FXML load registry: decisions/fxml-load-registry.md
       - Kotlin tooling: decisions/kotlin.md

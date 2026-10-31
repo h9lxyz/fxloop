@@ -1,6 +1,6 @@
 # FXLoop — Implementation Tracking (Document 5)
 
-Feature/task mapping for PRDs 00–04, 06 and 07 with live status. One row per deliverable; IDs reference the PRD section that specifies it.
+Feature/task mapping for PRDs 00–04 and 06–08 with live status. One row per deliverable; IDs reference the PRD section that specifies it.
 
 **Status legend:** ⬜ todo · 🟨 in progress · ✅ done · ⚠️ done with documented deviation · ⏭️ deferred / out of local scope (reason given)
 
@@ -151,6 +151,14 @@ Baseline: Java 17 bytecode (`--release 17`), built and tested locally on JDK 25 
 | E5a | Dev bar: overlay, tool invisibility, mode / last reload / action-needed segments, `actionNeeded` in status, viewer `status` strip | 07 §7.1, §7.3–7.4 | agent, server | ⬜ | A-E5a, A-E5b, A-E5d |
 | E5b | Control modes: `fx_set_control_mode`, event-mode defaults in `shared`, `conflicts`, bar toggle | 07 §7.2 | agent, server | ⬜ | A-E5c |
 | E6 | Pick mode, `fx_get_picked`, `{picked:true}` targets, PRD 06 skill updates | 07 §8 | agent, server, plugin | ⬜ | A-E6, then manual run |
+
+## Stage F — CSS inspector (PRD 08)
+
+| ID | Feature / task | PRD ref | Module | Status | Notes |
+|---|---|---|---|---|---|
+| F1 | Cascade engine (sheet order, matching, specificity, inheritance, shorthands, self-check), source mapping, blockers, `fx_explain_style` rule-level output, `fx_suggest_override`, gauntlet *CSS cascade* tab | 08 §3 | agent, server, gauntlet | ⬜ | A-F1–A-F3 |
+| F2 | Browser inspector `/inspect` on the viewer: tree (+ skin nodes), styles, computed, box model, highlight overlay, pick/reload SSE | 08 §4 | server, agent | ⬜ | A-F4; overlay shared with E6 |
+| F3 | Try it live: scratch stylesheet (`FXLOOP_INSPECTOR_EDIT`), copy / ask-agent hand-over, `scratchCss` in status | 08 §5 | server, agent | ⬜ | A-F5 |
 
 ## Items requiring external resources (cannot be completed in this local session)
 
