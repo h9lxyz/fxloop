@@ -1,5 +1,5 @@
 # FXLoop — Agentic Dev-Loop for JavaFX
-## Product Overview, Architecture & Roadmap (Document 0 of 5)
+## Product Overview, Architecture & Roadmap (Document 0 of 6)
 
 > **Working name:** `fxloop` (rename freely; grep-safe token used consistently across all PRDs).
 > **License:** Apache-2.0 (deliberate differentiator — the closest prior art, `fxgraph-mcp-server`, ships without a license).
@@ -80,7 +80,7 @@ fxloop/
 ├── fxloop-gradle-plugin/        # (Production) parity task `fxloopPrepare`
 ├── sample-apps/                 # test targets (Java): fxloop-sample-app (PRD-PoC §9), fxloop-gauntlet-app, fxloop-sample-app-gradle
 ├── evals/                       # per-stage eval XML + runner notes
-└── docs/
+└── docs/                        # PRDs 00–04, tracking 05, developer skills 06
 ```
 
 ## 7. Conventions (from MCP best practices — apply everywhere)
