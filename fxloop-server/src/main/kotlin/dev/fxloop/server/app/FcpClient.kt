@@ -83,8 +83,17 @@ class FcpClient private constructor(private val socket: Socket, private val even
         const val DEFAULT_TIMEOUT_MS = 10_000L
 
         fun connect(port: Int, token: String, events: (String, JsonNode?) -> Unit): FcpClient {
-            val s = Socket(InetAddress.getLoopbackAddress(), port).apply { tcpNoDelay = true }
-            val c = FcpClient(s, events)
+            val s = try {
+                Socket(InetAddress.getLoopbackAddress(), port).apply { tcpNoDelay = true }
+            } catch (e: IOException) {
+                throw FcpException(Fcp.Error.DISCONNECTED, "cannot reach the agent on port $port: ${e.message}")
+            }
+            val c = try {
+                FcpClient(s, events)
+            } catch (e: Exception) {
+                runCatching { s.close() }
+                throw FcpException(Fcp.Error.DISCONNECTED, "FCP setup failed: ${e.message}")
+            }
             thread(isDaemon = true, name = "fxloop-fcp-reader") { c.readLoop() }
             try {
                 c.hello = c.request(Fcp.Method.HELLO, Json.obj {
@@ -92,7 +101,7 @@ class FcpClient private constructor(private val socket: Socket, private val even
                     put("fcpVersion", Fcp.VERSION)
                     put("maxFcpVersion", Fcp.VERSION)
                 }, 5000) as ObjectNode
-            } catch (e: RuntimeException) {
+            } catch (e: Exception) {
                 c.close()
                 throw e
             }

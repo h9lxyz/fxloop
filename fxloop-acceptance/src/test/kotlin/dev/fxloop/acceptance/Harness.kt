@@ -28,26 +28,38 @@ class Harness(
     headlessOverride: String? = null,
 ) : AutoCloseable {
     val repo: Path = Path.of(System.getProperty("fxloop.repo") ?: "..").toAbsolutePath().normalize()
-    val project: Path = copySampleApp(repo, app)
+    val project: Path = copyOf(repo, app)
     val ctx: Ctx
     val tools: ToolRegistry
 
     init {
+        try {
+            ctx = createCtx(appArgs, webview, headlessOverride)
+            tools = registry(ctx)
+        } catch (e: Throwable) {
+            deleteProject(project) // a failed constructor never reaches close()
+            throw e
+        }
+    }
+
+    private fun createCtx(appArgs: List<String>, webview: Boolean, headlessOverride: String?): Ctx {
         val headless = headlessOverride ?: System.getenv("FXLOOP_ACCEPTANCE_HEADLESS") ?: "xvfb"
         val config = Config(
             projectDir = project,
             // Maven apps use the repo wrapper; Gradle apps find their own gradlew (wrapper preference, PRD 03 §2)
-            buildCmd = if (Files.exists(project.resolve("pom.xml"))) repo.resolve("mvnw").toString() else null,
+            // Gradle runs without a daemon here: test runs must not leave ~1 GB daemons behind.
+            buildCmd = if (Files.exists(project.resolve("pom.xml"))) repo.resolve("mvnw").toString()
+            else project.resolve("gradlew").toString() + " --no-daemon",
             headless = headless.takeIf { it != "none" },
             appArgs = appArgs,
+            jvmArgs = listOf(RUN_MARKER), // lets the leak guard recognise exactly this run's app JVMs
             webview = webview,
             testMode = true,
             screenshotRatePerSec = 0.0,
             watchMode = "off",
             startupTimeoutMs = 60_000,
         )
-        ctx = Ctx(config)
-        tools = registry(ctx)
+        return Ctx(config)
     }
 
     fun raw(name: String, args: ObjectNode = Json.obj()): ToolResult = tools.call(name, args)
@@ -77,10 +89,17 @@ class Harness(
     }
 
     override fun close() {
-        ctx.shutdown()
+        try {
+            ctx.shutdown() // the app tree must be dead before its files go away
+        } finally {
+            if (System.getProperty("fxloop.keepProjects") == null) deleteProject(project)
+        }
     }
 
     companion object {
+        /** Unique per test JVM; passed to every app JVM this run launches (see [NoLeakedProcesses]). */
+        val RUN_MARKER = "-Dfxloop.acceptance.run=" + java.util.UUID.randomUUID()
+
         const val CONTROLLER = "src/main/java/dev/fxloop/sample/MainController.java"
         const val CSS = "src/main/resources/dev/fxloop/sample/app.css"
         const val FXML = "src/main/resources/dev/fxloop/sample/main-view.fxml"
@@ -101,7 +120,15 @@ class Harness(
             }
         }
 
-        private fun copySampleApp(repo: Path, app: String): Path {
+        /** Deletes a project copy; retries once because a dying app may still flush a last file (state.json). */
+        fun deleteProject(dir: Path) {
+            dir.toFile().deleteRecursively()
+            Thread.sleep(500)
+            dir.toFile().deleteRecursively()
+        }
+
+        /** Throwaway copy of a sample app (the MVP workflows edit sources); the caller deletes it. */
+        fun copyOf(repo: Path, app: String): Path {
             val src = repo.resolve("sample-apps/$app")
             val dst = Files.createTempDirectory("fxloop-acceptance-")
             Files.walk(src).use { s ->

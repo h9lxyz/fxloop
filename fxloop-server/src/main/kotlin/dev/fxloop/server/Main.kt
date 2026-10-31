@@ -18,6 +18,7 @@ import io.modelcontextprotocol.spec.McpSchema
 import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.util.concurrent.CountDownLatch
+import kotlin.system.exitProcess
 
 /** Instructions sent to MCP clients at initialization. */
 const val INSTRUCTIONS = """FXLoop drives the JavaFX app in this project. Typical loop: fx_get_app_status (auto-starts) →
@@ -89,7 +90,13 @@ fun main(args: Array<String>) {
         log.info("live viewer: {}", viewer.url())
     }
     val reg = registry(ctx)
-    val transport = StdioServerTransportProvider(JacksonMcpJsonMapper(ObjectMapper()))
+    // The server must die with its MCP client: the SDK only completes the session on stdin EOF (it never exits the
+    // JVM), and a client that dies without closing the pipe is caught by the parent watchdog. Either way main()
+    // returns through exitProcess, which runs the shutdown hooks that reap every launched app tree.
+    val done = CountDownLatch(1)
+    val stdin = EofAwareInputStream(System.`in`) { done.countDown() }
+    ParentWatchdog.start { done.countDown() }
+    val transport = StdioServerTransportProvider(JacksonMcpJsonMapper(ObjectMapper()), stdin, System.out)
     val server = McpServer.sync(transport)
         .serverInfo("fxloop", Versions.SERVER)
         .instructions(INSTRUCTIONS.trimIndent())
@@ -98,11 +105,11 @@ fun main(args: Array<String>) {
         .tools(reg.toMcp())
         .build()
     log.info("fxloop {} ready: project {} ({} tools)", Versions.SERVER, config.projectDir, reg.all().size)
-    val done = CountDownLatch(1)
     Runtime.getRuntime().addShutdownHook(Thread {
         ctx.shutdown()
         runCatching { server.close() }
-        done.countDown()
     })
     done.await()
+    log.info("MCP client is gone; shutting down")
+    exitProcess(0)
 }

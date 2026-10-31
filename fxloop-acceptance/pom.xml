@@ -57,6 +57,8 @@
             <java.awt.headless>true</java.awt.headless>
           </systemPropertyVariables>
           <trimStackTrace>false</trimStackTrace>
+          <!-- a hung suite must not hold app/Xvfb trees forever: surefire kills the fork, hooks/watchdogs reap the rest -->
+          <forkedProcessTimeoutInSeconds>2400</forkedProcessTimeoutInSeconds>
         </configuration>
       </plugin>
     </plugins>

@@ -56,8 +56,13 @@ class LogCapture internal constructor(private val capacity: Int) {
         })
     }
 
-    @Synchronized
+    /** Called on arbitrary application threads; the listener runs outside the lock with a private copy. */
     internal fun add(level: String, logger: String?, message: String?, thrown: Throwable?) {
+        val e = synchronized(this) { addLocked(level, logger, message, thrown) }
+        listener(e.deepCopy())
+    }
+
+    private fun addLocked(level: String, logger: String?, message: String?, thrown: Throwable?): ObjectNode {
         val e = Json.obj()
         e.put("seq", ++seq)
         e.put("ts", System.currentTimeMillis())
@@ -71,7 +76,7 @@ class LogCapture internal constructor(private val capacity: Int) {
         while (ring.size > capacity) {
             ring.removeFirst()
         }
-        listener(e)
+        return e
     }
 
     @Synchronized

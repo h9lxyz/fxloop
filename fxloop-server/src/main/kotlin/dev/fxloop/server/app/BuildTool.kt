@@ -31,7 +31,8 @@ class BuildTool(private val config: Config) {
 
     private fun base(): MutableList<String> = command.toMutableList().apply {
         if (kind == Kind.MAVEN) addAll(listOf("-q", "-B", "-f", config.projectDir.resolve("pom.xml").toString()))
-        else addAll(listOf("-q", "-p", config.projectDir.toString()))
+        // a daemon started by fxloop should not linger for Gradle's default 3 h idle time
+        else addAll(listOf("-q", "-p", config.projectDir.toString(), "-Dorg.gradle.daemon.idletimeout=$GRADLE_DAEMON_IDLE_MS"))
     }
 
     /** Compiles and emits launch.json; Maven falls back to the PoC classpath pipeline when the plugin is unavailable. */
@@ -95,19 +96,26 @@ class BuildTool(private val config: Config) {
             throw ToolException("BUILD_FAILED", "cannot run ${cmd[0]}: ${e.message}",
                 "install Maven/Gradle, add a wrapper, or set FXLOOP_BUILD_CMD")
         }
-        p.outputStream.close()
-        val out = StringBuilder()
-        val pump = thread(isDaemon = true) { runCatching { out.append(String(p.inputStream.readAllBytes())) } }
-        if (!p.waitFor(timeoutSec, TimeUnit.SECONDS)) {
-            ProcessTree.kill(p)
-            return Result(-1, "timed out after $timeoutSec s")
+        var finished = false
+        try {
+            p.outputStream.close()
+            val out = StringBuilder()
+            val pump = thread(isDaemon = true) { runCatching { out.append(String(p.inputStream.readAllBytes())) } }
+            if (!p.waitFor(timeoutSec, TimeUnit.SECONDS)) return Result(-1, "timed out after $timeoutSec s")
+            finished = true
+            pump.join(5000)
+            return Result(p.exitValue(), out.toString())
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw ToolException("BUILD_FAILED", "build interrupted", "retry the call")
+        } finally {
+            // timeout, interrupt or any failure: never leave the build (and its forks) running
+            if (finished) ProcessTree.untrack(p) else ProcessTree.kill(p)
         }
-        ProcessTree.kill(p.toHandle(), graceMs = 0) // untrack; reaps any stray grandchild of the build script
-        pump.join(5000)
-        return Result(p.exitValue(), out.toString())
     }
 
     companion object {
+        const val GRADLE_DAEMON_IDLE_MS = 600_000
         private val BUILD_FILES = listOf("build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts")
 
         fun detect(c: Config): Kind = when {

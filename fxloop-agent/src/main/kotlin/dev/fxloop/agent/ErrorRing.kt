@@ -29,8 +29,14 @@ class ErrorRing internal constructor(private val capacity: Int) {
         }
     }
 
-    @Synchronized
+    /** Records under the lock; notifies the listener outside it with a private copy (ring entries mutate on dedup). */
     internal fun record(thread: Thread, thrown: Throwable): ObjectNode {
+        val (entry, fresh) = synchronized(this) { recordLocked(thread, thrown) }
+        if (fresh) listener(entry.deepCopy())
+        return entry
+    }
+
+    private fun recordLocked(thread: Thread, thrown: Throwable): Pair<ObjectNode, Boolean> {
         // FXML event handlers are invoked reflectively, so the user's exception arrives wrapped in
         // RuntimeException(InvocationTargetException(...)): report the root cause, name the wrapper.
         val ex = rootCause(thrown)
@@ -43,7 +49,7 @@ class ErrorRing internal constructor(private val capacity: Int) {
         ) {
             last.put("dedupCount", last.get("dedupCount").asInt() + 1)
             last.put("ts", now)
-            return last
+            return last to false
         }
         val entry = Json.obj()
         entry.put("seq", ++seq)
@@ -65,8 +71,7 @@ class ErrorRing internal constructor(private val capacity: Int) {
         while (ring.size > capacity) {
             ring.removeFirst()
         }
-        listener(entry)
-        return entry
+        return entry to true
     }
 
     @Synchronized

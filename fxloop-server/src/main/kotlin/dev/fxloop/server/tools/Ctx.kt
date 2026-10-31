@@ -130,7 +130,7 @@ class Ctx(val config: Config) {
     }
 
     fun shutdown() {
-        runCatching { watch.close() }
+        runCatching { watch.dispose() }
         runCatching { viewer?.close() }
         runCatching { session.shutdown() }
         log.info("fxloop server stopped")

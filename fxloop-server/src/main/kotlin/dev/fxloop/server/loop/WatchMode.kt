@@ -19,6 +19,8 @@ import kotlin.io.path.name
 class WatchMode(private val apply: (List<String>) -> ObjectNode?) : AutoCloseable {
     private val log = LoggerFactory.getLogger(WatchMode::class.java)
     private val debounce = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "fxloop-watch-debounce").apply { isDaemon = true } }
+    private val events = Executors.newSingleThreadExecutor { r -> Thread(r, "fxloop-watch-events").apply { isDaemon = true } }
+    private var roots: List<Path> = emptyList()
     private val pending = LinkedHashSet<Path>()
     private var watcher: DirectoryWatcher? = null
     private var scheduled: ScheduledFuture<*>? = null
@@ -33,12 +35,14 @@ class WatchMode(private val apply: (List<String>) -> ObjectNode?) : AutoCloseabl
     @Synchronized
     fun set(newMode: String, roots: List<Path>) {
         require(newMode in MODES) { "watchMode must be one of $MODES" }
+        if (newMode == mode && roots == this.roots && (watcher != null || newMode == "off")) return // relaunch: keep it
         close()
         mode = newMode
+        this.roots = roots
         if (newMode == "off") return
         val dirs = roots.filter { it.isDirectory() }
         if (dirs.isEmpty()) return
-        watcher = DirectoryWatcher.builder().paths(dirs).listener(::onEvent).build().also { it.watchAsync() }
+        watcher = DirectoryWatcher.builder().paths(dirs).listener(::onEvent).build().also { it.watchAsync(events) }
         log.info("watch mode {} on {} roots", newMode, dirs.size)
     }
 
@@ -70,6 +74,13 @@ class WatchMode(private val apply: (List<String>) -> ObjectNode?) : AutoCloseabl
     override fun close() {
         runCatching { watcher?.close() }
         watcher = null
+    }
+
+    /** Final teardown (server shutdown): stops the watcher and both executors. */
+    fun dispose() {
+        close()
+        debounce.shutdownNow()
+        events.shutdownNow()
     }
 
     companion object {

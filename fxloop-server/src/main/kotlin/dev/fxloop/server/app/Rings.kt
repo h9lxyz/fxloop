@@ -3,6 +3,29 @@ package dev.fxloop.server.app
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 
+/** Splits a stream into lines, truncating any line longer than [maxChars] (bounded memory per line). */
+class BoundedLines(private val input: java.io.InputStream, private val maxChars: Int) {
+    fun forEach(action: (String) -> Unit) {
+        val reader = input.bufferedReader()
+        val sb = StringBuilder()
+        var truncated = false
+        while (true) {
+            val c = reader.read()
+            if (c < 0 || c == '\n'.code) {
+                if (c < 0 && sb.isEmpty() && !truncated) return
+                action(if (truncated) "$sb … [truncated]" else sb.toString().removeSuffix("\r"))
+                sb.clear()
+                truncated = false
+                if (c < 0) return
+            } else if (sb.length < maxChars) {
+                sb.append(c.toChar())
+            } else {
+                truncated = true
+            }
+        }
+    }
+}
+
 /** Bounded line ring for process stdout/stderr (2000 lines per stream). */
 class LogRing(private val capacity: Int) {
     private val lines = ArrayDeque<String>()

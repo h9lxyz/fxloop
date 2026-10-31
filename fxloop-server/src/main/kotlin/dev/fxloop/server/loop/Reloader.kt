@@ -77,6 +77,8 @@ class Reloader(private val session: AppSession, private val visuals: Visuals) {
                 lower.endsWith(".css") -> css.add(c.file)
                 lower.endsWith(".fxml") -> fxml.add(c.file)
                 lower.endsWith(".java") -> java.add(c.file)
+                // Kotlin is compiled externally (FXLOOP_EXTERNAL_COMPILE picks its classes up from outputDir); never a resource
+                lower.endsWith(".kt") || lower.endsWith(".kts") -> Unit
                 else -> other.add(c.file)
             }
         }

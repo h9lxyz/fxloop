@@ -8,7 +8,6 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
-import java.util.concurrent.atomic.AtomicBoolean
 import javafx.application.Platform
 
 /** FX-thread marshaling contract (PRD 01 §4): bounded waits, stack capture on timeout, never a silent hang. */
@@ -17,6 +16,13 @@ object Fx {
 
     @Volatile
     private var fxThread: Thread? = null
+
+    private const val QUEUED = 0
+    private const val RUNNING = 1
+    private const val ABANDONED = 2
+
+    /** Timed-out runnables still sitting in the FX queue; while > 0 the FX thread is known to be stuck. */
+    private val stuck = java.util.concurrent.atomic.AtomicInteger()
 
     internal fun rememberFxThread(t: Thread) {
         fxThread = t
@@ -33,10 +39,18 @@ object Fx {
                 throw FcpException(Fcp.Error.INTERNAL, e.toString())
             }
         }
+        if (stuck.get() > 0) {
+            // the FX thread has not even reached an earlier timed-out call: fail fast instead of queueing more work
+            throw FcpException(Fcp.Error.FX_TIMEOUT, "FX thread is still blocked (an earlier call timed out and has not run yet)",
+                Json.obj().setNode("fxThreadStack", fxThreadStack()))
+        }
         val future = CompletableFuture<T>()
-        val abandoned = AtomicBoolean()
+        val state = java.util.concurrent.atomic.AtomicInteger(QUEUED)
         Platform.runLater {
-            if (abandoned.get()) return@runLater // caller already timed out: never run stale UI work late
+            if (!state.compareAndSet(QUEUED, RUNNING)) { // caller timed out before we started: never run stale UI work
+                stuck.decrementAndGet()
+                return@runLater
+            }
             try {
                 future.complete(work())
             } catch (t: Throwable) {
@@ -46,7 +60,9 @@ object Fx {
         try {
             return future.get(timeoutMs, TimeUnit.MILLISECONDS)
         } catch (e: TimeoutException) {
-            abandoned.set(true)
+            // Only a call that never started counts as "stuck"; its runnable undoes the count when the FX thread
+            // finally reaches it. A call that started but runs long is just slow — later calls queue normally.
+            if (state.compareAndSet(QUEUED, ABANDONED)) stuck.incrementAndGet()
             val data = Json.obj().setNode("fxThreadStack", fxThreadStack())
             throw FcpException(
                 Fcp.Error.FX_TIMEOUT,

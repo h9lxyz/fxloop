@@ -27,9 +27,9 @@ internal object OwnerWatchdog {
                 }
             }
             AgentLog.info("fxloop server (pid $ownerPid) is gone; shutting the application down")
-            runCatching { Platform.exit() }
-            // give the app a moment to close cleanly, then make sure the JVM really ends
-            Thread({ Fx.sleep(GRACE_MS); halt() }, "fxloop-owner-halt").apply { isDaemon = false }.start()
+            // arm the hard stop first: nothing the app does on exit may keep it alive past the grace period
+            Thread({ Fx.sleep(GRACE_MS); halt() }, "fxloop-owner-halt").apply { isDaemon = true }.start()
+            Thread({ runCatching { Platform.exit() } }, "fxloop-owner-exit").apply { isDaemon = true }.start()
         }, "fxloop-owner-watchdog").apply { isDaemon = true }.start()
     }
 

@@ -95,18 +95,29 @@ class AppSession(val config: Config) {
         state = State.STARTING
         mode = Mode.LAUNCHED
         exitCode = null
+        var ok = false
         try {
             val d = build.prepare()
             descriptor = d
             launch(d)
             lastStartupMs = System.currentTimeMillis() - t0
             state = State.RUNNING
-            restartListeners.forEach { it() }
-        } catch (e: RuntimeException) {
-            killProcess()
-            state = State.EXITED
-            throw e
+            ok = true
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw ToolException("LAUNCH_FAILED", "launch interrupted", "call fx_start_app again")
+        } catch (e: IOException) {
+            throw ToolException("LAUNCH_FAILED", "cannot launch the app: ${e.message}", "check fx_get_logs, then fx_start_app")
+        } finally {
+            // any failure — checked exceptions included — must not leave a half-started app tree behind
+            if (!ok) {
+                fcp?.close()
+                fcp = null
+                killProcess()
+                state = State.EXITED
+            }
         }
+        restartListeners.forEach { it() }
     }
 
     private fun launch(d: LaunchDescriptor) {
@@ -246,6 +257,13 @@ class AppSession(val config: Config) {
     /** Connects to an embedded (`FxLoopDev.install()`) or attached agent via its handshake file. */
     @Synchronized
     fun connectExisting(handshakeFile: Path, newMode: Mode): ObjectNode {
+        if (mode == Mode.LAUNCHED && process != null) {
+            // switching modes would drop the supervised app from supervision: stop it first
+            fcp?.close()
+            fcp = null
+            killProcess()
+            state = State.STOPPED
+        }
         try {
             val hs = Handshake.readFrom(handshakeFile)
             val token = hs.token ?: throw ToolException("CONFIG", "handshake has no token (it belongs to a supervised launch)",
@@ -305,7 +323,7 @@ class AppSession(val config: Config) {
 
     private fun pump(input: InputStream, ring: LogRing, name: String) {
         thread(isDaemon = true, name = "fxloop-$name-pump") {
-            runCatching { input.bufferedReader().forEachLine(ring::add) }
+            runCatching { BoundedLines(input, MAX_LINE_CHARS).forEach(ring::add) }
         }
     }
 
@@ -321,13 +339,20 @@ class AppSession(val config: Config) {
         return target
     }
 
-    @Synchronized
+    /**
+     * Lock-free on purpose: runs from the shutdown hook while start()/restart() may hold the monitor for minutes
+     * (a build). Reads the volatile fields and kills the tree directly; [ProcessTree]'s reaper is the backstop.
+     */
     fun shutdown() {
         fcp?.close()
-        if (mode == Mode.LAUNCHED) killProcess()
+        val p = process
+        if (p != null && mode == Mode.LAUNCHED) ProcessTree.kill(p, graceMs = 1500)
     }
 
     companion object {
+        /** Longest captured log line; longer output (e.g. a binary dump) is truncated, not buffered. */
+        const val MAX_LINE_CHARS = 8192
+
         fun javaExecutable(): String {
             val exe = if (File.separatorChar == '\\') "java.exe" else "java"
             val home = System.getenv("FXLOOP_JAVA_HOME") ?: System.getProperty("java.home")
