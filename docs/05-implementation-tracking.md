@@ -1,6 +1,6 @@
 # FXLoop — Implementation Tracking (Document 5)
 
-Feature/task mapping for PRDs 00–04 with live status. One row per deliverable; IDs reference the PRD section that specifies it.
+Feature/task mapping for PRDs 00–04 and 06 with live status. One row per deliverable; IDs reference the PRD section that specifies it.
 
 **Status legend:** ⬜ todo · 🟨 in progress · ✅ done · ⚠️ done with documented deviation · ⏭️ deferred / out of local scope (reason given)
 
@@ -122,6 +122,23 @@ Baseline: Java 17 bytecode (`--release 17`), built and tested locally on JDK 25 
 | C23 | `fx_capture_states` (pseudo-class strip, restore in finally) | 04 §3.6 (G12) | agent+server | ⬜ | |
 | C24 | `fx_lint_visual` `lowContrast` (WCAG) | 04 §3.5 | agent | ⬜ | |
 | C25 | Live viewer (`FXLOOP_VIEWER`, token, `/latest.png`, `/index`, `/sse`) | 04 §3.7 | server | ⬜ | |
+
+## Stage D — Developer skills (PRD 06)
+
+| ID | Feature / task | PRD ref | Module | Status | Notes |
+|---|---|---|---|---|---|
+| D1 | Plugin skeleton: `.mcp.json` bootstrap (jbang / wrapper-resolved shaded jar), skills dir, generated tool reference | 06 §3.1, §7 | plugin | ⬜ | |
+| D2 | S0 `fxloop-connect`: detect build tool/language, add plugin + guard, prepare, launch, first screenshot, CLAUDE.md trail | 06 §3.2 | plugin | ⬜ | DoD: < 2 min, zero manual edits, idempotent |
+| D3 | S1 `fxloop-ui-review` | 06 §4 | plugin | ⬜ | eval on `--broken-css` |
+| D4 | S2 `fxloop-fix-layout` | 06 §4 | plugin | ⬜ | |
+| D5 | S3 `fxloop-style` | 06 §4 | plugin | ⬜ | |
+| D6 | References 1–4 (evidence, javafx-css, layout-containers, fx-threading) | 06 §5 | plugin | ⬜ | |
+| D7 | Kotlin sample twin (`fxloop-sample-app-kotlin`) + Kotlin notes verified | 06 §6 | sample-app-kotlin | ⬜ | |
+| D8 | S4 `fxloop-accessibility`, S5 `fxloop-responsive` | 06 §4 | plugin | ⬜ | needs lowContrast lint (C24) |
+| D9 | S6 `fxloop-flow-polish`, S7 `fxloop-forms-dialogs`, S8 `fxloop-consistency` | 06 §4 | plugin | ⬜ | needs explainers (C9–C11) |
+| D10 | S9 `fxloop-lock-in` (journal → TestFX, harden, headless run) | 06 §4 | plugin | ⬜ | needs export (C8) |
+| D11 | References 5–8 (accessibility, fxml, testfx, tool-reference) | 06 §5 | plugin | ⬜ | tool-reference generated (C21) |
+| D12 | Skill evals (3–5 tasks per skill on sample apps) + trigger tests | 06 §7 | evals | ⬜ | |
 
 ## Items requiring external resources (cannot be completed in this local session)
 
