@@ -1,6 +1,6 @@
 <!--
   FXLoop PoC eval suite (PRD 01 §11), mcp-builder format.
-  Setup: sample app launched with seed data: FXLOOP_PROJECT_DIR=sample-apps/fxloop-sample-app FXLOOP_APP_ARGS=--seed
+  Setup: sample app launched with seed data: FXLOOP_PROJECT_DIR=sample-apps/fxloop-sample-app FXLOOP_APP_ARGS set to the seed flag (two hyphens + seed)
   Each answer is obtainable only through FXLoop tools; verified by exact string match.
 -->
 <evaluation>

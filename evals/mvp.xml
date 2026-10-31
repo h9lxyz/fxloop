@@ -1,7 +1,7 @@
 <!--
   FXLoop MVP eval suite (PRD 02 §12 + PRD 04 §5 visual pairs), mcp-builder format.
   Setup: FXLOOP_PROJECT_DIR=sample-apps/fxloop-sample-app (fresh launch, no seed) unless a question says otherwise.
-  Visual questions (11–13) use FXLOOP_APP_ARGS="--seed --broken-css".
+  Visual questions (11–13) use FXLOOP_APP_ARGS set to the seed and broken-css flags (each prefixed with two hyphens).
 -->
 <evaluation>
   <qa_pair>
