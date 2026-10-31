@@ -38,6 +38,7 @@ import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.Pane;
 import javafx.scene.text.Text;
+import dev.fxloop.dev.FxLoopDev;
 import javafx.scene.control.OverrunStyle;
 
 /** Robustness/perf gauntlet target. Pure Java, no FXML. */
@@ -55,14 +56,14 @@ public class GauntletApp extends Application {
         TabPane tabs = new TabPane();
         tabs.setId("tabs");
         tabs.getTabs().addAll(
-                tab("Dialogs", dialogs()),
-                tab("Menus", menus()),
-                tab("Stages", stages()),
-                tab("Scroll", scroll()),
-                tab("Visual", visual()),
-                tab("Web", web()),
-                tab("Big", big()),
-                tab("RTL", rtl(tabs)));
+                tab("Dialogs", FxLoopDev.view("dialogs", this::dialogs)),
+                tab("Menus", FxLoopDev.view("menus", this::menus)),
+                tab("Stages", FxLoopDev.view("stages", this::stages)),
+                tab("Scroll", FxLoopDev.view("scroll", this::scroll)),
+                tab("Visual", FxLoopDev.view("visual", this::visual)),
+                tab("Web", FxLoopDev.view("web", this::web)),
+                tab("Big", FxLoopDev.view("big", this::big)),
+                tab("RTL", FxLoopDev.view("rtl", () -> rtl(tabs))));
         for (Tab t : tabs.getTabs()) {
             t.setClosable(false);
         }

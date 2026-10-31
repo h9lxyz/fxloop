@@ -28,6 +28,10 @@
       <artifactId>javafx-web</artifactId>
     </dependency>
     <dependency>
+      <groupId>dev.fxloop</groupId>
+      <artifactId>fxloop-dev</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
