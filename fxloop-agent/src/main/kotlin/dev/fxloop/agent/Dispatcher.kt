@@ -2,6 +2,7 @@ package dev.fxloop.agent
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
+import dev.fxloop.agent.css.CssInspect
 import dev.fxloop.protocol.Fcp
 import dev.fxloop.protocol.Fcp.Method
 import dev.fxloop.protocol.FcpException
@@ -53,6 +54,8 @@ internal class Dispatcher(private val rt: AgentRuntime) {
         handlers[Method.LINT_VISUAL] = VisualLint::lint
         handlers[Method.EXPLAIN_PROPERTY] = Introspect::explainProperty
         handlers[Method.EXPLAIN_STYLE] = Introspect::explainStyle
+        handlers[Method.CSS_CASCADE] = CssInspect::cascade
+        handlers[Method.CSS_SUGGEST] = CssInspect::suggest
         handlers[Method.EXPLAIN_LAYOUT] = Introspect::explainLayout
         handlers[Method.EVAL_JS] = Probes::evalJs
         handlers[Method.BLOCK_FX_THREAD] = Probes::blockFxThread

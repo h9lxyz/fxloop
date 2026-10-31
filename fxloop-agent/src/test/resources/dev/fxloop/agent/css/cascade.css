@@ -1,0 +1,17 @@
+/* Known conflicts for the cascade engine tests (PRD 08 §7). */
+.root { -accent: #ff0000; }
+
+.primary {
+    -fx-background-color: blue;
+}
+
+.panel .bar .button {
+    -fx-background-color: #e8e8e8;
+}
+
+#inlined { -fx-text-fill: green; }
+#important { -fx-text-fill: green !important; }
+.button.ghost { -fx-text-fill: red; }
+.accented { -fx-text-fill: -accent; }
+.fonted { -fx-font: 12px "System"; -fx-font-size: 20px; }
+.unresolved { -fx-text-fill: -nowhere; }
