@@ -144,13 +144,13 @@ Baseline: Java 17 bytecode (`--release 17`), built and tested locally on JDK 25 
 
 | ID | Feature / task | PRD ref | Module | Status | Notes |
 |---|---|---|---|---|---|
-| E1 | Remount: `FxLoopDev.view/onReload`, `REMOUNT_VIEWS`, `remount` tier (+ opt-in `restage`), gauntlet wiring | 07 §3 | dev, agent, server | ⬜ | A-E1 |
-| E2 | View-state carry-over across FXML swap and remount (`carryState`, `stateCarried`) | 07 §4 | agent | ⬜ | A-E2 |
-| E3 | Human input journal (`source`, agent-action bracket for robot and event input, password redaction) | 07 §5 | agent, server | ⬜ | A-E3 |
-| E4 | Restart deferral while the developer is active, Restart button and hotkey | 07 §6 | agent, server | ⬜ | A-E4 |
-| E5a | Dev bar: overlay, tool invisibility, mode / last reload / action-needed segments, `actionNeeded` in status, viewer `status` strip | 07 §7.1, §7.3–7.4 | agent, server | ⬜ | A-E5a, A-E5b, A-E5d |
-| E5b | Control modes: `fx_set_control_mode`, event-mode defaults in `shared`, `conflicts`, bar toggle | 07 §7.2 | agent, server | ⬜ | A-E5c |
-| E6 | Pick mode, `fx_get_picked`, `{picked:true}` targets, PRD 06 skill updates | 07 §8 | agent, server, plugin | ⬜ | A-E6, then manual run |
+| E1 | Remount: `FxLoopDev.view/onReload`, `REMOUNT_VIEWS`, `remount` tier (+ opt-in `restage`), gauntlet wiring | 07 §3 | dev, agent, server | ✅ | A-E1 passes. The restage hook is not exercised against a real launch |
+| E2 | View-state carry-over across FXML swap and remount (`carryState`, `stateCarried`) | 07 §4 | agent | ✅ | A-E2 |
+| E3 | Human input journal (`source`, agent-action bracket for robot and event input, password redaction) | 07 §5 | agent, server | ✅ | A-E3 |
+| E4 | Restart deferral while the developer is active, Restart button and hotkey | 07 §6 | agent, server | ✅ | A-E4 |
+| E5a | Dev bar: overlay, tool invisibility, mode / last reload / action-needed segments, `actionNeeded` in status, viewer `status` strip | 07 §7.1, §7.3–7.4 | agent, server | ✅ | A-E5a, A-E5b, A-E5d pass. On-screen bar placement is not checked visually yet |
+| E5b | Control modes: `fx_set_control_mode`, event-mode defaults in `shared`, `conflicts`, bar toggle | 07 §7.2 | agent, server | ⚠️ | A-E5c asserts mode=event and the bar text; it does not check the real pointer position |
+| E6 | Pick mode, `fx_get_picked`, `{picked:true}` targets, PRD 06 skill updates | 07 §8 | agent, server, plugin | ⚠️ | A-E6 passes. PRD 06 skill updates wait for Stage D (no skills in the repo yet). The A-E-Manual run has not been done |
 
 ## Items requiring external resources (cannot be completed in this local session)
 

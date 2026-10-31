@@ -16,6 +16,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
@@ -52,6 +53,10 @@ public class GauntletApp extends Application {
 
     @Override
     public void start(Stage stage) {
+        if (Boolean.getBoolean("fxloop.dev")) {
+            // Embedded mode (IDE-style launch): join the loop in-process; fx_start_app supplies the agent via -javaagent instead.
+            FxLoopDev.install();
+        }
         this.primary = stage;
         TabPane tabs = new TabPane();
         tabs.setId("tabs");
@@ -168,7 +173,13 @@ public class GauntletApp extends Application {
 
         Button tip = button("tooltipBtn", "Hover me");
         tip.setTooltip(new Tooltip("Gauntlet tooltip"));
-        VBox box = new VBox(10, bar, page(menuResult, ctx, tip));
+        // Live-dev acceptance fixtures (PRD 07 §10): a password field (redacted human edits) and an action counter (pick mode)
+        PasswordField pw = new PasswordField();
+        pw.setId("pwField");
+        Label saveCount = label("saveCount", "0");
+        Button save = button("saveBtn", "Save");
+        save.setOnAction(e -> saveCount.setText(String.valueOf(Integer.parseInt(saveCount.getText()) + 1)));
+        VBox box = new VBox(10, bar, page(menuResult, ctx, tip, pw, save, saveCount));
         return box;
     }
 

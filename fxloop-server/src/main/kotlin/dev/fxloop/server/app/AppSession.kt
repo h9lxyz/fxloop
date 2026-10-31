@@ -265,6 +265,8 @@ class AppSession(val config: Config) {
                 "use fx_start_app for supervised apps")
             connect(hs.port, token)
             mode = newMode
+            // embedded apps are built from this project: reload tiers need its source roots and output dir (attach has none)
+            if (newMode == Mode.EMBEDDED && descriptor == null) descriptor = try { build.prepare() } catch (e: RuntimeException) { null }
             state = State.RUNNING
             pid = hs.pid
             startedAt = hs.startedAt

@@ -36,6 +36,9 @@ public class MainController {
                 () -> nameField.getText() == null || nameField.getText().isBlank(), nameField.textProperty()));
         deleteBtn.disableProperty().bind(contactTable.getSelectionModel().selectedItemProperty().isNull());
         statusLabel.textProperty().bind(Bindings.size(contacts).asString("%d contacts"));
+        if (Boolean.getBoolean("fxloop.sample.seed")) {
+            seed(); // data loaded by the controller itself, as in apps that fill their views in initialize() (live-dev E2)
+        }
     }
 
     void seed() {

@@ -51,7 +51,10 @@ class Ctx(val config: Config) {
             applyWatchMode(watch.mode.takeIf { it != "off" } ?: config.watchMode)
             live.push()
         }
-        session.onConnected { live.push() }
+        session.onConnected {
+            reloader.checkpoint()
+            live.push()
+        }
         session.onAgentEvent(::onAgentEvent)
     }
 
