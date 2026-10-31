@@ -12,7 +12,10 @@ References: [fx-threading.md](references/fx-threading.md), [evidence.md](referen
 
 1. **Define the task** in one sentence with a success state, e.g. "create a ticket for Acme, assign it to me; done
    when it's selected in the table and the footer count goes up". Ask if it's ambiguous.
-2. **Drive it like a user.** Use `fx_click_node` (robot mode) and `fx_set_text` for fields (`fx_type_keys` for
+2. **Drive it like a user.** If the developer is in the app, say you are about to click through it and call
+   `fx_lock_input locked=true reason="<the task>"` so stray input cannot interfere (they see it on the dev bar and can
+   take over); release it with `locked=false` when the run is done. If a result says the developer took over, stop
+   and ask. Use `fx_click_node` (robot mode) and `fx_set_text` for fields (`fx_type_keys` for
    Enter, Escape and Tab). After **every** step, read `effects` and note:
    - **Steps and wall time:** a click that takes more than ~200 ms to return means work on the FX thread.
    - **Feedback:** did anything visible change (status text, selection, a toast, a disabled state)? Empty `effects`

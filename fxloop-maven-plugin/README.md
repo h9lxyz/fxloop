@@ -33,7 +33,7 @@ mvn fxloop:run -Dfxloop.appArgs=--de,--rtl      # extra program args for this ru
 ```
 
 It compiles, writes `launch.json` like `prepare`, and runs the app in the foreground with the FXLoop agent. The dev bar
-shows from the start (`FXLoop · no agent connected`): click around, use **Pick** to mark a node, open **Inspect CSS**
+shows from the start (`FXLoop · no agent connected`): click around, use **Pick** to mark a node, open **Open CSS inspector**
 (the browser CSS inspector, served by a small FXLoop helper started next to the app; its URL is printed), and ask your
 agent whenever you like. While an agent session is connected the helper steps aside and the session serves the
 inspector; when the session ends the helper takes over again. The FXLoop MCP server finds the running app by itself on its first call (`fx_get_app_status`) and
@@ -47,7 +47,7 @@ re-running the goal.
 | Parameter | Property | Default | Description |
 |---|---|---|---|
 | `bar` | `fxloop.bar` | `on` | Dev bar before an agent connects: `on`, `pill` or `off`. |
-| `inspector` | `fxloop.inspector` | `true` | Start the inspector helper (Inspect CSS without an agent session). |
+| `inspector` | `fxloop.inspector` | `true` | Start the inspector helper (Open CSS inspector without an agent session). |
 | `inspectorEdit` | `fxloop.inspectorEdit` | `true` | "Try it live" in the CSS inspector: edit values, untick declarations and add rules in a scratch stylesheet, never in source. Applies to the helper and to agent sessions that connect to this run. `false` keeps it read-only. |
 | `agentJar` | `fxloop.agentJar` | `dev.fxloop:fxloop-agent` at the plugin's version | Agent jar override. |
 | `serverJar` | `fxloop.serverJar` | `dev.fxloop:fxloop-server:jar:all` at the plugin's version | Server jar for the inspector helper. |

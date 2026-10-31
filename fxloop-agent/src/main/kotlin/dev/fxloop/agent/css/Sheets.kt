@@ -140,7 +140,7 @@ internal object Sheets {
     }
 
     /** Stylesheet strings are URLs or classpath-relative paths (as JavaFX accepts them). */
-    private fun resolveUrl(raw: String): String? {
+    internal fun resolveUrl(raw: String): String? {
         if (raw.startsWith("fxloop-builtin:")) return builtin(raw.removePrefix("fxloop-builtin:"))
         if (raw.contains(":") && !raw.startsWith("/")) return raw
         val cl = Thread.currentThread().contextClassLoader ?: Sheets::class.java.classLoader

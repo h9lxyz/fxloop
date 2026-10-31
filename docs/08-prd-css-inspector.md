@@ -34,7 +34,7 @@ Not exposed: line numbers and the original declaration text. §3.2 recovers both
 1. **Reconstruct, then verify.** The engine's winner for each property is checked against the live `StyleableProperty` value and origin. Disagreement is reported as `simulation: "mismatch"` with both values, never hidden. The engine is an explanation, the live value is the truth (Principle 4, fail loud).
 2. **Public API only** (Principle 3). Reading Modena's `.css` text from the `javafx.controls` jar is a resource read, not an internal API.
 3. **Same answer for agent and developer.** The browser inspector renders the same JSON the tools return (dual-channel, Principle 8).
-4. **Read-only by default.** Live CSS experiments (§5) are an explicit opt-in and never touch source files.
+4. **Read-only by default.** Live CSS experiments (§5) are an explicit opt-in and touch source files only when the developer confirms *Apply to file*.
 
 ## 3. Step 1 — Cascade engine and agent tools
 
@@ -122,9 +122,10 @@ A page at `/inspect` on the existing viewer server (`FXLOOP_VIEWER`, loopback, t
 With `FXLOOP_INSPECTOR_EDIT=true`, the Styles pane lets the developer toggle a declaration, edit a value, or add a declaration to a new rule, the way DevTools does.
 
 - **Mechanism:** edits go into one **scratch stylesheet**, installed as the last scene stylesheet through a `data:` URL (supported since JavaFX 17), or a temp file in `target/fxloop/` on older runtimes. Disabling a declaration is simulated by a scratch rule with the same selector and the next-lower winning candidate's value. The cascade then shows the scratch rule like any other, as `scratch:<n>`.
-- **Ephemeral and visible:** nothing is written to source. The dev bar (PRD 07) shows `Scratch CSS active · 3 rules [Clear]`. `fx_get_app_status` reports `scratchCss`, and CSS-tier `visualDiff` results note it, so neither side mistakes a scratch change for a source change. Clearing removes the sheet. Scratch rules survive CSS reloads and are dropped on restart.
+- **Ephemeral and visible:** nothing is written to source until the developer applies it. The dev bar (PRD 07) shows `Scratch CSS active · 3 rules [Clear]`. `fx_get_app_status` reports `scratchCss`, and CSS-tier `visualDiff` results note it, so neither side mistakes a scratch change for a source change. Clearing removes the sheet. Scratch rules survive CSS reloads and are dropped on restart.
+- **Apply to file:** *Apply to file…* previews where each scratch rule would go (same selector in a project sheet: values replaced in place, new declarations appended to that rule; unknown selectors appended to the scene's first project sheet) and, on confirm, the server writes the files, reloads the CSS and clears the scratch sheet. Contract in [css-inspector-contract](decisions/css-inspector-contract.md).
 - **Handing over:** *Copy as CSS* copies the scratch rules. *Ask agent to apply* copies a ready-made prompt (`Apply these FXLoop scratch rules to the project's stylesheets: …`) and exposes the rules to the agent through `fx_get_app_status.scratchCss`. MCP is pull-only, so the developer pastes or says it; the agent then edits the real file, calls `fx_reload`, and clears the scratch sheet.
-- **Security:** edit endpoints are `POST` with the token, only exist when the flag is set, and accept CSS text only. It is parsed with `CssParser` before installing, and rejected on parse errors. The viewer's read-only guarantee (PRD 04) holds when the flag is off.
+- **Security:** edit endpoints are `POST` with the token, only exist when the flag is set, and accept CSS text only. *Apply to file* writes only project `.css` files under a resource root whose content still matches what was planned; editing pauses (`423`) while the agent holds the input lock (PRD 07 §7.2). It is parsed with `CssParser` before installing, and rejected on parse errors. The viewer's read-only guarantee (PRD 04) holds when the flag is off.
 
 ## 6. Tool, protocol and config surface delta
 

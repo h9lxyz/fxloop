@@ -20,12 +20,18 @@ class ToolRegistry {
 
     fun all(): List<ToolDef> = tools.values.toList()
 
+    /** Sees every call before (`done=false`) and after (`done=true`) it runs, e.g. for the dev bar's activity text. */
+    @Volatile
+    var observer: ((name: String, args: ObjectNode, done: Boolean) -> Unit)? = null
+
     /** Executes a tool with uniform error mapping: every failure becomes an in-result error with a next step. */
     fun call(name: String, args: ObjectNode? = null): ToolResult {
         val def = tools[name] ?: return ToolResult.error("Unknown tool $name", Json.obj { put("code", "UNKNOWN_TOOL") })
         val t0 = System.nanoTime()
+        val a = args ?: Json.obj()
+        notify(name, a, false)
         return try {
-            def.handler((args ?: Json.obj()).deepCopy())
+            def.handler(a.deepCopy())
         } catch (e: ToolException) {
             error(e.code, e.message.orEmpty(), e.hint, e.data)
         } catch (e: FcpException) {
@@ -34,7 +40,16 @@ class ToolRegistry {
             log.warn("tool {} failed", name, e)
             error("INTERNAL", e.toString(), "check fx_get_logs and the server stderr", null)
         } finally {
+            notify(name, a, true)
             log.debug("{} took {} ms", name, (System.nanoTime() - t0) / 1_000_000)
+        }
+    }
+
+    private fun notify(name: String, args: ObjectNode, done: Boolean) {
+        try {
+            observer?.invoke(name, args, done)
+        } catch (e: RuntimeException) {
+            log.debug("tool observer failed: {}", e.toString())
         }
     }
 

@@ -374,6 +374,54 @@ class CssInspectorAcceptanceTest {
         assertThat(h.ok("fx_get_app_status").has("scratchCss")).isFalse()
     }
 
+    @Test @Order(42)
+    fun `A-F5 Apply to file writes the scratch rule into its source rule, reloads and clears the scratch sheet`() {
+        showCascadeTab()
+        val path = pathOf("#cxSpecific")
+        val winner = Json.parse(get("/api/styles?t=$tok&path=${enc(path)}"))["properties"]
+            .first { it["cssProperty"].asText() == "-fx-background-color" }["winner"]["selector"].asText()
+        postCss("/api/scratch/set?t=$tok", "$winner { -fx-background-color: #13579b; }\n")
+
+        val preview = post("/api/scratch/apply?t=$tok&dryRun=1")
+        assertThat(preview["applied"].asBoolean()).isFalse()
+        val change = preview["files"].single()
+        assertThat(change["file"].asText()).isEqualTo(sheetRel)
+        assertThat(change["changes"][0]["kind"].asText()).isEqualTo("update")
+        assertThat(change["changes"][0]["to"].asText()).isEqualTo("#13579b")
+        assertThat(h.project.resolve(sheetRel).readText()).doesNotContain("#13579b")
+
+        val applied = post("/api/scratch/apply?t=$tok")
+        assertThat(applied["applied"].asBoolean()).describedAs(applied.toString()).isTrue()
+        assertThat(h.project.resolve(sheetRel).readText()).contains("-fx-background-color: #13579b;")
+        assertThat(h.ok("fx_get_app_status").has("scratchCss")).isFalse()
+        val now = Json.parse(get("/api/styles?t=$tok&path=${enc(path)}"))["properties"]
+            .first { it["cssProperty"].asText() == "-fx-background-color" }
+        assertThat(now["winner"]["file"].asText()).describedAs(now.toString()).isEqualTo(sheetRel)
+        assertThat(now["winner"]["text"].asText()).contains("#13579b")
+    }
+
+    @Test @Order(43)
+    fun `A-F5 the agent's input lock pauses inspector editing until the developer takes over`() {
+        showCascadeTab()
+        val locked = h.ok("fx_lock_input", args("locked" to true, "reason" to "checking the tabs", "seconds" to 30))
+        assertThat(locked["inputLock"]["locked"].asBoolean()).isTrue()
+        viewerUrl()
+        val refused = http.send(
+            HttpRequest.newBuilder(URI.create("$base/api/scratch/set?t=$tok")).header("Content-Type", "text/css")
+                .POST(HttpRequest.BodyPublishers.ofString("#cxInline { -fx-font-size: 30px; }")).build(),
+            HttpResponse.BodyHandlers.ofString(),
+        )
+        assertThat(refused.statusCode()).isEqualTo(423)
+        assertThat(refused.body()).contains("checking the tabs")
+
+        post("/api/lock/release?t=$tok")
+        val st = h.ok("fx_get_app_status")["inputLock"]
+        assertThat(st["locked"].asBoolean()).isFalse()
+        assertThat(st["releasedBy"].asText()).isEqualTo("developer")
+        assertThat(postCss("/api/scratch/set?t=$tok", "#cxInline { -fx-font-size: 30px; }")["active"].asBoolean()).isTrue()
+        post("/api/scratch/clear?t=$tok")
+    }
+
     // ---------------------------------------------------------------------------------------------- A-F1
 
     private class Tally { var ok = 0; var mismatch = 0; var nodes = 0; var other = 0; val rows = mutableListOf<String>() }

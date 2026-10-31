@@ -65,7 +65,7 @@ class DevBarFxTest {
         }
         assertThat(d.path("rendered").asInt()).isGreaterThanOrEqualTo(1)
         assertThat(d.path("texts").path("actionNeeded")[0].asText()).isEqualTo("fields added in EditForm")
-        assertThat(d.path("texts").path("session").asText()).isEqualTo("headless (monocle) · Agent mode · Saves apply CSS, FXML and code")
+        assertThat(d.path("texts").path("session").asText()).isEqualTo("headless (monocle) · Agent mode · you can interact · Saves apply CSS, FXML and code")
         val after = fx {
             assertThat(Windows.showing().none { Overlays.isOverlay(it) }).isTrue()
             assertThat(Window.getWindows().any { Overlays.isOverlay(it) }).isTrue()
@@ -116,5 +116,32 @@ class DevBarFxTest {
             rt.bar.applyState(state("on") { putObject("lastReload").put("text", "CSS applied · 12 ms").put("ok", true).put("seq", 7) })
         }
         assertThat(d.path("texts").path("lastReload").asText()).isEqualTo("CSS applied · 12 ms")
+    }
+
+    @Test
+    fun inputLockShowsTheDeveloperIsWatching() {
+        val d = fx {
+            rt.bar.applyState(state("on") {
+                put("activity", "clicking Button#save")
+                putObject("lock").put("remainingMs", 10_000).put("reason", "checkout flow")
+            })
+        }
+        assertThat(d.path("locked").asBoolean()).isTrue()
+        assertThat(rt.human.locked).isTrue()
+        assertThat(d.path("texts").path("session").asText()).contains("Agent is driving — you're watching")
+        assertThat(d.path("texts").path("activity").asText()).isEqualTo("clicking Button#save")
+        // the next state without a lock gives the developer access again
+        val after = fx { rt.bar.applyState(state("on")) }
+        assertThat(after.path("locked").asBoolean()).isFalse()
+        assertThat(rt.human.locked).isFalse()
+        assertThat(after.path("texts").path("activity").asText()).isEmpty()
+        assertThat(after.path("texts").path("session").asText()).contains("you can interact")
+    }
+
+    @Test
+    fun disconnectReleasesTheLock() {
+        fx { rt.bar.applyState(state("on") { putObject("lock").put("remainingMs", 10_000) }) }
+        rt.onDisconnected()
+        assertThat(rt.human.locked).isFalse()
     }
 }

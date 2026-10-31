@@ -35,6 +35,13 @@ button:disabled{opacity:.5;cursor:default}
 #updated.flash{opacity:1;transition:none}
 #hint{color:var(--warn)}
 #banner{background:#5a2a2a;color:#ffd7d4;padding:6px 12px;display:none}
+#lockbar{background:#5a4314;color:#ffe9b8;padding:6px 12px;display:none;align-items:center;gap:10px}
+#lockbar button{margin-left:auto}
+#agent{color:var(--warn)}
+.plan{margin-top:8px;border-top:1px solid var(--border);padding-top:6px}
+.plan .f{font-weight:600;margin-top:4px}
+.plan .c{margin-left:12px;white-space:pre-wrap}
+.plan .c .k{color:var(--dim);margin-right:6px}
 #main{flex:1;display:flex;min-height:0}
 #treePane{width:42%;min-width:160px;overflow:auto;background:var(--bg);outline:none;font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 #split{width:5px;cursor:col-resize;background:var(--border);flex:none}
@@ -112,9 +119,11 @@ tr.mismatch td{background:rgba(229,83,75,.18);color:var(--bad)}
   <span id="hint"></span>
   <label><input type="checkbox" id="skin"> Show skin nodes</label>
   <select id="win" aria-label="Window"></select>
+  <span id="agent"></span>
   <span id="status"><span id="updated">updated</span><span id="dot"></span><span id="stxt">connecting</span></span>
 </div>
 <div id="banner"></div>
+<div id="lockbar" role="status"><span id="locktxt"></span><button id="takeover" title="Ends the agent's input lock so you can use the app and edit again">Take over</button></div>
 <div id="main">
   <div id="treePane" tabindex="0" role="tree"></div>
   <div id="split"></div>
@@ -150,7 +159,10 @@ var state = {
   scratch: null,                    // {active, rules, css, items} when FXLOOP_INSPECTOR_EDIT is on
   disabled: Object.create(null),    // "selector|property" toggled off through a scratch fallback rule
   newRule: false,
-  draft: null                       // {sel, prop, val} of the open new-rule form, kept across re-renders and errors
+  draft: null,                      // {sel, prop, val} of the open new-rule form, kept across re-renders and errors
+  plan: null,                       // Apply to file preview: {files:[{file, changes}]} from /api/scratch/apply?dryRun=1
+  lock: null,                       // {reason?, remainingMs} while the agent holds the input lock (status event)
+  activity: ''                      // what the agent is doing right now (status event)
 };
 
 // ---------- API ----------
@@ -181,10 +193,23 @@ function errText(e){
   if (e && e.code) return e.code + ': ' + (e.message || '');
   return String((e && e.message) || e);
 }
+// A page opened before the app attaches (or kept open across an app restart) gets NO_APP; it retries until the app is
+// back, right away on the server's `status` event (pushed when an app connects) and on a slow timer as a fallback.
+var noAppTimer = null;
 function showBanner(e){
   var b = $('banner');
-  if (e && e.code === 'NO_APP') { b.textContent = 'No app connected — start it with fx_start_app'; b.style.display = 'block'; }
-  else b.style.display = 'none';
+  if (e && e.code === 'NO_APP') {
+    b.textContent = 'No app connected to the FXLoop server — waiting for the app to start…';
+    b.style.display = 'block';
+    if (!noAppTimer) noAppTimer = setInterval(retryApp, 3000);
+  } else {
+    b.style.display = 'none';
+    if (noAppTimer) { clearInterval(noAppTimer); noAppTimer = null; }
+  }
+}
+function retryApp(){
+  if (!noAppTimer) return;
+  loadWindows().then(function(){ if (!noAppTimer) reloadAll(); });
 }
 function paneError(pane, e){
   showBanner(e);
@@ -497,7 +522,7 @@ function renderStyles(){
 }
 
 function renderRules(pane, d){
-  if (canEdit()) renderScratchBar(pane, d);
+  if (editOn()) renderScratchBar(pane, d);
   var shown = 0;
   (d.rules || []).forEach(function(r){ var e = ruleEl(r, d); if (e) { pane.appendChild(e); shown++; } });
   if (!shown) pane.appendChild(el('div', 'empty', state.filter ? 'No matching declarations.' : 'No matching rules.'));
@@ -579,7 +604,9 @@ function fillSuggest(out, r){
 // ---------- Try it live: scratch CSS (PRD 08 §5, FXLOOP_INSPECTOR_EDIT) ----------
 // Edits never touch source files: the page keeps the scratch rules as a list, renders them to CSS text and the agent
 // installs that text as the last scene stylesheet. Rules show up in the cascade as scratch:<n>.
-function canEdit(){ return !!(state.styles && state.styles.edit); }
+function editOn(){ return !!(state.styles && state.styles.edit); }
+/** Editing pauses while the agent drives the app with the input lock held. */
+function canEdit(){ return editOn() && !state.lock; }
 function editable(r){ return r && r.ruleId !== 'inline' && r.ruleId !== 'code' && r.origin !== 'INLINE' && !!r.selector; }
 function loadScratch(){
   return api('/api/scratch').then(function(j){ state.scratch = j; }, function(){ state.scratch = { active: false, rules: 0 }; });
@@ -738,15 +765,22 @@ function renderScratchBar(pane, d){
   var n = state.scratch && state.scratch.active ? state.scratch.rules : 0;
   var box = el('div', 'scratch'), hd = el('div', 'hd');
   hd.appendChild(el('strong', null, n ? 'Scratch CSS · ' + n + (n === 1 ? ' rule' : ' rules') : 'Try it live'));
-  hd.appendChild(el('span', 't-text', n ? 'applied in the app, not saved to your files'
+  var paused = !!state.lock;
+  hd.appendChild(el('span', 't-text', paused ? 'editing is paused while the agent drives the app'
+    : n ? 'applied in the app, not saved to your files until you apply them'
     : 'click a value to edit it, untick a declaration, or add a rule. Nothing is written to your files.'));
   box.appendChild(hd);
   var bar = el('div', 'chips');
   var add = el('button', null, '+ New rule');
+  add.disabled = paused;
   add.addEventListener('click', function(){ state.newRule = !state.newRule; state.draft = null; renderStyles(); });
   bar.appendChild(add);
   if (n) {
     var css = state.scratch.css || '';
+    var apply = el('button', null, 'Apply to file…');
+    apply.title = 'Writes these rules into the stylesheets they came from (preview first)';
+    apply.disabled = paused;
+    apply.addEventListener('click', previewApply);
     var cp = el('button', null, 'Copy as CSS');
     cp.addEventListener('click', function(){ copy(css, 'Scratch CSS copied'); });
     var ask = el('button', null, 'Ask agent to apply');
@@ -756,12 +790,59 @@ function renderScratchBar(pane, d){
         'Prompt copied: paste it to your agent');
     });
     var clr = el('button', null, 'Clear');
-    clr.addEventListener('click', function(){ applyScratch([]); });
-    [cp, ask, clr].forEach(function(b){ bar.appendChild(b); });
+    clr.disabled = paused;
+    clr.addEventListener('click', function(){ state.plan = null; applyScratch([]); });
+    [apply, cp, ask, clr].forEach(function(b){ bar.appendChild(b); });
   }
   box.appendChild(bar);
-  if (state.newRule) box.appendChild(newRuleForm(d));
+  if (state.newRule && !paused) box.appendChild(newRuleForm(d));
+  if (state.plan && n && !paused) box.appendChild(planEl(state.plan));
   pane.appendChild(box);
+}
+/** Apply to file, step 1: asks where each scratch rule would go and shows it. */
+function previewApply(){
+  api('/api/scratch/apply', { dryRun: 1 }, 'POST').then(function(j){
+    if (!j.files || !j.files.length) { toast('Nothing to change: the files already say this'); return; }
+    state.plan = j; renderStyles();
+  }, function(e){ toast(errText(e)); });
+}
+function changeText(c){
+  switch (c.kind) {
+    case 'update': return c.selector + ' { ' + c.property + ': ' + c.from + ' → ' + c.to + ' }';
+    case 'add': return c.selector + ' { + ' + c.property + ': ' + c.to + ' }';
+    case 'newRule': return 'new rule ' + c.css;
+    default: return JSON.stringify(c);
+  }
+}
+function planEl(plan){
+  var box = el('div', 'plan');
+  box.appendChild(el('div', null, 'Write these changes to your files?'));
+  plan.files.forEach(function(f){
+    box.appendChild(el('div', 'f mono', f.file));
+    (f.changes || []).forEach(function(c){
+      var line = el('div', 'c mono');
+      line.appendChild(el('span', 'k', c.line != null ? 'line ' + c.line : ''));
+      line.appendChild(document.createTextNode(changeText(c)));
+      box.appendChild(line);
+    });
+  });
+  var bar = el('div', 'chips');
+  var ok = el('button', null, 'Write to file' + (plan.files.length === 1 ? '' : 's'));
+  ok.addEventListener('click', function(){
+    ok.disabled = true;
+    api('/api/scratch/apply', {}, 'POST').then(function(j){
+      state.plan = null;
+      state.scratch = { active: false, rules: 0 };
+      state.disabled = Object.create(null);
+      toast('Applied to ' + j.files.map(function(f){ return f.file; }).join(', '));
+      loadStyles();
+    }, function(e){ ok.disabled = false; toast(errText(e)); });
+  });
+  var cancel = el('button', null, 'Cancel');
+  cancel.addEventListener('click', function(){ state.plan = null; renderStyles(); });
+  bar.appendChild(ok); bar.appendChild(cancel);
+  box.appendChild(bar);
+  return box;
 }
 
 function renderComputed(pane, d){
@@ -830,9 +911,18 @@ function flash(){
 function connect(){
   if (typeof EventSource === 'undefined') return;
   var es = new EventSource('/sse?t=' + encodeURIComponent(TOKEN) + '&from=inspect');
-  es.onopen = function(){ $('dot').className = 'on'; $('stxt').textContent = 'connected'; };
-  es.onerror = function(){ $('dot').className = ''; $('stxt').textContent = 'disconnected'; };
+  es.onopen = function(){ $('dot').className = 'on'; $('stxt').textContent = 'server connected'; };
+  es.onerror = function(){ $('dot').className = ''; $('stxt').textContent = 'server disconnected'; };
   es.addEventListener('reload', function(){ flash(); reloadAll(); });
+  es.addEventListener('status', function(ev){
+    var s; try { s = JSON.parse(ev.data); } catch(e){ return; }
+    var was = !!state.lock;
+    state.lock = s.lock || null;
+    state.activity = s.activity || '';
+    renderLock();
+    if (was !== !!state.lock) { state.plan = null; renderStyles(); }
+  });
+  es.addEventListener('status', retryApp);
   es.addEventListener('scratch', function(ev){
     var j; try { j = JSON.parse(ev.data); } catch(e){ return; }
     var was = state.scratch && state.scratch.css, now = j && j.css;
@@ -849,6 +939,16 @@ function connect(){
     loadTree().then(loadStyles);
   });
 }
+function renderLock(){
+  var lb = $('lockbar'), locked = !!state.lock;
+  $('agent').textContent = state.activity ? 'Agent: ' + state.activity : '';
+  lb.style.display = locked ? 'flex' : 'none';
+  if (locked) {
+    $('locktxt').textContent = 'Agent is driving the app — you\'re watching' +
+      (state.lock.reason ? ' (' + state.lock.reason + ')' : '') + '. Editing and picking are paused.';
+  }
+  $('pick').disabled = locked;
+}
 function setPicking(on){
   state.picking = on;
   $('hint').textContent = on ? 'Click a node in the app… (Esc cancels)' : '';
@@ -864,6 +964,9 @@ document.addEventListener('keydown', function(ev){
     setPicking(false);
     api('/api/pick', { window: state.win, cancel: 1 }, 'POST').catch(function(){});
   }
+});
+$('takeover').addEventListener('click', function(){
+  api('/api/lock/release', {}, 'POST').then(function(){ state.lock = null; renderLock(); renderStyles(); }, function(e){ toast(errText(e)); });
 });
 $('skin').addEventListener('change', function(){ state.skin = this.checked; loadTree(); });
 $('win').addEventListener('change', function(){

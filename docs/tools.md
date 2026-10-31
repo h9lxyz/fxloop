@@ -6,6 +6,7 @@ _Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-ref
 |---|---|---|
 | [`fx_get_app_status`](#fx_get_app_status) | read | App status |
 | [`fx_set_control_mode`](#fx_set_control_mode) | idempotent_write | Set control mode |
+| [`fx_lock_input`](#fx_lock_input) | idempotent_write | Lock developer input |
 | [`fx_start_app`](#fx_start_app) | write | Start app |
 | [`fx_restart_app`](#fx_restart_app) | destructive | Restart app |
 | [`fx_stop_app`](#fx_stop_app) | destructive | Stop app |
@@ -54,6 +55,16 @@ Who may drive the UI: agent (the agent owns mouse and keyboard; human input duri
 | Param | Type | Required | Description |
 |---|---|---|---|
 | `mode` | string (agent\|shared) | yes | agent or shared |
+
+## fx_lock_input
+
+Temporarily block the developer's mouse and keyboard input to the app windows while you drive the UI like a human (a click-through, a multi-step form) so stray input cannot interfere. Inspector editing pauses too, and the dev bar shows that the developer is watching, what you are doing and a Take over button. Tell the developer before you lock; release it (locked=false) as soon as the sequence is done. It expires after `seconds` anyway. inputLock.releasedBy=developer means they took over: stop driving and ask.
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `locked` | boolean | yes | true locks, false releases |
+| `reason` | string |  | Shown to the developer, e.g. 'walking through the checkout flow' |
+| `seconds` | integer |  | Lock duration (default 60) |
 
 ## fx_start_app
 

@@ -82,6 +82,9 @@ internal object Scratch {
         }
     }
 
+    /** The scratch CSS text, empty when inactive. */
+    fun text(): String = css
+
     /** Number of scratch rules, 0 when inactive. */
     fun ruleCount(): Int = if (active) CssSource.scan(css).rules.size else 0
 

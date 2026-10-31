@@ -51,7 +51,8 @@ class Ctx(val config: Config) {
     @Synchronized
     fun ensureViewer(port: Int = 0): Viewer = viewer ?: Viewer(port, Tokens.generate(), visuals.store,
         api = { m, p, t -> session.call(m, if (m in CSS_METHODS) withCssRoots(p) else p, t) }, connected = { session.connected }, editorUrl = config.editorUrl,
-        editEnabled = { config.inspectorEdit || session.appInspectorEdit }).also {
+        editEnabled = { config.inspectorEdit || session.appInspectorEdit }, lockText = { live.lockText() },
+        releaseLock = { live.unlock("developer") }, scratchApply = ::applyScratch).also {
         it.start()
         viewer = it
         log.info("live viewer: {}", it.url())
@@ -66,6 +67,54 @@ class Ctx(val config: Config) {
         p.set<JsonNode>("outputDirs", Json.strings(listOf(abs(d.outputDir))))
         p.set<JsonNode>("resourceRoots", Json.strings(d.resourceRoots.map(::abs)))
         return p
+    }
+
+    /**
+     * Inspector *Apply to file*: asks the agent where each scratch rule goes ([Fcp.Method.CSS_SCRATCH_PLAN]); a dry run
+     * returns that plan. Otherwise checks every file (a project stylesheet, unchanged since the agent read it), writes
+     * them, reloads the CSS and drops the scratch sheet. Returns `{applied, files:[{file, changes}]}`.
+     */
+    fun applyScratch(dryRun: Boolean): ObjectNode {
+        if (session.descriptor == null || session.mode == AppSession.Mode.ATTACHED) {
+            throw dev.fxloop.server.mcp.ToolException("RELOAD_UNAVAILABLE",
+                "Apply to file needs a session with the project's source layout (not attach mode); use Copy as CSS", null)
+        }
+        val plan = session.call(Fcp.Method.CSS_SCRATCH_PLAN, withCssRoots(Json.obj()), 15_000) as ObjectNode
+        val files = plan.path("files").toList()
+        val summary = Json.obj {
+            put("dryRun", dryRun)
+            put("rules", plan.path("rules").asInt())
+            val arr = putArray("files")
+            files.forEach { f -> arr.addObject().put("file", f.path("file").asText()).set<JsonNode>("changes", f.path("changes")) }
+        }
+        if (dryRun || files.isEmpty()) return summary.put("applied", false)
+        val d = session.descriptor
+        val wd = d?.let { java.nio.file.Path.of(it.workingDir) } ?: config.projectDir
+        val roots = (d?.resourceRoots ?: emptyList()).map { wd.resolve(it).toAbsolutePath().normalize() } + config.projectDir.toAbsolutePath().normalize()
+        val output = d?.let { wd.resolve(it.outputDir).toAbsolutePath().normalize() }
+        val writes = files.map { f ->
+            val path = java.nio.file.Path.of(f.path("absFile").asText()).toAbsolutePath().normalize()
+            val ok = path.fileName.toString().lowercase().endsWith(".css") && java.nio.file.Files.isRegularFile(path) &&
+                roots.any { path.startsWith(it) } && (output == null || !path.startsWith(output))
+            if (!ok) throw dev.fxloop.server.mcp.ToolException("NOT_A_PROJECT_STYLESHEET", "${f.path("file").asText()} is not a stylesheet of this project", null)
+            val now = sha256(java.nio.file.Files.readString(path))
+            if (now != f.path("sha256").asText()) {
+                throw dev.fxloop.server.mcp.ToolException("FILE_CHANGED", "${f.path("file").asText()} changed while applying; try again", null)
+            }
+            path to f.path("text").asText()
+        }
+        writes.forEach { (path, text) -> java.nio.file.Files.writeString(path, text) }
+        val r = reloader.reload(Reloader.Options(files = writes.map { it.first.toString() }, allowRestart = false, replay = false,
+            visualDiff = false, javaTier = false, consume = false, clearScratch = true)) { Json.obj() }
+        live.reloaded("inspector: CSS applied to " + files.joinToString(", ") { it.path("file").asText().substringAfterLast('/') },
+            true, live.actionItems())
+        return summary.put("applied", true).also { it.set<JsonNode>("reload", r) }
+    }
+
+    /** [dev.fxloop.server.mcp.ToolRegistry.observer]: the dev bar shows what the agent is doing while a tool runs. */
+    fun toolActivity(tool: String, args: ObjectNode, done: Boolean) {
+        if (tool in QUIET_TOOLS || tool.startsWith("fx_test_")) return
+        if (done) live.activity(null) else live.activity(activityText(tool, args))
     }
 
     private fun publish(event: String, json: JsonNode) {
@@ -115,6 +164,7 @@ class Ctx(val config: Config) {
                 publish("pick", payload) // an open inspector page selects the picked node
             }
             Fcp.Event.SCRATCH_CHANGED -> publish("scratch", payload)
+            Fcp.Event.INPUT_LOCK_RELEASED -> live.unlock("developer")
             Fcp.Event.INSPECTOR_REQUESTED -> inspector.open(payload.path("h").takeIf { it.isInt }?.asInt(), payload.path("path").asText(null))
             Fcp.Event.CONTROL_MODE_CHANGED -> {
                 val mode = if (payload.path("mode").asText() == "shared") LiveState.Control.SHARED else LiveState.Control.AGENT
@@ -188,7 +238,8 @@ class Ctx(val config: Config) {
         }
         journal.record(tool, replayable(args, target), target?.deepCopy()?.apply { remove("h") }, effects, fingerprint(before))
         val conflicts = r.path("conflicts").let { if (it.isArray) it.size() else it.asInt(0) }
-        val text = (if (started) "(app auto-started) " else "") + describe(r) +
+        val tookOver = if (live.takeOverNotice()) "\n[the developer took over: the input lock is released; stop driving the UI and ask them]" else ""
+        val text = (if (started) "(app auto-started) " else "") + describe(r) + tookOver +
             (if (conflicts > 0) " [$conflicts human input conflict(s): the developer was interacting at the same time]" else "") + (effects?.let { "\n" + SceneDiff.summary(it) } ?: "")
         return ToolResult.ok(text, r)
     }
@@ -268,6 +319,55 @@ class Ctx(val config: Config) {
 
     companion object {
         private val SHARED_EVENT_TOOLS = setOf("fx_click_node", "fx_type_keys")
+
+        private fun sha256(text: String): String = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+
+        /** Tools the bar does not announce: status polls and the lock itself. */
+        private val QUIET_TOOLS = setOf("fx_get_app_status", "fx_lock_input", "fx_set_control_mode", "fx_get_picked")
+
+        /** The bar's "Agent: …" text for a tool call, in the developer's words. */
+        fun activityText(tool: String, a: ObjectNode): String {
+            val on = target(a)
+            return when (tool) {
+                "fx_click_node" -> "clicking ${on ?: "the app"}"
+                "fx_type_keys" -> "pressing " + (keys(a) ?: "keys") + (on?.let { " in $it" } ?: "")
+                "fx_set_text" -> "typing into ${on ?: "a text field"}"
+                "fx_set_property" -> "setting ${a.path("property").asText("a property")}" + (on?.let { " on $it" } ?: "")
+                "fx_take_screenshot", "fx_get_screenshot" -> "taking a screenshot"
+                "fx_compare_screenshots" -> "comparing screenshots"
+                "fx_get_scene_graph" -> "reading the scene graph"
+                "fx_find_nodes" -> "looking for nodes"
+                "fx_get_node_details", "fx_get_property", "fx_describe_at" -> "inspecting ${on ?: "a node"}"
+                "fx_explain_style", "fx_explain_property", "fx_explain_layout", "fx_suggest_override" ->
+                    "checking why ${on ?: "a node"} looks like this"
+                "fx_reload", "fx_reload_fxml" -> "reloading your changes"
+                "fx_start_app" -> "starting the app"
+                "fx_restart_app" -> "restarting the app"
+                "fx_stop_app" -> "stopping the app"
+                "fx_get_logs", "fx_get_ui_errors" -> "reading logs"
+                "fx_lint_fxml", "fx_lint_visual" -> "checking the UI for problems"
+                "fx_capture_states" -> "capturing UI states"
+                "fx_eval_js" -> "running a script in the app"
+                "fx_open_inspector" -> "opening the CSS inspector"
+                else -> tool.removePrefix("fx_").replace('_', ' ')
+            }
+        }
+
+        private fun target(a: ObjectNode): String? {
+            a.path("path").asText(null)?.let { p -> return p.substringAfterLast('/').take(48).ifEmpty { null } }
+            a.path("query").asText(null)?.let { return it.take(48) }
+            return null
+        }
+
+        private fun keys(a: ObjectNode): String? {
+            val k = a.path("keys")
+            if (!k.isArray || k.isEmpty) return a.path("text").asText(null)?.let { "\"" + it.take(24) + "\"" }
+            return k.take(3).joinToString(", ") { c ->
+                if (c.isTextual) c.asText() else (c.path("modifiers").map { it.asText().lowercase().replaceFirstChar(Char::uppercase) } +
+                    c.path("code").asText()).joinToString("+")
+            }
+        }
         val CSS_METHODS = setOf(Fcp.Method.EXPLAIN_STYLE, Fcp.Method.CSS_CASCADE, Fcp.Method.CSS_SUGGEST)
 
         val METHODS = mapOf(

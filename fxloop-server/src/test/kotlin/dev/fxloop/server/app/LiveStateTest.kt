@@ -123,4 +123,41 @@ class LiveStateTest {
         assertThat(LiveState.barRetryDelayMs("FX_TIMEOUT", 6)).isNull()
         assertThat(LiveState.barRetryDelayMs("UNKNOWN_METHOD", 0)).isNull()
     }
+
+    @Test
+    fun `input lock goes into the bar state, expires and records who released it`(@TempDir dir: Path) {
+        val l = live(dir)
+        assertThat(l.barState().has("lock")).isFalse()
+        val r = l.lock(5, "checkout flow")
+        assertThat(r["locked"].asBoolean()).isTrue()
+        assertThat(l.barState()["lock"]["reason"].asText()).isEqualTo("checkout flow")
+        assertThat(l.barState()["lock"]["remainingMs"].asLong()).isBetween(1L, 5000L)
+        assertThat(l.lockText()).isEqualTo("checkout flow")
+        assertThat(l.status(null)["inputLock"]["locked"].asBoolean()).isTrue()
+
+        val u = l.unlock("developer")
+        assertThat(u["locked"].asBoolean()).isFalse()
+        assertThat(u["releasedBy"].asText()).isEqualTo("developer")
+        assertThat(l.barState().has("lock")).isFalse()
+        assertThat(l.lockText()).isNull()
+        assertThat(l.takeOverNotice()).isTrue()
+        assertThat(l.takeOverNotice()).isFalse()
+        assertThat(l.unlock("tool")["releasedBy"].asText()).isEqualTo("developer") // nothing was locked any more
+    }
+
+    @Test
+    fun `activity shows while a tool runs and lingers briefly`(@TempDir dir: Path) {
+        val l = live(dir)
+        l.activity("clicking #save")
+        assertThat(l.barState()["activity"].asText()).isEqualTo("clicking #save")
+        l.activity(null, lingerMs = 50)
+        assertThat(l.barState()["activity"].asText()).isEqualTo("clicking #save")
+        Thread.sleep(300)
+        assertThat(l.barState().has("activity")).isFalse()
+        l.activity("reading logs")
+        l.activity(null, lingerMs = 50)
+        l.activity("taking a screenshot") // a new call before the linger ends keeps its own text
+        Thread.sleep(300)
+        assertThat(l.barState()["activity"].asText()).isEqualTo("taking a screenshot")
+    }
 }

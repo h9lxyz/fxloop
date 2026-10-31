@@ -83,8 +83,12 @@ class AgentRuntime private constructor(
         }
     }
 
-    /** The server connection ended: a `bar=` agent falls back to its standalone bar instead of a stale server state. */
+    /**
+     * The server connection ended: the agent's input lock goes with it, and a `bar=` agent falls back to its standalone
+     * bar instead of a stale server state.
+     */
     internal fun onDisconnected() {
+        human.setLock(null)
         val b = options.bar ?: return
         Platform.runLater { bar.standalone(b) }
     }
