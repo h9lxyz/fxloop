@@ -24,6 +24,11 @@ class AgentRuntime private constructor(
     @Volatile
     internal var server: FcpServer? = null
 
+    /** Sends an FCP event to the connected server, if any; never blocks. */
+    internal fun emit(event: String, payload: com.fasterxml.jackson.databind.node.ObjectNode) {
+        server?.emit(event, payload)
+    }
+
     private fun boot() {
         if (instrumentation != null && options.fxmlHook) {
             FxmlHook.install(instrumentation)
@@ -55,6 +60,13 @@ class AgentRuntime private constructor(
             logs.install()
         }
         options.stateFile?.let { GeometryStore(it).install() }
+        if (options.bar) {
+            try {
+                DevBar.start()
+            } catch (t: Throwable) {
+                AgentLog.warn("dev bar failed to start", t)
+            }
+        }
         Thread(::listen, "fxloop-agent-listen").apply { isDaemon = true }.start()
     }
 
