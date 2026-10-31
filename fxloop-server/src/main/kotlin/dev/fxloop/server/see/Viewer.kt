@@ -31,6 +31,8 @@ typealias ViewerApi = (method: String, params: ObjectNode, timeoutMs: Long) -> J
  * agent parses before installing. `POST /api/scratch/apply` (`?dryRun=1` previews) writes the scratch rules into the
  * project's stylesheets through [scratchApply]. Without the flag they answer 404; while the agent holds the input lock
  * ([lockText]) the editing endpoints answer 423 and `POST /api/lock/release` lets the developer take over.
+ * With [prompts], `POST /api/prompt` (JSON `{text, window?, h?, path?, property?, …}`) queues a developer prompt for
+ * the agent, `POST /api/prompt/cancel?id=` withdraws one and `GET /api/prompts` lists them; changes arrive as SSE `prompts`.
  */
 class Viewer(
     private val requestedPort: Int,
@@ -43,6 +45,7 @@ class Viewer(
     private val lockText: () -> String? = { null },
     private val releaseLock: (() -> Unit)? = null,
     private val scratchApply: ((dryRun: Boolean) -> JsonNode)? = null,
+    private val prompts: Prompts? = null,
 ) : AutoCloseable {
     private var server: HttpServer? = null
     private var executor: ExecutorService? = null
@@ -188,6 +191,10 @@ class Viewer(
             send(ex, 200, "application/json", Json.write(Json.obj { put("locked", false) }).toByteArray())
             return
         }
+        if (name.startsWith("prompt")) {
+            prompt(ex, name, prompts)
+            return
+        }
         if (name == "scratch/apply") {
             val apply = scratchApply
             if (apply == null || !connected()) {
@@ -280,6 +287,40 @@ class Viewer(
             error("INTERNAL", e.message ?: e.javaClass.simpleName)
         }
         send(ex, 200, "application/json", Json.write(out).toByteArray())
+    }
+
+    private fun prompt(ex: HttpExchange, name: String, queue: Prompts?) {
+        fun json(code: Int, body: JsonNode) = send(ex, code, "application/json", Json.write(body).toByteArray())
+        if (queue == null) return send(ex, 404, "text/plain", "not found".toByteArray())
+        when (name) {
+            "prompts" -> json(200, queue.snapshot())
+            "prompt/cancel" -> {
+                val id = queryParam(ex.requestURI.rawQuery, "id")?.toIntOrNull()
+                    ?: return json(400, error("BAD_REQUEST", "id is required"))
+                json(200, Json.obj { put("cancelled", queue.cancel(id)) })
+            }
+            "prompt" -> {
+                val type = ex.requestHeaders.getFirst("Content-Type").orEmpty().lowercase()
+                if (!type.startsWith("application/json")) return json(415, error("BAD_REQUEST", "send the prompt as application/json"))
+                val raw = ex.requestBody.readNBytes(MAX_PROMPT_BYTES + 1)
+                if (raw.size > MAX_PROMPT_BYTES) return json(413, error("BAD_REQUEST", "prompt is larger than 16 KB"))
+                val body = runCatching { Json.MAPPER.readTree(raw) }.getOrNull() as? ObjectNode
+                    ?: return json(400, error("BAD_REQUEST", "body must be a JSON object"))
+                val text = body.path("text").asText("").trim()
+                if (text.isEmpty() || text.length > MAX_PROMPT_CHARS) {
+                    return json(400, error("BAD_REQUEST", "text must be 1–$MAX_PROMPT_CHARS characters"))
+                }
+                // Only known context fields, so the page cannot smuggle arbitrary structure into the agent's result.
+                val context = Json.obj {
+                    body.path("window").takeIf { it.isInt }?.let { put("window", it.asInt()) }
+                    body.path("h").takeIf { it.isInt }?.let { put("h", it.asInt()) }
+                    for (k in CONTEXT_STRINGS) body.path(k).takeIf { it.isTextual }?.let { put(k, it.asText().take(MAX_CONTEXT_CHARS)) }
+                    body.path("line").takeIf { it.isInt }?.let { put("line", it.asInt()) }
+                }
+                json(200, queue.toJson(queue.submit(text, context)))
+            }
+            else -> send(ex, 404, "text/plain", "not found".toByteArray())
+        }
     }
 
     private fun error(code: String, message: String): ObjectNode =
@@ -384,9 +425,14 @@ class Viewer(
     private companion object {
         const val RATE_PER_SEC = 30
         const val INSPECT_RESOURCE = "/dev/fxloop/server/inspect/inspect.html"
-        val POST_PATHS = setOf("/api/highlight", "/api/pick", "/api/scratch/set", "/api/scratch/clear", "/api/scratch/apply", "/api/lock/release")
+        val POST_PATHS = setOf("/api/highlight", "/api/pick", "/api/scratch/set", "/api/scratch/clear", "/api/scratch/apply",
+            "/api/lock/release", "/api/prompt", "/api/prompt/cancel")
         const val SCRATCH_PREFIX = "/api/scratch"
         const val MAX_SCRATCH_BYTES = 64 * 1024
+        const val MAX_PROMPT_BYTES = 16 * 1024
+        const val MAX_PROMPT_CHARS = 4000
+        const val MAX_CONTEXT_CHARS = 512
+        val CONTEXT_STRINGS = listOf("path", "type", "fxId", "property", "selector", "file", "tab")
         val TRUE = setOf("1", "true")
         val SAFE_NAME = Regex("^\\d{4,}-[a-z0-9-]+\\.png$")
     }

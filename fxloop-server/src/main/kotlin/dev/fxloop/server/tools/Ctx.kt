@@ -17,6 +17,7 @@ import dev.fxloop.server.loop.SceneDiff
 import dev.fxloop.server.loop.WatchMode
 import dev.fxloop.server.mcp.ToolResult
 import dev.fxloop.server.see.Inspector
+import dev.fxloop.server.see.Prompts
 import dev.fxloop.server.see.ScreenStore
 import dev.fxloop.server.see.Viewer
 import dev.fxloop.server.see.Visuals
@@ -47,12 +48,15 @@ class Ctx(val config: Config) {
 
     val inspector = Inspector({ ensureViewer() }, config.browserEnabled)
 
+    /** Developer prompts from the inspector's Ask agent box ([PromptTools]); every change is pushed to the page. */
+    val prompts = Prompts().also { q -> q.onChange = { viewer?.publish("prompts", it) } }
+
     /** Builds the viewer with the inspector API wired to [session] and starts it (port 0 = ephemeral). */
     @Synchronized
     fun ensureViewer(port: Int = 0): Viewer = viewer ?: Viewer(port, Tokens.generate(), visuals.store,
         api = { m, p, t -> session.call(m, if (m in CSS_METHODS) withCssRoots(p) else p, t) }, connected = { session.connected }, editorUrl = config.editorUrl,
         editEnabled = { config.inspectorEdit || session.appInspectorEdit }, lockText = { live.lockText() },
-        releaseLock = { live.unlock("developer") }, scratchApply = ::applyScratch).also {
+        releaseLock = { live.unlock("developer") }, scratchApply = ::applyScratch, prompts = prompts).also {
         it.start()
         viewer = it
         log.info("live viewer: {}", it.url())
@@ -324,7 +328,8 @@ class Ctx(val config: Config) {
             .digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 
         /** Tools the bar does not announce: status polls and the lock itself. */
-        private val QUIET_TOOLS = setOf("fx_get_app_status", "fx_lock_input", "fx_set_control_mode", "fx_get_picked")
+        private val QUIET_TOOLS = setOf("fx_get_app_status", "fx_lock_input", "fx_set_control_mode", "fx_get_picked",
+            "fx_wait_for_prompt", "fx_reply_to_prompt")
 
         /** The bar's "Agent: …" text for a tool call, in the developer's words. */
         fun activityText(tool: String, a: ObjectNode): String {

@@ -132,6 +132,23 @@ input.ed.bad{border-color:var(--bad);color:var(--bad)}
 .addb:hover{color:var(--accent)}
 .newrule .vedit{flex:1 1 160px}
 .newrule .vedit input.ed{flex:1;width:100%}
+#ask{border-top:1px solid var(--border);background:var(--panel);display:flex;flex-direction:column;max-height:45vh;flex:none}
+#askLog{overflow:auto;max-height:28vh}
+#askLog:empty{display:none}
+.pm{padding:5px 10px;border-bottom:1px solid var(--border)}
+.pm .meta{color:var(--dim);font-size:11px;display:flex;gap:8px;align-items:baseline}
+.pm .meta .st{text-transform:uppercase;letter-spacing:.04em;font-size:10px}
+.pm .meta .st.pending{color:var(--warn)}.pm .meta .st.taken{color:var(--accent)}.pm .meta .st.answered{color:var(--ok)}
+.pm .q{white-space:pre-wrap;margin-top:2px}
+.pm .a{white-space:pre-wrap;margin:4px 0 0 2px;padding:3px 8px;border-left:2px solid var(--accent);background:var(--bg)}
+.pm .a.note{border-left-color:var(--dim);color:var(--dim)}
+#askBar{display:flex;gap:8px;align-items:center;padding:4px 10px 0;font-size:12px;color:var(--dim);flex-wrap:wrap}
+#askCtx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+#askCtx .about{color:var(--prop)}
+#askListen{white-space:nowrap}#askListen.on{color:var(--ok)}
+#askForm{display:flex;gap:6px;padding:4px 10px 8px;align-items:flex-end}
+#askText{flex:1;resize:vertical;min-height:34px;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px 6px}
+.decl .p.askable{cursor:pointer}.decl .p.askable:hover{text-decoration:underline dotted}
 #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--border);padding:6px 12px;border-radius:4px;display:none;z-index:9}
 </style>
 </head>
@@ -151,6 +168,11 @@ input.ed.bad{border-color:var(--bad);color:var(--bad)}
   <div id="treePane" tabindex="0" role="tree"></div>
   <div id="split"></div>
   <div id="stylesPane"></div>
+</div>
+<div id="ask" aria-label="Ask agent">
+  <div id="askLog" aria-live="polite"></div>
+  <div id="askBar"><span id="askCtx"></span><span id="askListen"></span></div>
+  <form id="askForm"><textarea id="askText" rows="2" placeholder="Ask the agent about this node… (Ctrl+Enter sends; click a property name to ask about that declaration)"></textarea><button type="submit" id="askSend">Ask agent</button></form>
 </div>
 <div id="toast"></div>
 <script>
@@ -187,7 +209,9 @@ var state = {
   renderPending: false,
   plan: null,                       // Apply to file preview: {files:[{file, changes}]} from /api/scratch/apply?dryRun=1
   lock: null,                       // {reason?, remainingMs} while the agent holds the input lock (status event)
-  activity: ''                      // what the agent is doing right now (status event)
+  activity: '',                     // what the agent is doing right now (status event)
+  prompts: null,                    // {listening, items} of the Ask agent box (prompts event)
+  askAbout: null                    // {property, selector, file, line} the next prompt is about
 };
 
 // ---------- API ----------
@@ -406,13 +430,14 @@ function onKey(ev){
 // ---------- selection / styles ----------
 function select(n){
   state.sel = { h: n.h, path: n.path || null };
+  state.askAbout = null;
   state.suggest = Object.create(null);
   renderTree(); scrollSelIntoView();
   loadStyles();
 }
 function loadStyles(){
   var pane = $('stylesPane');
-  if (!state.sel) { clear(pane); pane.appendChild(el('div', 'empty', 'Select a node in the tree, or use “Pick in app”.')); return Promise.resolve(); }
+  if (!state.sel) { clear(pane); pane.appendChild(el('div', 'empty', 'Select a node in the tree, or use “Pick in app”.')); renderAsk(); return Promise.resolve(); }
   var p = { h: state.sel.h, path: state.sel.path };
   var want = state.sel;
   return Promise.all([
@@ -423,7 +448,7 @@ function loadStyles(){
     if (res[0].err) { state.styles = null; paneError(pane, res[0].err); return; }
     showBanner(null);
     state.styles = res[0].ok; state.layout = res[1];
-    renderStyles();
+    renderStyles(); renderAsk();
     if (state.styles.edit && !state.scratch) return loadScratch().then(renderStyles);
   });
 }
@@ -471,7 +496,13 @@ function declEl(dc, r, d){
   if (dc.reason) line.title = dc.reason;
   var tog = canEdit() && editable(r) ? toggleBox(dc, r, d) : null;
   if (tog) line.appendChild(tog);
-  line.appendChild(el('span', 'p', dc.property));
+  var pn = el('span', 'p askable', dc.property);
+  pn.title = 'Ask the agent about this declaration';
+  pn.addEventListener('click', function(){
+    state.askAbout = { property: dc.property, selector: r.selector || null, file: r.file || null, line: dc.line != null ? dc.line : (r.line != null ? r.line : null) };
+    renderAsk(); $('askText').focus();
+  });
+  line.appendChild(pn);
   line.appendChild(document.createTextNode(': '));
   var v = dc.text ? String(dc.text).replace(/^[^:]*:\s*/, '').replace(/;\s*$/, '') : '';
   var imp = !!dc.important;
@@ -1483,11 +1514,16 @@ function connect(){
     if (!j.active) state.disabled = Object.create(null);
     if (was !== now) loadStyles();
   });
+  es.addEventListener('prompts', function(ev){
+    var j; try { j = JSON.parse(ev.data); } catch(e){ return; }
+    state.prompts = j; renderPrompts();
+  });
   es.addEventListener('pick', function(ev){
     var j; try { j = JSON.parse(ev.data); } catch(e){ return; }
     setPicking(false);
     if (j.window != null && j.window !== state.win) { state.win = j.window; $('win').value = String(j.window); }
     state.sel = { h: j.h != null ? j.h : null, path: j.path || null };
+    state.askAbout = null;
     state.suggest = Object.create(null);
     loadTree().then(loadStyles);
   });
@@ -1506,6 +1542,74 @@ function setPicking(on){
   state.picking = on;
   $('hint').textContent = on ? 'Click a node in the app… (Esc cancels)' : '';
 }
+
+// ---------- Ask agent ----------
+function renderAsk(){
+  var c = $('askCtx'); clear(c);
+  var t = (state.styles && state.styles.target) || null;
+  if (!state.sel) { c.textContent = 'No node selected — the prompt goes without node context'; return; }
+  c.appendChild(document.createTextNode('About: '));
+  c.appendChild(el('span', 'mono', t ? (t.type || '?') + (t.fxId ? '#' + t.fxId : '') : (state.sel.path || 'node')));
+  var a = state.askAbout;
+  if (a) {
+    c.appendChild(document.createTextNode(' · '));
+    c.appendChild(el('span', 'mono about', a.property + (a.selector ? ' in ' + a.selector : '')));
+    var x = el('button', 'x', '×'); x.title = 'Ask about the whole node'; x.setAttribute('aria-label', x.title);
+    x.addEventListener('click', function(){ state.askAbout = null; renderAsk(); });
+    c.appendChild(x);
+  }
+  c.title = (t && t.path) || state.sel.path || '';
+}
+function renderPrompts(){
+  var j = state.prompts || { listening: false, items: [] };
+  var l = $('askListen');
+  l.textContent = j.listening ? '● agent listening' : '○ no agent listening — prompts wait in the queue';
+  l.className = j.listening ? 'on' : '';
+  var log = $('askLog'), atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+  clear(log);
+  (j.items || []).filter(function(p){ return p.status !== 'cancelled'; }).slice(-20).forEach(function(p){
+    var box = el('div', 'pm');
+    var meta = el('div', 'meta');
+    meta.appendChild(el('span', 'st ' + p.status, p.status === 'taken' ? 'agent working' : p.status));
+    var on = p.context && (p.context.fxId ? (p.context.type || '') + '#' + p.context.fxId : p.context.type || p.context.path);
+    if (on) meta.appendChild(el('span', 'mono', on + (p.context.property ? ' · ' + p.context.property : '')));
+    if (p.status === 'pending') {
+      var x = el('button', 'x', 'withdraw'); x.title = 'Withdraw this prompt before an agent takes it';
+      x.addEventListener('click', function(){ api('/api/prompt/cancel', { id: p.id }, 'POST').catch(function(e){ toast(errText(e)); }); });
+      meta.appendChild(x);
+    }
+    box.appendChild(meta);
+    box.appendChild(el('div', 'q', p.text));
+    (p.replies || []).forEach(function(r, i){
+      var last = i === p.replies.length - 1;
+      box.appendChild(el('div', 'a' + (last && p.status === 'answered' ? '' : ' note'), r.text));
+    });
+    log.appendChild(box);
+  });
+  if (atEnd) log.scrollTop = log.scrollHeight;
+}
+function loadPrompts(){
+  return api('/api/prompts', {}).then(function(j){ state.prompts = j; renderPrompts(); }, function(){ $('ask').style.display = 'none'; });
+}
+function sendPrompt(){
+  var ta = $('askText'), text = ta.value.trim();
+  if (!text) return;
+  var t = (state.styles && state.styles.target) || {}, a = state.askAbout || {};
+  var body = { text: text, window: state.win, tab: state.tab };
+  if (state.sel) { if (state.sel.h != null) body.h = state.sel.h; body.path = t.path || state.sel.path || undefined; }
+  if (t.type) body.type = t.type;
+  if (t.fxId) body.fxId = t.fxId;
+  ['property', 'selector', 'file', 'line'].forEach(function(k){ if (a[k] != null) body[k] = a[k]; });
+  $('askSend').disabled = true;
+  fetch('/api/prompt?t=' + encodeURIComponent(TOKEN), {
+    method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  }).then(asJson).then(function(){ ta.value = ''; }, function(e){ toast(errText(e)); })
+    .then(function(){ $('askSend').disabled = false; });
+}
+$('askForm').addEventListener('submit', function(ev){ ev.preventDefault(); sendPrompt(); });
+$('askText').addEventListener('keydown', function(ev){
+  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); sendPrompt(); }
+});
 
 // ---------- wiring ----------
 $('pick').addEventListener('click', function(){
@@ -1541,6 +1645,7 @@ $('treePane').addEventListener('mouseleave', clearHighlight);
 })();
 
 loadWindows().then(loadTree).then(loadStyles);
+renderAsk(); loadPrompts();
 connect();
 })();
 </script>
