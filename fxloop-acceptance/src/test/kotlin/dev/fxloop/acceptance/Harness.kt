@@ -26,7 +26,7 @@ class Harness(
     app: String = "fxloop-sample-app",
     webview: Boolean = false,
     headlessOverride: String? = null,
-    configure: (Config) -> Config = { it },
+    private val configure: (Config) -> Config = { it },
     private val browser: String = "none", // acceptance runs never open a real browser (inspector tests)
 ) : AutoCloseable {
     val repo: Path = Path.of(System.getProperty("fxloop.repo") ?: "..").toAbsolutePath().normalize()
