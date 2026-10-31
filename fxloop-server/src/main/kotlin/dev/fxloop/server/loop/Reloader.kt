@@ -67,9 +67,12 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
     fun watchedRoots(d: LaunchDescriptor): List<Path> =
         (d.sourceRoots + d.resourceRoots).map(Path::of) + BUILD_FILES.map(session.config.projectDir::resolve)
 
-    /** @param restartWithReplay performs tier 4 (restart, then replay when its argument is true) and returns its report */
+    /**
+     * @param restartWithReplay performs tier 4 and returns its report; its arguments are `replay` and `rebuild` (false: every
+     * change is already in `outputDir`, so the restart may skip the build-tool prepare)
+     */
     @Synchronized
-    fun reload(opt: Options, restartWithReplay: (Boolean) -> ObjectNode): ObjectNode {
+    fun reload(opt: Options, restartWithReplay: (replay: Boolean, rebuild: Boolean) -> ObjectNode): ObjectNode {
         val d = session.descriptor
         if (d == null || session.mode == AppSession.Mode.ATTACHED) {
             throw ToolException("RELOAD_UNAVAILABLE",
@@ -99,6 +102,8 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
             }
         }
         var needsRestart = !reasons.isEmpty
+        val buildChanged = needsRestart // build files or deletions: only the build tool brings outputDir up to date
+        var sourcesCompiled = false
         var fxmlSwapped = 0
 
         if (other.isNotEmpty()) {
@@ -136,8 +141,11 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
                         if (opt.consume) checkpoint()
                         return out
                     }
-                    false -> needsRestart = true
-                    true -> {}
+                    false -> {
+                        sourcesCompiled = true
+                        needsRestart = true
+                    }
+                    true -> sourcesCompiled = true
                 }
             }
         }
@@ -153,7 +161,7 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
                 RestartDecision.RESTART -> {
                     val t0 = System.currentTimeMillis()
                     try {
-                        val r = restartWithReplay(opt.replay)
+                        val r = restartWithReplay(opt.replay, rebuildOnRestart(buildChanged, java.isNotEmpty() || kotlin.isNotEmpty(), sourcesCompiled))
                         tiers.add(tier("restart", emptyList(), t0, r))
                         out.put("restarted", true)
                         r["replay"]?.let { out.set<JsonNode>("replay", it) }
@@ -322,7 +330,7 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
             details.set<JsonNode>("redefined", r["redefined"])
             details.set<JsonNode>("notLoaded", r["notLoaded"])
             details.put("ok", true)
-            if (session.config.jbr) details.put("jbrEnhanced", true)
+            if (session.enhancedRedefinition) details.put("jbrEnhanced", true)
             tiers.add(tier("hotswap", rels, t0, details))
             true
         } catch (e: FcpException) {
@@ -369,6 +377,14 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
     }
 
     companion object {
+        /**
+         * Restart fast path: the tiers above already wrote compiled classes and copied resources into `outputDir`, so the
+         * build-tool prepare (a cold Maven/Gradle run) is only needed when a build file changed, a file was deleted, or
+         * sources changed that this reload did not compile itself (java tier off, external compile).
+         */
+        fun rebuildOnRestart(buildChanged: Boolean, sourcesChanged: Boolean, sourcesCompiled: Boolean): Boolean =
+            buildChanged || (sourcesChanged && !sourcesCompiled)
+
         /** Restart etiquette (PRD 07 §6): watch/attached/embedded never restart; a busy developer defers it. */
         fun restartDecision(allowRestart: Boolean, mode: AppSession.Mode, restartWhenHumanActive: Boolean, humanActive: Boolean): RestartDecision =
             when {

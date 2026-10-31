@@ -28,7 +28,8 @@ data class Config(
     val viewerPort: Int? = null,
     val watchMode: String = "css-only",
     val externalCompile: Boolean = false,
-    val jbr: Boolean = false,
+    /** null = auto: enhanced redefinition when the launch JDK is JetBrains Runtime. */
+    val jbr: Boolean? = null,
     val screensKeep: Int = 100,
     val screenshotRatePerSec: Double = 2.0,
     val testMode: Boolean = false,
@@ -89,7 +90,7 @@ data class Config(
                 viewerPort = str("FXLOOP_VIEWER")?.toInt(),
                 watchMode = str("FXLOOP_WATCH") ?: "css-only",
                 externalCompile = bool("FXLOOP_EXTERNAL_COMPILE"),
-                jbr = bool("FXLOOP_JBR"),
+                jbr = str("FXLOOP_JBR")?.let { bool("FXLOOP_JBR") },
                 screensKeep = str("FXLOOP_SCREENS_KEEP")?.toInt() ?: 100,
                 screenshotRatePerSec = str("FXLOOP_SCREENSHOT_RATE")?.toDouble() ?: 2.0,
                 testMode = bool("FXLOOP_TEST"),

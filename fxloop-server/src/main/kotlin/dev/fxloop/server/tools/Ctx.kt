@@ -36,7 +36,7 @@ class Ctx(val config: Config) {
     val watch: WatchMode = WatchMode { files ->
         val seq = live.reloadCount()
         val r = reloader.reload(Reloader.Options(files = files, allowRestart = false, replay = false, visualDiff = false,
-            javaTier = watchModeName() == "all", consume = false)) { Json.obj() }
+            javaTier = watchModeName() == "all", consume = false)) { _, _ -> Json.obj() }
         if (live.reloadCount() == seq) {
             val tiers = r.path("tiersApplied").map { it.asText() }
             live.reloaded("watch: " + tiers.joinToString(", ").ifEmpty { "no change" }, true, live.actionItems())
@@ -124,7 +124,7 @@ class Ctx(val config: Config) {
         }
         writes.forEach { (path, text) -> java.nio.file.Files.writeString(path, text) }
         val r = reloader.reload(Reloader.Options(files = writes.map { it.first.toString() }, allowRestart = false, replay = false,
-            visualDiff = false, javaTier = false, consume = false, clearScratch = true)) { Json.obj() }
+            visualDiff = false, javaTier = false, consume = false, clearScratch = true)) { _, _ -> Json.obj() }
         live.reloaded("inspector: CSS applied to " + files.joinToString(", ") { it.path("file").asText().substringAfterLast('/') },
             true, live.actionItems())
         return summary.put("applied", true).also { it.set<JsonNode>("reload", r) }
@@ -323,9 +323,10 @@ class Ctx(val config: Config) {
     }
 
     /** Restart (tier 4 / `fx_restart_app`), optionally replaying the journal recorded before it. */
-    fun restartWithReplay(replay: Boolean): ObjectNode {
+    /** @param rebuild false skips the build-tool prepare (see [Reloader.rebuildOnRestart]) */
+    fun restartWithReplay(replay: Boolean, rebuild: Boolean = true): ObjectNode {
         val entries = journal.entries()
-        val r = session.restart()
+        val r = session.restart(reuseDescriptor = !rebuild)
         if (replay && entries.isNotEmpty()) r.set<JsonNode>("replay", replay(entries))
         return r
     }

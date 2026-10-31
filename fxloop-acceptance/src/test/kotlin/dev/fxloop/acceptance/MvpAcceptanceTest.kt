@@ -79,6 +79,8 @@ class MvpAcceptanceTest {
         val r = h.ok("fx_reload")
         assertThat(r["needsRestart"].asBoolean()).isTrue()
         assertThat(r["restarted"].asBoolean()).isTrue()
+        // javac already wrote the class: the restart relaunches without a build-tool prepare
+        assertThat(r["tiersApplied"].first { it["tier"].asText() == "restart" }["details"]["prepare"].asText()).isEqualTo("skipped")
         assertThat(r["replay"]["replayed"].asInt()).isGreaterThanOrEqualTo(3)
         assertThat(h.ok("fx_get_scene_graph", args("query" to "#contactTable"))["root"]["itemCount"].asInt()).isGreaterThanOrEqualTo(1)
     }

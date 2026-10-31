@@ -46,6 +46,9 @@ class AppSession(val config: Config) {
         private set
     @Volatile var lastStartupMs = 0L
         private set
+    /** Whether the running app was launched with JBR enhanced redefinition (structural hot-swaps). */
+    @Volatile var enhancedRedefinition = false
+        private set
     @Volatile var pid = 0L
         private set
     @Volatile private var process: Process? = null
@@ -105,8 +108,9 @@ class AppSession(val config: Config) {
     fun call(method: String, params: ObjectNode = Json.obj(), timeoutMs: Long = FcpClient.DEFAULT_TIMEOUT_MS): JsonNode =
         fcp().request(method, params, timeoutMs)
 
+    /** @param reuseDescriptor skip the build-tool prepare and relaunch from the last `launch.json` (reload restart fast path) */
     @Synchronized
-    fun start() {
+    fun start(reuseDescriptor: Boolean = false) {
         refreshExit()
         if (state == State.RUNNING || state == State.STARTING) {
             throw ToolException("ALREADY_RUNNING", "the application is already running (pid $pid)", "use fx_restart_app to relaunch")
@@ -124,7 +128,7 @@ class AppSession(val config: Config) {
         exitCode = null
         var ok = false
         try {
-            val d = build.prepare()
+            val d = descriptor?.takeIf { reuseDescriptor } ?: build.prepare()
             descriptor = d
             launchWithDisplayRetry(d)
             lastStartupMs = System.currentTimeMillis() - t0
@@ -182,8 +186,10 @@ class AppSession(val config: Config) {
         cmd += d.jvmArgs
         cmd += config.jvmArgs
         if (config.testMode) cmd += "-Dfxloop.test=true"
-        // G10: JetBrains Runtime enhanced redefinition (structural hot-swaps); only meaningful on JBR via FXLOOP_JAVA_HOME
-        if (config.jbr) cmd += "-XX:+AllowEnhancedClassRedefinition"
+        // G10: JetBrains Runtime enhanced redefinition (structural hot-swaps); auto-enabled on JBR, FXLOOP_JBR overrides
+        val enhanced = config.jbr ?: isJbr(Path.of(javaHome()))
+        if (enhanced && ENHANCED_REDEFINITION !in d.jvmArgs + config.jvmArgs) cmd += ENHANCED_REDEFINITION
+        enhancedRedefinition = enhanced || ENHANCED_REDEFINITION in d.jvmArgs + config.jvmArgs
         cmd += "-javaagent:${agentJar()}=handshake=$handshake,tokenFile=$tokenFile,state=${dir.resolve("state.json")}," +
             "logs=${config.captureAppLogs},ownerPid=${ProcessHandle.current().pid()}"
         val classpath = buildList {
@@ -277,8 +283,9 @@ class AppSession(val config: Config) {
         }
     }
 
+    /** @param reuseDescriptor see [start]: the caller guarantees `outputDir` is current and no build file changed */
     @Synchronized
-    fun restart(): ObjectNode {
+    fun restart(reuseDescriptor: Boolean = false): ObjectNode {
         if (mode != Mode.LAUNCHED) {
             throw ToolException("NOT_SUPERVISED", "restart is unavailable in ${mode.name.lowercase()} mode: fxloop did not launch this JVM",
                 "relaunch the app yourself, or use the dev-loop mode (fx_start_app)")
@@ -288,10 +295,12 @@ class AppSession(val config: Config) {
         fcp = null
         killProcess()
         state = State.NEW
-        start()
+        val reused = reuseDescriptor && descriptor != null
+        start(reused)
         return Json.obj {
             put("restarted", true)
             put("startupMs", System.currentTimeMillis() - t0)
+            if (reused) put("prepare", "skipped")
         }
     }
 
@@ -483,10 +492,20 @@ class AppSession(val config: Config) {
         private val DISPLAY_FAILURE = Regex("Xvfb failed to start|server already active|[Uu]nable to open display|[Cc]annot open display")
         private val XVFB_AUTH = Regex("""-auth (\S+)/Xauthority""")
 
+        const val ENHANCED_REDEFINITION = "-XX:+AllowEnhancedClassRedefinition"
+
+        fun javaHome(): String = System.getenv("FXLOOP_JAVA_HOME") ?: System.getProperty("java.home")
+
         fun javaExecutable(): String {
             val exe = if (File.separatorChar == '\\') "java.exe" else "java"
-            val home = System.getenv("FXLOOP_JAVA_HOME") ?: System.getProperty("java.home")
-            return Path.of(home, "bin", exe).toString()
+            return Path.of(javaHome(), "bin", exe).toString()
+        }
+
+        /** JetBrains Runtime names itself in the JDK `release` file (`IMPLEMENTOR="JetBrains s.r.o."`). */
+        fun isJbr(javaHome: Path): Boolean = try {
+            Files.readAllLines(javaHome.resolve("release")).any { it.startsWith("IMPLEMENTOR=") && "JetBrains" in it }
+        } catch (e: IOException) {
+            false
         }
     }
 }

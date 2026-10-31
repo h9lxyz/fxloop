@@ -12,7 +12,7 @@ Errors come back as tool results with `isError`, an error `code`, a message and 
 | `NODE_NOT_FOUND` | Path/id no longer matches a node | Re-locate with `fx_find_nodes` / `fx_get_scene_graph`; paths change after the UI changes |
 | `AMBIGUOUS_PATH` | Selector matched several nodes | Choose one of `data.candidates` and pass it as `path`, or use `#fx:id` / index `Type[i]` |
 | `PROPERTY_BOUND` | Cannot set a bound property | `fx_explain_property` to see the binding; set the source property instead |
-| `REDEFINE_REJECTED` | JVM refused the HotSwap (fields/methods added, hierarchy change) | `fx_reload` with `allowRestart:true` (default) or `fx_restart_app {replay:true}`; JBR opt-in in [limitations](limitations.md) |
+| `REDEFINE_REJECTED` | JVM refused the HotSwap (fields/methods added, hierarchy change) | `fx_reload` with `allowRestart:true` (default) or `fx_restart_app {replay:true}`; or launch on JBR for structural hot-swaps, see [limitations](limitations.md) |
 | `HEADLESS_UNSUPPORTED` | `FXLOOP_HEADLESS=monocle` but no matching Monocle jar | Add `org.testfx:openjfx-monocle:<version>` (see [table](ci/monocle.md)) as a test dependency, set `FXLOOP_MONOCLE_JAR`, or use `FXLOOP_HEADLESS=xvfb` |
 | `CONFIG` | Missing/invalid configuration (e.g. `launch.json` unreadable, agent jar missing) | `FXLOOP_MAIN_CLASS` when the Maven plugin is unavailable; run `mvn compile dev.fxloop:fxloop-maven-plugin:1.0.0-SNAPSHOT:prepare` (or `gradlew fxloopPrepare`); `FXLOOP_AGENT_JAR` |
 

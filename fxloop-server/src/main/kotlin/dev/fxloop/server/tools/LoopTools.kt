@@ -63,7 +63,7 @@ object LoopTools {
                 carryState = a.path("carryState").asBoolean(true),
                 restartWhenHumanActive = a.path("restartWhenHumanActive").asBoolean(false),
                 clearScratch = a.path("clearScratch").asBoolean(false),
-            )) { replay -> ctx.restartWithReplay(replay) }
+            )) { replay, rebuild -> ctx.restartWithReplay(replay, rebuild) }
             publish(ctx, r)
             if (before != null && s.connected) {
                 Thread.sleep(100)
@@ -83,7 +83,7 @@ object LoopTools {
                     "Edits don't apply live when attached · relaunch with FXLoop or your IDE", "Relaunch with FXLoop or your IDE"))) }
             }
             val r = ctx.reloader.reload(Reloader.Options(files = listOf(a["path"].asText()), allowRestart = false, visualDiff = false,
-                javaTier = false, carryState = a.path("carryState").asBoolean(true))) { Json.obj() }
+                javaTier = false, carryState = a.path("carryState").asBoolean(true))) { _, _ -> Json.obj() }
             publish(ctx, r)
             ok(summary(r), r)
         }

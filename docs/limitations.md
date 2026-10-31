@@ -36,7 +36,9 @@ JavaFX-implemented dialogs (`Alert`, `Dialog`, `ChoiceDialog`) appear as windows
 | Annotation processors, build file (`pom.xml`, `build.gradle*`) changes | Restart (build-tool fallback compile) |
 | Compile error | Returned as data (`compileErrors`); nothing swapped, no restart |
 
-Plain JVM HotSwap only changes method bodies. With JetBrains Runtime you can opt in to enhanced redefinition: launch on JBR (`FXLOOP_JAVA_HOME`) and set `FXLOOP_JBR=true` (fxloop then adds `-XX:+AllowEnhancedClassRedefinition`). Enhanced redefinition is a JBR feature, not guaranteed by FXLoop.
+Plain JVM HotSwap only changes method bodies, so adding a lambda (a new synthetic method), a controller method or a field restarts the app. Launch on JetBrains Runtime (`FXLOOP_JAVA_HOME` pointing at a JBR) and fxloop detects it and adds `-XX:+AllowEnhancedClassRedefinition`, so those structural changes are hot-swapped instead; `FXLOOP_JBR=false` opts out, `FXLOOP_JBR=true` forces the flag. Enhanced redefinition is a JBR feature, not guaranteed by FXLoop.
+
+A restart triggered by a reload skips the build-tool prepare (`restart.prepare: "skipped"`): the reload has already compiled the changed classes and copied resources into the output directory, so only the JVM is relaunched. A changed build file, a deleted file, or sources the reload did not compile itself (`FXLOOP_EXTERNAL_COMPILE`, java tier off) still run the full prepare, as does `fx_restart_app`.
 
 Existing instances keep their state; code in constructors or static initialisers does not re-run after a swap. Restart with replay (`FXLOOP_REPLAY`) re-applies recorded actions to get back to the same screen.
 

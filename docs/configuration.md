@@ -33,7 +33,7 @@ headless=xvfb
 | `FXLOOP_BROWSER` / `--browser` | `auto` | `none` stops the server from opening a browser for `fx_open_inspector` and dev-bar picks (the URL is still returned). |
 | `FXLOOP_WATCH` / `--watch` | `css-only` | Initial file-watch mode: `css-only`, `all` (also FXML, Java and Kotlin), `off`. Change at runtime with `fx_set_watch_mode`. |
 | `FXLOOP_EXTERNAL_COMPILE` / `--external-compile` | `false` | The IDE/build tool compiles; the server HotSwaps changed classes from the output dir instead of running its own javac. |
-| `FXLOOP_JBR` / `--jbr` | `false` | Opt into JetBrains Runtime enhanced redefinition: adds `-XX:+AllowEnhancedClassRedefinition` to the launch so structural hot-swaps are attempted before restarting; marks hotswap results `jbrEnhanced`. Requires launching on JBR (`FXLOOP_JAVA_HOME`). See [limitations](limitations.md). |
+| `FXLOOP_JBR` / `--jbr` | auto | JetBrains Runtime enhanced redefinition: adds `-XX:+AllowEnhancedClassRedefinition` to the launch so structural hot-swaps (new methods, lambdas, fields) are attempted before restarting; marks hotswap results `jbrEnhanced`. Unset, it is on when the launch JDK (`FXLOOP_JAVA_HOME`) is JBR; `false` turns it off, `true` forces it (the flag fails on other JDKs). See [limitations](limitations.md). |
 | `FXLOOP_SCREENS_KEEP` / `--screens-keep` | `100` | Persisted screenshots retained (ring). |
 | `FXLOOP_SCREENSHOT_RATE` / `--screenshot-rate` | `2.0` | Max screenshots per second (rate cap). |
 | `FXLOOP_REPLAY` / `--replay` | `true` | Replay the action journal after a restart; `false` disables by default. |

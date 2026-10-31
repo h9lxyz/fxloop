@@ -11,13 +11,19 @@ class ReloaderDeferralTest {
     private fun d(allow: Boolean, mode: Mode, force: Boolean, active: Boolean) = Reloader.restartDecision(allow, mode, force, active)
 
     @Test
-    fun launchedIdleRestarts() = assertThat(d(true, Mode.LAUNCHED, false, false)).isEqualTo(RestartDecision.RESTART)
+    fun launchedIdleRestarts() {
+        assertThat(d(true, Mode.LAUNCHED, false, false)).isEqualTo(RestartDecision.RESTART)
+    }
 
     @Test
-    fun launchedHumanActiveDefers() = assertThat(d(true, Mode.LAUNCHED, false, true)).isEqualTo(RestartDecision.DEFER)
+    fun launchedHumanActiveDefers() {
+        assertThat(d(true, Mode.LAUNCHED, false, true)).isEqualTo(RestartDecision.DEFER)
+    }
 
     @Test
-    fun overrideRestartsDespiteHuman() = assertThat(d(true, Mode.LAUNCHED, true, true)).isEqualTo(RestartDecision.RESTART)
+    fun overrideRestartsDespiteHuman() {
+        assertThat(d(true, Mode.LAUNCHED, true, true)).isEqualTo(RestartDecision.RESTART)
+    }
 
     @Test
     fun neverRestartsOtherwise() {
