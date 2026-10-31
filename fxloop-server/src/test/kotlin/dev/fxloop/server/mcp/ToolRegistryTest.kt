@@ -61,4 +61,16 @@ class ToolRegistryTest {
         assertThat(c.headless).isEqualTo("monocle")
         assertThat(c.viewerPort).isZero()
     }
+
+    @Test
+    fun `project file configures the server below env and flags`(@TempDir dir: Path) {
+        java.nio.file.Files.createDirectories(dir.resolve("app"))
+        java.nio.file.Files.writeString(dir.resolve(Config.PROJECT_FILE), "project-dir=app\napp-args=--seed --de\nexternal-compile=true\nheadless=xvfb\n")
+        val c = Config.load(mapOf("FXLOOP_HEADLESS" to "monocle"), arrayOf("--app-args=--seed"), dir)
+        assertThat(c.projectDir).isEqualTo(dir.resolve("app"))
+        assertThat(c.externalCompile).isTrue()
+        assertThat(c.headless).isEqualTo("monocle")
+        assertThat(c.appArgs).containsExactly("--seed")
+        assertThat(Config.load(emptyMap(), emptyArray(), dir.resolve("app")).projectDir).isEqualTo(dir.resolve("app"))
+    }
 }

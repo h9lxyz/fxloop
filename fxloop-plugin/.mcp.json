@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "fxloop": {
+      "command": "java",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/FxloopBootstrap.java"]
+    }
+  }
+}

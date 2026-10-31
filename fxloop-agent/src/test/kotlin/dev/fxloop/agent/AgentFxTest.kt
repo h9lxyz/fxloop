@@ -180,6 +180,19 @@ class AgentFxTest {
     }
 
     @Test
+    fun `window prefix reads and resizes the stage`() {
+        assertThat(errorCode { fx { Props.set(params { put("query", "#ok"); put("name", "width"); put("value", "400") }) } })
+            .isEqualTo(Fcp.Error.UNSUPPORTED_TARGET)
+        val set = fx { Props.set(params { put("query", "#ok"); put("name", "window.width"); put("value", "420") }) }
+        assertThat(set.path("set").asBoolean()).isTrue()
+        WaitForAsyncUtils.waitForFxEvents()
+        val got = fx { Props.get(params { put("query", "#ok"); put("name", "window.width") }) }
+        assertThat(got.path("name").asText()).isEqualTo("window.width")
+        assertThat(got.path("value").asDouble()).isEqualTo(420.0)
+        fx { Props.set(params { put("query", "#ok"); put("name", "window.width"); put("value", "500") }) }
+    }
+
+    @Test
     fun finderByTextAndType() {
         val byText = fx { Finder.find(params { put("text", "ok") }) }
         assertThat(byText.path("total").asInt()).isEqualTo(1)

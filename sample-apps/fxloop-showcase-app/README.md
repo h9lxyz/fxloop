@@ -50,5 +50,6 @@ Program arguments, or `-Dfxloop.showcase.args="..."`:
 | S8 consistency | "make Customers, Reports and Settings look like the main window" |
 | S9 lock-in | "make sure the assign/delete fixes don't regress" |
 
-Kotlin note: the HotSwap tier compiles Java only. For code fixes run with `FXLOOP_EXTERNAL_COMPILE=true` and let the
-IDE or `./mvnw compile` produce the classes. CSS and FXML edits reload live without it.
+Kotlin note: `fx_reload` compiles `.kt` edits with `./mvnw compile` and then hot-swaps them (a few seconds). For a
+faster loop, let the IDE auto-build and set `external-compile=true` in `fxloop.properties`. CSS and FXML edits
+reload live either way.

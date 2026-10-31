@@ -1,0 +1,9 @@
+#helpBtn {
+    -fx-translate-x: -40px;
+    -fx-translate-y: 6px;
+}
+
+#hintLabel {
+    -fx-text-fill: white;
+    -fx-background-color: white;
+}

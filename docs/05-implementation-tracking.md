@@ -127,18 +127,18 @@ Baseline: Java 17 bytecode (`--release 17`), built and tested locally on JDK 25 
 
 | ID | Feature / task | PRD ref | Module | Status | Notes |
 |---|---|---|---|---|---|
-| D1 | Plugin skeleton: `.mcp.json` bootstrap (jbang / wrapper-resolved shaded jar), skills dir, generated tool reference | 06 §3.1, §7 | plugin | ⬜ | |
-| D2 | S0 `fxloop-connect`: detect build tool/language, add plugin + guard, prepare, launch, first screenshot, CLAUDE.md trail | 06 §3.2 | plugin | ⬜ | DoD: < 2 min, zero manual edits, idempotent |
-| D3 | S1 `fxloop-ui-review` | 06 §4 | plugin | ⬜ | eval on `--broken-css` |
-| D4 | S2 `fxloop-fix-layout` | 06 §4 | plugin | ⬜ | |
-| D5 | S3 `fxloop-style` | 06 §4 | plugin | ⬜ | |
-| D6 | References 1–4 (evidence, javafx-css, layout-containers, fx-threading) | 06 §5 | plugin | ⬜ | |
-| D7 | Kotlin sample twin (`fxloop-sample-app-kotlin`) + Kotlin notes verified | 06 §6 | sample-app-kotlin | ⬜ | |
-| D8 | S4 `fxloop-accessibility`, S5 `fxloop-responsive` | 06 §4 | plugin | ⬜ | needs lowContrast lint (C24) |
-| D9 | S6 `fxloop-flow-polish`, S7 `fxloop-forms-dialogs`, S8 `fxloop-consistency` | 06 §4 | plugin | ⬜ | needs explainers (C9–C11) |
-| D10 | S9 `fxloop-lock-in` (journal → TestFX, harden, headless run) | 06 §4 | plugin | ⬜ | needs export (C8) |
-| D11 | References 5–8 (accessibility, fxml, testfx, tool-reference) | 06 §5 | plugin | ⬜ | tool-reference generated (C21) |
-| D12 | Skill evals (3–5 tasks per skill on sample apps) + trigger tests | 06 §7 | evals | ⬜ | |
+| D1 | Plugin skeleton: `.mcp.json` bootstrap (jbang / wrapper-resolved shaded jar), skills dir, generated tool reference | 06 §3.1, §7 | plugin | ✅ | `fxloop-plugin/`: `.claude-plugin/plugin.json`, root `.claude-plugin/marketplace.json`, `.mcp.json` → `bin/FxloopBootstrap.java` (jar via env → `~/.fxloop` → `~/.m2` → jbang → project wrapper; verified with Gradle wrapper fetch); server `fxloop.properties` project file; tool reference copy kept in sync by `PluginLayoutTest`. SessionStart hook not shipped (optional). Skill dirs use short names (`connect`, `ui-review`, …) so they surface as `/fxloop:<name>` |
+| D2 | S0 `fxloop-connect`: detect build tool/language, add plugin + guard, prepare, launch, first screenshot, CLAUDE.md trail | 06 §3.2 | plugin | ✅ | Headless `claude -p /fxloop:connect` on an unconnected showcase copy (Kotlin/Maven): plugin + enforcer guard + CLAUDE.md + first screenshot in 112 s, no manual edits. Guard snippets verified (Maven enforcer, Gradle `fxloopGuard` incl. configuration cache) |
+| D3 | S1 `fxloop-ui-review` | 06 §4 | plugin | ⚠️ | `skills/ui-review`; evals on `--broken-css`, showcase, gauntlet Visual; written, not yet run against its evals |
+| D4 | S2 `fxloop-fix-layout` | 06 §4 | plugin | ⚠️ | `skills/fix-layout`; written, not yet run against its evals |
+| D5 | S3 `fxloop-style` | 06 §4 | plugin | ⚠️ | `skills/style`; written, not yet run against its evals |
+| D6 | References 1–4 (evidence, javafx-css, layout-containers, fx-threading) | 06 §5 | plugin | ✅ | `references/{evidence,javafx-css,layout-containers,fx-threading,kotlin}.md` |
+| D7 | Kotlin sample twin (`fxloop-sample-app-kotlin`) + Kotlin notes verified | 06 §6 | sample-app-kotlin | ✅ | `sample-apps/fxloop-sample-app-kotlin` (Gradle KTS, `MainKt`, same ids, Monocle tests). Fixed along the way: Gradle plugin now describes Kotlin class dirs/source roots; `.kt` edits compile via the build tool then HotSwap (`KotlinLaneTest`) |
+| D8 | S4 `fxloop-accessibility`, S5 `fxloop-responsive` | 06 §4 | plugin | ⚠️ | `skills/accessibility`, `skills/responsive`; new `window.<prop>` property names (e.g. `window.width`) make the S5 size ladder possible; written, not yet run against its evals |
+| D9 | S6 `fxloop-flow-polish`, S7 `fxloop-forms-dialogs`, S8 `fxloop-consistency` | 06 §4 | plugin | ⚠️ | `skills/flow-polish`, `forms-dialogs`, `consistency`; written, not yet run against its evals |
+| D10 | S9 `fxloop-lock-in` (journal → TestFX, harden, headless run) | 06 §4 | plugin | ⚠️ | `skills/lock-in` (export → harden → Monocle run → mutation check); written, not yet run against its evals |
+| D11 | References 5–8 (accessibility, fxml, testfx, tool-reference) | 06 §5 | plugin | ✅ | `references/{accessibility,fxml,testfx,tool-reference}.md` |
+| D12 | Skill evals (3–5 tasks per skill on sample apps) + trigger tests | 06 §7 | evals | ⚠️ | 32 tasks (3–5 per skill) in `skills/*/evals/evals.json` + 58 trigger cases in `evals/triggers.json`; written, structure-tested, S0 executed end to end; the other skills' evals are not yet run by a grader |
 
 ## Stage E — Live dev loop (PRD 07)
 

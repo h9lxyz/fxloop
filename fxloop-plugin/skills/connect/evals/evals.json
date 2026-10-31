@@ -1,0 +1,57 @@
+{
+  "skill_name": "connect",
+  "evals": [
+    {
+      "id": 1,
+      "setup": "sample-apps/fxloop-showcase-app (Kotlin/Maven Ticket Desk, unconnected; never show ISSUES.md to the agent)",
+      "prompt": "connect FXLoop to this project and show me the app",
+      "expected_output": "Adds fxloop-maven-plugin and the enforcer guard to pom.xml, launches MainKt, shows a screenshot, writes a CLAUDE.md FXLoop section, reports the Kotlin reload note.",
+      "files": [],
+      "expectations": [
+        "pom.xml declares dev.fxloop:fxloop-maven-plugin with the plugin version and no executions",
+        "pom.xml has a maven-enforcer bannedDependencies rule excluding dev.fxloop compile/runtime scopes",
+        "the main class is dev.fxloop.showcase.MainKt (pinned or resolved via javafx-maven-plugin) and the app starts",
+        "a screenshot labeled connect-first-look exists under target/fxloop/screens and its path is cited",
+        "CLAUDE.md contains a '## FXLoop' section mentioning the main class and screenshot directory",
+        "the report says .kt edits compile through the build tool (or external-compile) and lists what was added and how to undo",
+        "no git commit was created; edits are unstaged"
+      ]
+    },
+    {
+      "id": 2,
+      "setup": "sample-apps/fxloop-showcase-app (Kotlin/Maven Ticket Desk, unconnected; never show ISSUES.md to the agent)",
+      "prompt": "run /fxloop:connect again",
+      "expected_output": "Second run on an already connected project changes nothing.",
+      "files": [],
+      "expectations": [
+        "git diff after the second run is identical to after the first run (idempotent)",
+        "the app is (re)started and a screenshot is shown"
+      ]
+    },
+    {
+      "id": 3,
+      "setup": "sample-apps/fxloop-sample-app-kotlin (Gradle Kotlin DSL) with the dev.fxloop plugin and settings mavenLocal removed",
+      "prompt": "set up fxloop for this app",
+      "expected_output": "Adds id(\"dev.fxloop\") with the version, pluginManagement mavenLocal for SNAPSHOT, the fxloopGuard task, and launches MainKt.",
+      "files": [],
+      "expectations": [
+        "build.gradle.kts has id(\"dev.fxloop\") version matching plugin.json",
+        "settings.gradle.kts pluginManagement includes mavenLocal() (SNAPSHOT version)",
+        "fxloopGuard task registered and wired before jar",
+        "the app launches and a screenshot is cited"
+      ]
+    },
+    {
+      "id": 4,
+      "setup": "sample-apps/fxloop-sample-app (Maven Java) copied into a sub-folder app/ of an empty workspace with a root pom aggregating it",
+      "prompt": "can you see my JavaFX app?",
+      "expected_output": "Detects the app module, writes fxloop.properties project-dir=app at the workspace root and asks to reconnect the MCP server.",
+      "files": [],
+      "expectations": [
+        "fxloop.properties at the workspace root contains project-dir=app",
+        "the agent asks the developer to reconnect the fxloop MCP server before launching",
+        "only app/pom.xml gets the fxloop plugin, not the aggregator"
+      ]
+    }
+  ]
+}

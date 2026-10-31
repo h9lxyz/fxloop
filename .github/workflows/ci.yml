@@ -70,3 +70,4 @@ jobs:
       - run: ./mvnw -B install -DskipTests
       - run: ./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin build publishToMavenLocal
       - run: sample-apps/fxloop-sample-app-gradle/gradlew -p sample-apps/fxloop-sample-app-gradle test fxloopPrepare
+      - run: sample-apps/fxloop-sample-app-kotlin/gradlew -p sample-apps/fxloop-sample-app-kotlin test fxloopPrepare

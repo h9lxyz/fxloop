@@ -54,7 +54,7 @@ object ActTools {
         reg.tool("fx_set_property", "Set property", Kind.WRITE,
             "Write a JavaFX property (coerces strings to boolean/number/enum/Color/Insets). Bound properties fail with " +
                 "PROPERTY_BOUND — write to the binding's source instead.",
-            Schema.obj().target().str("name", "Property name").any("value", "New value").effects().required("name", "value")) { a ->
+            Schema.obj().target().str("name", "Property name; window.<name> targets the node's Stage, e.g. window.width / window.height to resize it").any("value", "New value").effects().required("name", "value")) { a ->
             ctx.action("fx_set_property", Fcp.Method.SET_PROPERTY, a) { r ->
                 "${r.path("path").asText()}.${r.path("name").asText()}: ${r.path("valueBefore")} → ${r.path("valueAfter")}"
             }

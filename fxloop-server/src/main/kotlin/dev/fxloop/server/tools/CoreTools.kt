@@ -125,7 +125,7 @@ object CoreTools {
 
         reg.tool("fx_get_property", "Get property", Kind.READ,
             "Read a JavaFX property of a node: value, type, bound (true if bound — writes would fail), writable.",
-            Schema.obj().target().str("name", "Property name, e.g. text, disable, value, prefWidth").required("name")) { a ->
+            Schema.obj().target().str("name", "Property name, e.g. text, disable, value, prefWidth; window.<name> reads the node's Stage, e.g. window.width").required("name")) { a ->
             val r = s.call(Fcp.Method.GET_PROPERTY, a) as ObjectNode
             ok("${r["name"].asText()} = ${r["value"]} (${r["type"].asText()}${if (r["bound"].asBoolean()) ", bound" else ""})", r)
         }

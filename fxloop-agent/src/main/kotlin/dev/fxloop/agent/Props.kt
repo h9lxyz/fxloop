@@ -98,10 +98,20 @@ internal object Props {
         return null
     }
 
+    /** `window.<prop>` addresses the target node's window (Stage), e.g. `window.width` to resize it (PRD 06 S5). */
+    const val WINDOW_PREFIX = "window."
+
+    /** The object that owns [name] for [node]: the node itself, or its window for `window.`-prefixed names. */
+    private fun owner(node: Node, name: String): Pair<Any, String> {
+        if (!name.startsWith(WINDOW_PREFIX)) return node to name
+        val w = node.scene?.window ?: throw FcpException(Fcp.Error.UNSUPPORTED_TARGET, "${NodePath.of(node)} is not in a showing window")
+        return w to name.removePrefix(WINDOW_PREFIX)
+    }
+
     fun get(p: ObjectNode): ObjectNode = Fx.call {
         val node = Targets.resolve(p)
-        val a = access(node, p.path("name").asText())
-        describe(a, node)
+        val (owner, prop) = owner(node, p.path("name").asText())
+        describe(access(owner, prop), node).put("name", p.path("name").asText())
     }
 
     fun describe(a: Access, node: Node?): ObjectNode {
@@ -119,7 +129,8 @@ internal object Props {
     fun set(p: ObjectNode): ObjectNode = Fx.call {
         val node = Targets.resolve(p)
         val name = p.path("name").asText()
-        val a = access(node, name)
+        val (owner, prop) = owner(node, name)
+        val a = access(owner, prop)
         if (a.bound()) {
             val data = Json.obj().put("path", NodePath.of(node)).put("name", name)
             throw FcpException(
@@ -132,11 +143,11 @@ internal object Props {
         NodeInfo.putValue(out, "valueBefore", a.value())
         try {
             if (a.setter != null) {
-                a.setter.invoke(node, value)
+                a.setter.invoke(owner, value)
             } else if (a.observable is WritableValue<*>) {
                 (a.observable as WritableValue<Any?>).value = value
             } else {
-                throw FcpException(Fcp.Error.UNSUPPORTED_TARGET, "$name is read-only")
+                throw FcpException(Fcp.Error.UNSUPPORTED_TARGET, "$name is read-only" + if (name == "width" || name == "height") " (to resize the window use window.$name)" else "")
             }
         } catch (e: ReflectiveOperationException) {
             throw FcpException(Fcp.Error.COERCION_FAILED, "setting $name failed: ${e.cause}")

@@ -84,7 +84,7 @@ Uncaught exceptions captured on the JavaFX Application Thread (class, message, t
 
 ## fx_get_scene_graph
 
-Bounded JSON of the logical scene graph of a window (or subtree): h (handle), path, type, fxId, styleClass, text, value, visible/disabled/focused, boundsScreen, kids. Virtualized controls report itemCount and visibleCells only. Skin internals of built-in controls are omitted.
+Bounded JSON of the logical scene graph of a window (or subtree): h (handle), path, type, fxId, styleClass, text, value, visible (only when false), disabled/focused (only when true), boundsScreen, kids. Output is budgeted (depth, nodes, ~56 KB) with {truncated:true} markers. Virtualized controls report itemCount and visibleCells only. Skin internals of built-in controls are omitted.
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -119,7 +119,7 @@ Read a JavaFX property of a node: value, type, bound (true if bound — writes w
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
-| `name` | string | yes | Property name, e.g. text, disable, value, prefWidth |
+| `name` | string | yes | Property name, e.g. text, disable, value, prefWidth; window.<name> reads the node's Stage, e.g. window.width |
 
 ## fx_get_node_details
 
@@ -197,7 +197,7 @@ Write a JavaFX property (coerces strings to boolean/number/enum/Color/Insets). B
 | `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
-| `name` | string | yes | Property name |
+| `name` | string | yes | Property name; window.<name> targets the node's Stage, e.g. window.width / window.height to resize it |
 | `value` | any | yes | New value |
 | `effects` | boolean |  | Attach the scene-diff 'effects' of this action (default true) |
 
