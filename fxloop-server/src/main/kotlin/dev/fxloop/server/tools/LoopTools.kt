@@ -1,0 +1,207 @@
+package dev.fxloop.server.tools
+
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.ObjectNode
+import com.sun.tools.attach.VirtualMachine
+import dev.fxloop.protocol.Fcp
+import dev.fxloop.protocol.Json
+import dev.fxloop.server.Config
+import dev.fxloop.server.app.AppSession
+import dev.fxloop.server.lint.FxmlLint
+import dev.fxloop.server.loop.Reloader
+import dev.fxloop.server.loop.SceneDiff
+import dev.fxloop.server.mcp.Schema
+import dev.fxloop.server.mcp.ToolDef.Kind
+import dev.fxloop.server.mcp.ToolException
+import dev.fxloop.server.mcp.ToolRegistry
+import org.slf4j.LoggerFactory
+import java.nio.file.Files
+import java.nio.file.Path
+
+/** The dev loop (PRD 02 §3–§9, PRD 03 §3): reload tiers, FXML lint, watch mode, embedded/attach connections. */
+object LoopTools {
+    private val audit = LoggerFactory.getLogger("dev.fxloop.audit")
+
+    fun register(reg: ToolRegistry, ctx: Ctx) {
+        val s = ctx.session
+
+        reg.tool("fx_reload", "Reload", Kind.IDEMPOTENT_WRITE,
+            "Apply your edits: detects changed files since the last launch/reload (or takes files=[…]) and routes them " +
+                "through the cheapest tiers — css (live re-apply + visualDiff), fxml (live swap of registered documents), " +
+                "java (in-process javac → HotSwap; compile errors returned as data, nothing swapped), restart (+replay) when " +
+                "needed. Returns tiersApplied, compileErrors?, needsRestart?, restarted?, replay?, visualDiff?, effects.",
+            Schema.obj().strArray("files", "Explicit changed files (project-relative); default: auto-detect")
+                .bool("allowRestart", "Restart automatically when required (default true)")
+                .bool("replay", "Replay the journal after a restart (default FXLOOP_REPLAY, true)")
+                .bool("visualDiff", "Before/after pixel diff for the css tier (default true)").effects()) { a ->
+            s.ensureStarted()
+            val effectsOn = a.path("effects").asBoolean(true)
+            val before = if (effectsOn) runCatching { ctx.snapshot() }.getOrNull() else null
+            val files = a["files"]?.map { it.asText() }
+            val r = ctx.reloader.reload(Reloader.Options(
+                files = files,
+                allowRestart = a.path("allowRestart").asBoolean(true),
+                replay = a.path("replay").asBoolean(ctx.config.replayOnRestart),
+                visualDiff = a.path("visualDiff").asBoolean(true),
+            )) { replay -> ctx.restartWithReplay(replay) }
+            if (before != null && s.connected) {
+                Thread.sleep(100)
+                r.set<JsonNode>("effects", SceneDiff.diff(before, ctx.snapshot()))
+            }
+            ok(summary(r), r)
+        }
+
+        reg.tool("fx_reload_fxml", "Reload FXML", Kind.IDEMPOTENT_WRITE,
+            "Force a live swap of one FXML document (project-relative path): re-copies it, re-runs FXMLLoader and replaces " +
+                "the old root in place. The controller is re-created (view-local state resets).",
+            Schema.obj().str("path", "FXML file path, e.g. src/main/resources/app/main.fxml").required("path")) { a ->
+            val r = ctx.reloader.reload(Reloader.Options(files = listOf(a["path"].asText()), allowRestart = false, visualDiff = false,
+                javaTier = false)) { Json.obj() }
+            ok(summary(r), r)
+        }
+
+        reg.tool("fx_set_watch_mode", "Set watch mode", Kind.IDEMPOTENT_WRITE,
+            "Human-facing auto-apply on save: css-only (default) re-applies CSS instantly; all also hot-swaps Java/FXML; " +
+                "off disables. Never restarts.",
+            Schema.obj().strEnum("mode", "css-only | all | off", "css-only", "all", "off").required("mode")) { a ->
+            ctx.applyWatchMode(a["mode"].asText())
+            ok("watch mode ${ctx.watch.mode}", Json.obj { put("mode", ctx.watch.mode) })
+        }
+
+        reg.tool("fx_lint_fxml", "Lint FXML", Kind.READ,
+            "Static FXML check against compiled controllers (works before the app starts): missingFxIdField, typeMismatch, " +
+                "missingHandlerMethod, handlerSignatureInvalid, unresolvedImport, duplicateFxId — with line numbers and fixes.",
+            Schema.obj().str("path", "One FXML file (project-relative)").bool("all", "Lint every FXML under the source/resource roots")) { a ->
+            val d = s.descriptor ?: s.build.prepare()
+            val files = if (a.hasNonNull("path")) listOf(ctx.visuals.confine(a["path"].asText()))
+            else FxmlLint.findFxml((d.resourceRoots + d.sourceRoots).map(Path::of))
+            val cp = (listOf(d.outputDir) + d.classpath + d.modulePath).map(Path::of)
+            val result = FxmlLint.lint(files, cp, ctx.config.projectDir)
+            val items = result.findings.map { Json.tree(it) }
+            val r = CoreTools.page(items, a, 100).put("filesChecked", result.filesChecked)
+            ok("${result.findings.size} finding(s) in ${result.filesChecked} file(s)" + result.findings.joinToString("") {
+                "\n  ${it.file}:${it.line ?: "?"} ${it.check}: ${it.detail}" + (it.suggestion?.let { s -> " → $s" } ?: "")
+            }, r)
+        }
+
+        reg.tool("fx_connect_existing", "Connect existing", Kind.WRITE,
+            "Connect to an app started outside fxloop (e.g. from the IDE) that called FxLoopDev.install(); reads its " +
+                "owner-only handshake file. No supervision: restart is unavailable in this mode.",
+            Schema.obj().str("handshakePath", "Handshake file (default target/fxloop/handshake.json)")) { a ->
+            val p = ctx.visuals.confine(a.path("handshakePath").asText("target/fxloop/handshake.json"))
+            val st = s.connectExisting(p, AppSession.Mode.EMBEDDED)
+            ok("connected (embedded) pid=${st.path("pid").asText()}", st)
+        }
+
+        reg.tool("fx_attach", "Attach to JVM", Kind.WRITE,
+            "Secondary mode: list local JVMs (list=true) or attach the agent to a running JavaFX app by pid. No reload " +
+                "tiers and no restart in this mode. JDK 21+ targets print a dynamic-agent warning (JEP 451).",
+            Schema.obj().integer("pid", "Target process id").bool("list", "List attachable JVMs")) { a ->
+            if (!Config.attachAllowed) throw ToolException("DISABLED", "attach is disabled on this server (-Dfxloop.attach=false)", "use fx_start_app")
+            if (a.path("list").asBoolean(false) || !a.hasNonNull("pid")) list() else attach(ctx, a["pid"].asLong())
+        }
+    }
+
+    private fun list(): dev.fxloop.server.mcp.ToolResult {
+        val me = ProcessHandle.current().pid().toString()
+        val items = VirtualMachine.list().filter { it.id() != me }.map { vm ->
+            val cmd = runCatching { ProcessHandle.of(vm.id().toLong()).flatMap { it.info().commandLine() }.orElse("") }.getOrDefault("")
+            Json.obj {
+                put("pid", vm.id().toLong())
+                put("displayName", vm.displayName())
+                put("javafxLikely", Regex("javafx|openjfx", RegexOption.IGNORE_CASE).containsMatchIn(cmd + vm.displayName()))
+            }
+        }
+        return ok(items.joinToString("\n") { "${it["pid"]} ${it["displayName"].asText()}${if (it["javafxLikely"].asBoolean()) " (JavaFX)" else ""}" }
+            .ifEmpty { "no attachable JVMs" }, Json.obj { set<JsonNode>("jvms", Json.array().addAll(items)) })
+    }
+
+    private fun attach(ctx: Ctx, pid: Long): dev.fxloop.server.mcp.ToolResult {
+        audit.info("AUDIT attach requested pid={} by MCP client", pid)
+        val handshake = ctx.session.fxloopDir.resolve("attach-$pid.json")
+        Files.createDirectories(handshake.parent)
+        Files.deleteIfExists(handshake)
+        val vm = try {
+            VirtualMachine.attach(pid.toString())
+        } catch (e: Exception) {
+            throw ToolException("ATTACH_FAILED", "cannot attach to $pid: ${e.message}",
+                "attach may be disabled (-XX:+DisableAttachMechanism) or the JVM belongs to another user; use the dev-loop mode")
+        }
+        val warnings = Json.array()
+        try {
+            val spec = vm.systemProperties.getProperty("java.specification.version", "17")
+            if ((spec.substringBefore('.').toIntOrNull() ?: 17) >= 21) {
+                warnings.add("target JDK $spec prints a dynamic-agent warning (JEP 451); launch it with -XX:+EnableDynamicAgentLoading for clean runs")
+            }
+            vm.loadAgent(ctx.session.agentJar().toString(), "handshake=$handshake")
+        } catch (e: Exception) {
+            throw ToolException("ATTACH_FAILED", "agent load failed: ${e.message}",
+                "jlinked runtimes may lack java.instrument; relaunch via fx_start_app (dev-loop mode)")
+        } finally {
+            runCatching { vm.detach() }
+        }
+        val deadline = System.currentTimeMillis() + 15_000
+        while (!Files.exists(handshake) && System.currentTimeMillis() < deadline) Thread.sleep(100)
+        if (!Files.exists(handshake)) throw ToolException("ATTACH_FAILED", "agent loaded but no handshake within 15 s", "is JavaFX running in that JVM?")
+        val st = ctx.session.connectExisting(handshake, AppSession.Mode.ATTACHED)
+        st.set<JsonNode>("warnings", warnings)
+        audit.info("AUDIT attached pid={}", pid)
+        return ok("attached to $pid (mode attached: no reload tiers, no restart)" + warnings.joinToString("") { "\nwarning: ${it.asText()}" }, st)
+    }
+
+    private fun summary(r: ObjectNode): String {
+        val sb = StringBuilder()
+        val tiers = r.path("tiersApplied")
+        sb.append(if (tiers.isEmpty) r.path("note").asText("nothing to reload") else
+            tiers.joinToString(", ") { "${it["tier"].asText()}(${it["files"].size()} files, ${it["ms"]} ms)" })
+        r["compileErrors"]?.let { errs ->
+            sb.append("\nCOMPILE ERRORS (nothing swapped):")
+            errs.forEach { sb.append("\n  ${it.path("file").asText()}:${it.path("line").asText()}:${it.path("col").asText()} ${it.path("message").asText()}") }
+        }
+        if (r.path("needsRestart").asBoolean()) sb.append("\nneeds restart: ${r["restartReasons"]}" + if (r.path("restarted").asBoolean()) " → restarted" else " (not restarted)")
+        r["replay"]?.let { sb.append("\nreplay: $it") }
+        r["visualDiff"]?.let { sb.append("\nvisualDiff: ${it["changedPct"]}% ${it["verdict"].asText()}" + (it["hint"]?.let { h -> " — ${h.asText()}" } ?: "")) }
+        r["effects"]?.let { sb.append("\n").append(SceneDiff.summary(it)) }
+        return sb.toString()
+    }
+}
+
+/** "Why?" tools (PRD 03 §6) and the WebView bridge (§7). */
+object WhyTools {
+    fun register(reg: ToolRegistry, ctx: Ctx) {
+        val s = ctx.session
+        reg.tool("fx_explain_property", "Explain property", Kind.READ,
+            "Why does a property have its value? value, type, bound, binding dependency tree (depth ≤ 5, owners as node " +
+                "paths) and CSS styleOrigin. Bidirectional peers are not discoverable via public API (reported as unknown-peer).",
+            Schema.obj().target().str("name", "Property name, e.g. disable").required("name")) { a ->
+            val r = s.call(Fcp.Method.EXPLAIN_PROPERTY, a) as ObjectNode
+            ok(Json.pretty(r), r)
+        }
+        reg.tool("fx_explain_style", "Explain style", Kind.READ,
+            "CSS-styled properties of a node with their origin (USER_AGENT/AUTHOR/INLINE/USER), inline style, style " +
+                "classes, pseudo-classes and candidate stylesheets along the parent chain. Paginated.",
+            Schema.obj().target().str("property", "One CSS property, e.g. -fx-text-fill").integer("limit", "Page size", 1, 200)
+                .integer("offset", "Page offset")) { a ->
+            val r = s.call(Fcp.Method.EXPLAIN_STYLE, a) as ObjectNode
+            ok(r["items"].joinToString("\n") { "${it["cssProperty"].asText()} = ${it["value"]} [${it["origin"].asText()}]" }
+                .ifEmpty { "no CSS-styled properties" } + "\nstylesheets: " + r["candidateStylesheets"].joinToString { it["url"].asText() }, r)
+        }
+        reg.tool("fx_explain_layout", "Explain layout", Kind.READ,
+            "Why is it there/that size? layout/parent/screen bounds, insets, min/pref/max sizes, parent constraints " +
+                "(grow, margins, anchors, grid cell) and anomaly hints (unmanaged, translated, below pref width).",
+            Schema.obj().target()) { a ->
+            val r = s.call(Fcp.Method.EXPLAIN_LAYOUT, a) as ObjectNode
+            ok(Json.pretty(r), r)
+        }
+        if (ctx.config.webview) {
+            reg.tool("fx_eval_js", "Evaluate JavaScript", Kind.WRITE,
+                "Run JavaScript in a WebView's engine on the FX thread; result is JSON-serialized.",
+                Schema.obj().target().str("script", "JavaScript expression").integer("timeoutMs", "Timeout (default 3000)", 100, 30_000)
+                    .required("script")) { a ->
+                a.put("enabled", true)
+                val r = s.call(Fcp.Method.EVAL_JS, a, a.path("timeoutMs").asLong(3000) + 2000) as ObjectNode
+                ok("result: ${r["result"]}", r)
+            }
+        }
+    }
+}
