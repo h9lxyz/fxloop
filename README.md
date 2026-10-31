@@ -51,7 +51,7 @@ Then ask your agent to call `fx_get_app_status`: the first call builds the app, 
 
 ## Documentation
 
-[Configuration](docs/configuration.md) · [Tools reference](docs/tools.md) · [Security](docs/security.md) · [Limitations](docs/limitations.md) · [Troubleshooting](docs/troubleshooting.md) · [CI templates](docs/ci/README.md) · [Monocle headless](docs/ci/monocle.md) · Design: [overview](docs/00-overview.md), [PoC](docs/01-prd-poc.md), [MVP](docs/02-prd-mvp.md), [production](docs/03-prd-production.md), [visual feedback](docs/04-prd-visual-feedback.md), [skills](docs/06-prd-skills.md), [live dev loop](docs/07-prd-live-dev.md) · Decisions: [FXML load registry](docs/decisions/fxml-load-registry.md), [Kotlin](docs/decisions/kotlin.md)
+[Configuration](docs/configuration.md) · [Tools reference](docs/tools.md) · [Security](docs/security.md) · [Limitations](docs/limitations.md) · [Troubleshooting](docs/troubleshooting.md) · [CI templates](docs/ci/README.md) · [Monocle headless](docs/ci/monocle.md) · Design: [overview](docs/00-overview.md), [PoC](docs/01-prd-poc.md), [MVP](docs/02-prd-mvp.md), [production](docs/03-prd-production.md), [visual feedback](docs/04-prd-visual-feedback.md), [skills](docs/06-prd-skills.md), [live dev loop](docs/07-prd-live-dev.md), [CSS inspector](docs/08-prd-css-inspector.md) · Decisions: [FXML load registry](docs/decisions/fxml-load-registry.md), [Kotlin](docs/decisions/kotlin.md)
 
 Build the docs site with `mkdocs serve` (see `mkdocs.yml`).
 

@@ -47,6 +47,9 @@ class AppSession(val config: Config) {
     @Volatile var pid = 0L
         private set
     @Volatile private var process: Process? = null
+
+    /** The launched tree as seen right after the handshake (wrapper children + app JVM), see [killProcess]. */
+    @Volatile private var launchedTree: List<ProcessHandle> = emptyList()
     @Volatile private var fcp: FcpClient? = null
     @Volatile private var startedAt = 0L
     @Volatile private var exitCode: Int? = null
@@ -92,20 +95,53 @@ class AppSession(val config: Config) {
             throw ToolException("ALREADY_RUNNING", "the application is already running (pid $pid)", "use fx_restart_app to relaunch")
         }
         val t0 = System.currentTimeMillis()
+        killProcess() // leftovers of a crashed launch (wrapper gone, children alive) are reaped before relaunching
         state = State.STARTING
         mode = Mode.LAUNCHED
         exitCode = null
+        var ok = false
         try {
             val d = build.prepare()
             descriptor = d
-            launch(d)
+            launchWithDisplayRetry(d)
             lastStartupMs = System.currentTimeMillis() - t0
             state = State.RUNNING
-            restartListeners.forEach { it() }
-        } catch (e: RuntimeException) {
-            killProcess()
-            state = State.EXITED
-            throw e
+            ok = true
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw ToolException("LAUNCH_FAILED", "launch interrupted", "call fx_start_app again")
+        } catch (e: IOException) {
+            throw ToolException("LAUNCH_FAILED", "cannot launch the app: ${e.message}", "check fx_get_logs, then fx_start_app")
+        } finally {
+            // any failure — checked exceptions included — must not leave a half-started app tree behind
+            if (!ok) {
+                fcp?.close()
+                fcp = null
+                killProcess()
+                state = State.EXITED
+            }
+        }
+        restartListeners.forEach { it() }
+    }
+
+    /**
+     * `xvfb-run -a` picks a free display by probing lock files, which races when several launches (other sessions,
+     * parallel test runs) start at once: the loser's Xvfb fails and the app exits immediately. Retry those.
+     */
+    private fun launchWithDisplayRetry(d: LaunchDescriptor) {
+        var attempt = 0
+        while (true) {
+            try {
+                launch(d)
+                return
+            } catch (e: ToolException) {
+                val displayRace = config.headless.equals("xvfb", true) && e.code == "APP_EXITED" &&
+                    DISPLAY_FAILURE.containsMatchIn(e.message.orEmpty())
+                if (!displayRace || ++attempt > 2) throw e
+                log.info("Xvfb display race (attempt {}), retrying launch", attempt)
+                killProcess()
+                Thread.sleep(200L + (System.nanoTime() % 800))
+            }
         }
     }
 
@@ -142,7 +178,13 @@ class AppSession(val config: Config) {
         stdout.clear()
         stderr.clear()
         val p = try {
-            ProcessTree.track(ProcessBuilder(cmd).directory(File(d.workingDir)).start())
+            val pb = ProcessBuilder(cmd).directory(File(d.workingDir))
+            if (config.headless.equals("xvfb", true)) {
+                // xvfb-run creates its auth dir via `mktemp -d`: keep it inside the project, never in shared /tmp
+                val xvfbTmp = Files.createDirectories(dir.resolve("xvfb-tmp"))
+                pb.environment()["TMPDIR"] = xvfbTmp.toString()
+            }
+            ProcessTree.track(pb.start())
         } catch (e: IOException) {
             throw ToolException("LAUNCH_FAILED", "cannot launch the app: ${e.message}", "check FXLOOP_JAVA_HOME / agent jar")
         }
@@ -154,6 +196,7 @@ class AppSession(val config: Config) {
         pump(p.inputStream, stdout, "stdout")
         pump(p.errorStream, stderr, "stderr")
         val hs = awaitHandshake(handshake, p)
+        launchedTree = (p.descendants().toList() + listOfNotNull(ProcessHandle.of(hs.pid).orElse(null))).distinct()
         connect(hs.port, token)
     }
 
@@ -231,13 +274,41 @@ class AppSession(val config: Config) {
     private fun killProcess(): Int? {
         val p = process ?: return null
         process = null
-        exitCode = ProcessTree.kill(p) // the whole tree: xvfb-run → Xvfb + java, never just the wrapper
+        val tree = launchedTree
+        launchedTree = emptyList()
+        val xvfbDirs = xvfbRunDirs(tree)
+        // the whole tree: xvfb-run → Xvfb + java, never just the wrapper; plus members re-parented since launch
+        ProcessTree.kill(p.toHandle(), tree)
+        // xvfb-run removes its temp dir in an EXIT trap that a slow-dying app can make it miss: finish the job
+        removeLater(xvfbDirs)
+        exitCode = if (p.isAlive) null else p.exitValue()
         return exitCode
     }
 
+    /**
+     * Deletes xvfb-run temp dirs off-thread, retrying briefly: an `xauth` spawned by the wrapper's own cleanup may
+     * still be writing into the dir right after the tree was killed.
+     */
+    private fun removeLater(dirs: List<Path>) {
+        if (dirs.isEmpty()) return
+        thread(isDaemon = true, name = "fxloop-xvfb-tmp-cleanup") {
+            repeat(10) {
+                dirs.filter { it.toFile().exists() }.forEach { runCatching { it.toFile().deleteRecursively() } }
+                if (dirs.none { it.toFile().exists() }) return@thread
+                Thread.sleep(300)
+            }
+        }
+    }
+
+    /** `/tmp/xvfb-run.XXXXXX` dirs of Xvfb servers in [tree] (from their `-auth <dir>/Xauthority` argument). */
+    private fun xvfbRunDirs(tree: List<ProcessHandle>): List<Path> = tree.mapNotNull { h ->
+        XVFB_AUTH.find(h.info().commandLine().orElse(""))?.groupValues?.get(1)?.let(Path::of)
+    }.filter { it.fileName.toString().startsWith("xvfb-run.") }
+
     private fun refreshExit() {
         val p = process ?: return
-        if (!p.isAlive && mode == Mode.LAUNCHED) {
+        // a dead wrapper with a live app (still connected) is not "exited": its tree must still be reaped by stop
+        if (!p.isAlive && mode == Mode.LAUNCHED && launchedTree.none { it.isAlive }) {
             exitCode = p.exitValue()
             state = State.EXITED
         }
@@ -246,6 +317,13 @@ class AppSession(val config: Config) {
     /** Connects to an embedded (`FxLoopDev.install()`) or attached agent via its handshake file. */
     @Synchronized
     fun connectExisting(handshakeFile: Path, newMode: Mode): ObjectNode {
+        if (mode == Mode.LAUNCHED && process != null) {
+            // switching modes would drop the supervised app from supervision: stop it first
+            fcp?.close()
+            fcp = null
+            killProcess()
+            state = State.STOPPED
+        }
         try {
             val hs = Handshake.readFrom(handshakeFile)
             val token = hs.token ?: throw ToolException("CONFIG", "handshake has no token (it belongs to a supervised launch)",
@@ -305,7 +383,7 @@ class AppSession(val config: Config) {
 
     private fun pump(input: InputStream, ring: LogRing, name: String) {
         thread(isDaemon = true, name = "fxloop-$name-pump") {
-            runCatching { input.bufferedReader().forEachLine(ring::add) }
+            runCatching { BoundedLines(input, MAX_LINE_CHARS).forEach(ring::add) }
         }
     }
 
@@ -321,13 +399,27 @@ class AppSession(val config: Config) {
         return target
     }
 
-    @Synchronized
+    /**
+     * Lock-free on purpose: runs from the shutdown hook while start()/restart() may hold the monitor for minutes
+     * (a build). Reads the volatile fields and kills the tree directly; [ProcessTree]'s reaper is the backstop.
+     */
     fun shutdown() {
         fcp?.close()
-        if (mode == Mode.LAUNCHED) killProcess()
+        val p = process
+        if (p != null && mode == Mode.LAUNCHED) {
+            val tree = launchedTree
+            val xvfbDirs = xvfbRunDirs(tree)
+            ProcessTree.kill(p.toHandle(), tree, graceMs = 1500)
+            removeLater(xvfbDirs)
+        }
     }
 
     companion object {
+        /** Longest captured log line; longer output (e.g. a binary dump) is truncated, not buffered. */
+        const val MAX_LINE_CHARS = 8192
+        private val DISPLAY_FAILURE = Regex("Xvfb failed to start|server already active|[Uu]nable to open display|[Cc]annot open display")
+        private val XVFB_AUTH = Regex("""-auth (\S+)/Xauthority""")
+
         fun javaExecutable(): String {
             val exe = if (File.separatorChar == '\\') "java.exe" else "java"
             val home = System.getenv("FXLOOP_JAVA_HOME") ?: System.getProperty("java.home")

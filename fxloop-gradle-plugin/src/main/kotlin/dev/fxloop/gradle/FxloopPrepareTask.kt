@@ -48,17 +48,17 @@ abstract class FxloopPrepareTask : DefaultTask() {
     @TaskAction
     fun prepare() {
         val javaClasses = classesDir.get().asFile.toPath().toAbsolutePath()
-        val classDirs = (listOf(javaClasses) + classesDirs.files.map { it.toPath().toAbsolutePath() }).distinct()
-        // outputDir is where HotSwap looks for changed classes: the Java dir unless only another language (Kotlin)
-        // produced classes; the other class dirs go on the classpath/module path in front of the dependencies.
-        val outputDir = classDirs.firstOrNull(::hasClasses) ?: javaClasses
-        val extraClassDirs = classDirs.filter { it != outputDir && Files.isDirectory(it) }
+        val allClasses = (listOf(javaClasses) + classesDirs.files.map { it.toPath().toAbsolutePath() }).distinct()
+        // outputDir is where FXLoop compiles to and watches for external builds: the Java classes dir, unless only
+        // another language (Kotlin) produced classes; the remaining classes dirs go on the classpath.
+        val outputDir = if (hasClasses(javaClasses)) javaClasses else allClasses.firstOrNull(::hasClasses) ?: javaClasses
+        val extraClasses = allClasses.filter { it != outputDir && hasClasses(it) }
         val resources: Path? = resourcesDir.orNull?.asFile?.toPath()?.toAbsolutePath()
 
         val main = MainClassResolver.resolve(
             MainClassResolver.Inputs(
                 explicitMainClass.orNull, javafxMainClass.orNull, applicationMainClass.orNull,
-                manifestMainClass.orNull, classDirs,
+                manifestMainClass.orNull, listOf(outputDir) + extraClasses,
             ),
         )
 
@@ -67,11 +67,11 @@ abstract class FxloopPrepareTask : DefaultTask() {
         val moduleInfo = sourceRoots.map { Path.of(it, "module-info.java") }.firstOrNull { Files.isRegularFile(it) }
         val mode = resolveMode(moduleInfo != null)
 
-        // Runtime classpath minus the compiled-classes dir (carried separately as outputDir);
-        // the resources dir stays so resources load from the classpath.
-        val runtime = (extraClassDirs + runtimeClasspath.files.map { it.toPath().toAbsolutePath() })
-            .filter { it != outputDir }.distinct().toMutableList()
+        // Runtime classpath minus the compiled-classes dir (carried separately as outputDir), led by the other
+        // languages' classes dirs; the resources dir stays so resources load from the classpath.
+        val runtime = runtimeClasspath.files.map { it.toPath().toAbsolutePath() }.filter { it !in allClasses }.toMutableList()
         if (resources != null && Files.isDirectory(resources) && resources !in runtime) runtime.add(0, resources)
+        runtime.addAll(0, extraClasses)
         val runtimeStr = runtime.map(Path::toString)
 
         val classpath = mutableListOf<String>()
@@ -82,6 +82,10 @@ abstract class FxloopPrepareTask : DefaultTask() {
         if (mode == "modulepath") {
             if (moduleInfo != null) {
                 if (mainModule == null) mainModule = parseModuleName(Files.readString(moduleInfo))
+                if (extraClasses.isNotEmpty()) {
+                    logger.warn("FXLoop: modular app with classes outside {} ({}); they would need --patch-module, " +
+                        "set fxloop { launchMode = \"classpath\" } if the launch fails", outputDir, extraClasses)
+                }
                 modulePath += outputDir.toString()
                 // a plain resources directory has no module descriptor; it would become an automatic module
                 modulePath += runtime.filter { it != resources }.map(Path::toString)

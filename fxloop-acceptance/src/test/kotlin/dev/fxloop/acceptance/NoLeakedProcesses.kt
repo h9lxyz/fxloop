@@ -1,43 +1,52 @@
 package dev.fxloop.acceptance
 
+import dev.fxloop.server.app.ProcessTree
 import org.junit.jupiter.api.extension.AfterAllCallback
-import org.junit.jupiter.api.extension.BeforeAllCallback
 import org.junit.jupiter.api.extension.ExtensionContext
+import java.nio.file.Files
+import java.nio.file.Path
 
 /**
- * Leak guard (auto-registered for every test class via ServiceLoader): after a test class finishes, no process it
- * spawned may still be alive — no child of the test JVM, no Xvfb server, no JVM running a FXLoop agent. A regression
- * of the "orphaned xvfb-run trees exhausted RAM" incident fails the build here instead of filling the machine.
+ * Leak guard (auto-registered for every test class via ServiceLoader): after a test class finishes, no process this
+ * run spawned may still be alive. "This run" is recognised three ways — descendants of the test JVM, JVMs carrying
+ * [Harness.RUN_MARKER], and (on Linux) any process whose environment carries `FXLOOP_ACCEPTANCE_RUN=<run id>`,
+ * which every child inherits — so orphaned Xvfb servers are found even after their wrapper and JVM are gone.
+ * The test JVM, its ancestors and processes of other runs/sessions are never reported or killed.
+ * A regression of the "orphaned xvfb-run trees exhausted RAM" incident fails the build here.
  */
-class NoLeakedProcesses : BeforeAllCallback, AfterAllCallback {
-    private fun snapshot(): Set<Long> = ProcessHandle.allProcesses().filter(::suspicious).map { it.pid() }.toList().toSet()
+class NoLeakedProcesses : AfterAllCallback {
+    private val self = ProcessHandle.current()
+    private val ancestors: Set<Long> = generateSequence(self) { it.parent().orElse(null) }.map { it.pid() }.toSet()
+    private val envTag = System.getenv("FXLOOP_ACCEPTANCE_RUN")?.takeIf { it.isNotBlank() }?.let { "FXLOOP_ACCEPTANCE_RUN=$it" }
 
-    private fun suspicious(h: ProcessHandle): Boolean {
-        val cmd = h.info().commandLine().orElse("")
-        return cmd.contains("Xvfb") || cmd.contains("fxloop-agent") || cmd.contains("xvfb-run")
+    private fun taggedByEnv(h: ProcessHandle): Boolean {
+        if (envTag == null) return false
+        return try {
+            val env = Files.readAllBytes(Path.of("/proc", h.pid().toString(), "environ"))
+            String(env).split('\u0000').any { it == envTag }
+        } catch (e: Exception) {
+            false // not Linux, process gone, or not ours to read
+        }
     }
 
-    override fun beforeAll(context: ExtensionContext) {
-        context.getStore(NS).put("before", snapshot())
+    private fun ours(): List<ProcessHandle> {
+        val marked = ProcessHandle.allProcesses().filter { h ->
+            h.isAlive && h.pid() !in ancestors &&
+                (h.info().commandLine().orElse("").contains(Harness.RUN_MARKER) || taggedByEnv(h))
+        }.toList()
+        return (self.descendants().toList() + marked).filter { it.isAlive && it.pid() !in ancestors }.distinctBy { it.pid() }
     }
 
     override fun afterAll(context: ExtensionContext) {
-        @Suppress("UNCHECKED_CAST")
-        val before = context.getStore(NS).get("before") as Set<Long>
         val deadline = System.currentTimeMillis() + 10_000
-        var leaked: List<ProcessHandle>
-        do {
-            leaked = ProcessHandle.current().descendants().filter { it.isAlive }.toList() +
-                ProcessHandle.allProcesses().filter { it.isAlive && suspicious(it) && it.pid() !in before }.toList()
-            if (leaked.isEmpty()) return
+        var leaked = ours()
+        while (leaked.isNotEmpty() && System.currentTimeMillis() < deadline) {
             Thread.sleep(200)
-        } while (System.currentTimeMillis() < deadline)
-        val report = leaked.distinctBy { it.pid() }.joinToString("\n") { "  pid ${it.pid()}: ${it.info().commandLine().orElse("?").take(160)}" }
-        leaked.forEach { it.destroyForcibly() } // never leave them behind, even when failing
+            leaked = ours()
+        }
+        if (leaked.isEmpty()) return
+        val report = leaked.joinToString("\n") { "  pid ${it.pid()}: ${it.info().commandLine().orElse("?").take(160)}" }
+        leaked.forEach { ProcessTree.kill(it, graceMs = 2000) } // never leave them behind, even when failing
         throw AssertionError("${context.displayName} leaked processes:\n$report")
-    }
-
-    private companion object {
-        val NS: ExtensionContext.Namespace = ExtensionContext.Namespace.create(NoLeakedProcesses::class.java)
     }
 }

@@ -56,8 +56,15 @@ class LogCapture internal constructor(private val capacity: Int) {
         })
     }
 
-    @Synchronized
+    /**
+     * Called on arbitrary application threads. Notifies under the lock so events leave in seq order; safe because
+     * the listener only enqueues (never blocks). The listener gets a private copy.
+     */
     internal fun add(level: String, logger: String?, message: String?, thrown: Throwable?) {
+        synchronized(this) { listener(addLocked(level, logger, message, thrown).deepCopy()) }
+    }
+
+    private fun addLocked(level: String, logger: String?, message: String?, thrown: Throwable?): ObjectNode {
         val e = Json.obj()
         e.put("seq", ++seq)
         e.put("ts", System.currentTimeMillis())
@@ -71,7 +78,7 @@ class LogCapture internal constructor(private val capacity: Int) {
         while (ring.size > capacity) {
             ring.removeFirst()
         }
-        listener(e)
+        return e
     }
 
     @Synchronized

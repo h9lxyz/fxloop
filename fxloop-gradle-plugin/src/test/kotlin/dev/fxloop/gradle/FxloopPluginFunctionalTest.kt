@@ -58,7 +58,9 @@ class FxloopPluginFunctionalTest {
     }
 
     private fun runner(vararg args: String) =
-        GradleRunner.create().withProjectDir(project.toFile()).withPluginClasspath().withArguments(*args)
+        GradleRunner.create().withProjectDir(project.toFile()).withPluginClasspath()
+            // TestKit daemons otherwise idle for 3 h after every test run
+            .withArguments(*args, "-Dorg.gradle.daemon.idletimeout=60000")
 
     private fun descriptor() = LaunchDescriptor.readFrom(project.resolve("build/fxloop/launch.json"))
 
@@ -93,37 +95,59 @@ class FxloopPluginFunctionalTest {
         assertTrue(!d.annotationProcessors)
     }
 
-    @Test
-    fun `kotlin sources and class dirs are described`() {
+    private val kotlinApp = """
+        package demo
+        import javafx.application.Application
+        import javafx.scene.Scene
+        import javafx.scene.control.Label
+        import javafx.stage.Stage
+        class DemoApp : Application() {
+            override fun start(s: Stage) { s.scene = Scene(Label("hi")); s.show() }
+        }
+        fun main(args: Array<String>) = Application.launch(DemoApp::class.java, *args)
+    """.trimIndent()
+
+    private fun kotlinBuildFile() {
         write("settings.gradle.kts", "rootProject.name = \"fixture\"\n")
         write(
             "build.gradle.kts",
-            "plugins {\n    kotlin(\"jvm\") version \"2.4.21\"\n    id(\"dev.fxloop\")\n}\nrepositories { mavenCentral() }\n$fxDeps\n",
+            "plugins {\n    kotlin(\"jvm\") version \"2.4.21\"\n    id(\"dev.fxloop\")\n}\n" +
+                "repositories { mavenCentral() }\n$fxDeps\n",
         )
-        write(
-            "src/main/kotlin/demo/Main.kt",
-            """
-            package demo
-            import javafx.application.Application
-            import javafx.scene.Scene
-            import javafx.scene.control.Label
-            import javafx.stage.Stage
-            class DemoApp : Application() {
-                override fun start(s: Stage) { s.scene = Scene(Label("hi")); s.show() }
-            }
-            fun main(args: Array<String>) = Application.launch(DemoApp::class.java, *args)
-            """.trimIndent(),
-        )
-        write("src/main/resources/demo/app.css", ".root {}")
+    }
+
+    @Test
+    fun `Kotlin project uses the Kotlin output and sources`() {
+        kotlinBuildFile()
+        write("src/main/kotlin/demo/Main.kt", kotlinApp)
+        write("src/main/resources/demo/view.fxml", "<x/>")
 
         val r = runner("fxloopPrepare", "--stacktrace").build()
         assertThat(r.output).contains("FXLoop: mainClass=demo.MainKt")
+
         val d = descriptor()
+        assertEquals("demo.MainKt", d.mainClass)
         assertEquals(real("build/classes/kotlin/main"), d.outputDir)
+        assertThat(d.classpath).doesNotContain(d.outputDir)
+        assertThat(d.classpath).noneMatch { it.contains("classes/java") }
+        assertThat(d.classpath).contains(real("build/resources/main"))
+        assertThat(d.classpath).anyMatch { it.contains("kotlin-stdlib") }
         assertThat(d.sourceRoots).containsExactly(real("src/main/kotlin"))
         assertThat(d.resourceRoots).containsExactly(real("src/main/resources"))
-        assertThat(d.classpath).doesNotContain(d.outputDir).contains(real("build/resources/main"))
-        assertThat(d.classpath).anyMatch { it.contains("kotlin-stdlib") }
+    }
+
+    @Test
+    fun `mixed Kotlin and Java keeps the Java output and puts Kotlin classes on the classpath`() {
+        kotlinBuildFile()
+        write("src/main/kotlin/demo/Main.kt", kotlinApp)
+        write("src/main/java/demo/Util.java", "package demo;\npublic class Util { }\n")
+
+        runner("fxloopPrepare").build()
+        val d = descriptor()
+        assertEquals("demo.MainKt", d.mainClass)
+        assertEquals(real("build/classes/java/main"), d.outputDir)
+        assertEquals(real("build/classes/kotlin/main"), d.classpath.first())
+        assertThat(d.sourceRoots).containsExactlyInAnyOrder(real("src/main/java"), real("src/main/kotlin"))
     }
 
     @Test

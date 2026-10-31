@@ -34,6 +34,7 @@ class Ctx(val config: Config) {
     init {
         session.onLaunched {
             reloader.checkpoint()
+            dev.fxloop.server.loop.InProcessCompiler.warmUpAsync()
             applyWatchMode(watch.mode.takeIf { it != "off" } ?: config.watchMode)
         }
     }
@@ -130,7 +131,7 @@ class Ctx(val config: Config) {
     }
 
     fun shutdown() {
-        runCatching { watch.close() }
+        runCatching { watch.dispose() }
         runCatching { viewer?.close() }
         runCatching { session.shutdown() }
         log.info("fxloop server stopped")

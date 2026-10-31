@@ -25,8 +25,7 @@ internal object MainClassResolver {
         val javafxPlugin: String?,
         val application: String?,
         val jarManifest: String?,
-        /** Compiled-class directories of the main source set (Java and Kotlin output). */
-        val classDirs: List<Path>,
+        val outputDirs: List<Path>,
     )
 
     /** [mainModule] is non-null only when a `module/class` form was given. */
@@ -40,7 +39,7 @@ internal object MainClassResolver {
             "jar manifest Main-Class" to input.jarManifest,
         )
         candidates.firstOrNull { !it.second.isNullOrBlank() }?.let { (name, v) -> return parse(v!!.trim(), name) }
-        return scan(input.classDirs)
+        return scan(input.outputDirs)
     }
 
     fun parse(value: String, source: String): Result {
@@ -55,10 +54,10 @@ internal object MainClassResolver {
         val referenced = HashSet<String>()
     }
 
-    private fun scan(classDirs: List<Path>): Result {
+    private fun scan(outputDirs: List<Path>): Result {
         val classes = HashMap<String, ClassInfo>()
-        for (dir in classDirs.filter { it.isDirectory() }) {
-            Files.walk(dir).use { s ->
+        for (outputDir in outputDirs.filter { it.isDirectory() }) {
+            Files.walk(outputDir).use { s ->
                 s.filter { it.extension == "class" && it.name != "module-info.class" }.forEach { p ->
                     Files.newInputStream(p).use { ins -> read(ClassReader(ins)).let { classes[it.name] = it } }
                 }
@@ -81,7 +80,7 @@ internal object MainClassResolver {
         val all = apps.map { "$it (extends Application)" } +
             mains.map { "$it (declares main)" + if (it in launchers) " [launcher]" else "" }
         throw GradleException(
-            if (all.isEmpty()) "FXLoop: no main class found in ${classDirs.joinToString()}. Compile first, or set fxloop { mainClass = \"<fqcn>\" }."
+            if (all.isEmpty()) "FXLoop: no main class found in ${outputDirs.joinToString()}. Compile first, or set fxloop { mainClass = \"<fqcn>\" }."
             else "FXLoop: cannot determine the main class unambiguously. Candidates:\n  - " +
                 all.joinToString("\n  - ") +
                 "\nSet fxloop { mainClass = \"<fqcn>\" } (or application { mainClass = ... }).",

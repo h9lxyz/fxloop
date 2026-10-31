@@ -16,6 +16,8 @@
 
   <properties>
     <maven.deploy.skip>true</maven.deploy.skip>
+    <maven.build.timestamp.format>yyyyMMddHHmmssSSS</maven.build.timestamp.format>
+    <fxloop.acceptance.run>${maven.build.timestamp}</fxloop.acceptance.run>
   </properties>
 
   <dependencies>
@@ -57,6 +59,12 @@
             <java.awt.headless>true</java.awt.headless>
           </systemPropertyVariables>
           <trimStackTrace>false</trimStackTrace>
+          <!-- inherited by every process this run spawns (incl. Xvfb): lets the leak guard find exactly ours -->
+          <environmentVariables>
+            <FXLOOP_ACCEPTANCE_RUN>${fxloop.acceptance.run}</FXLOOP_ACCEPTANCE_RUN>
+          </environmentVariables>
+          <!-- a hung suite must not hold app/Xvfb trees forever: surefire kills the fork, hooks/watchdogs reap the rest -->
+          <forkedProcessTimeoutInSeconds>2400</forkedProcessTimeoutInSeconds>
         </configuration>
       </plugin>
     </plugins>
