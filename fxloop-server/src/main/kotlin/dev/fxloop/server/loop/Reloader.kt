@@ -38,6 +38,12 @@ class Reloader(private val session: AppSession, private val visuals: Visuals) {
     )
 
     private val log = LoggerFactory.getLogger(Reloader::class.java)
+    private val listeners = java.util.concurrent.CopyOnWriteArrayList<(ObjectNode) -> Unit>()
+
+    /** Listener called with the reload result after every reload that applied at least one tier. */
+    fun onReloaded(l: (ObjectNode) -> Unit) {
+        listeners += l
+    }
     private val sources = ChangeScanner()
     private val outputs = ChangeScanner()
 
@@ -126,6 +132,7 @@ class Reloader(private val session: AppSession, private val visuals: Visuals) {
             }
         }
         if (tiers.isEmpty) out.put("note", "no changes detected since the last reload/launch")
+        else for (l in listeners) runCatching { l(out) }
         if (opt.consume) checkpoint()
         return out
     }

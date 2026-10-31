@@ -59,6 +59,9 @@ internal class Dispatcher(private val rt: AgentRuntime) {
         handlers[Method.EXPLAIN_LAYOUT] = Introspect::explainLayout
         handlers[Method.EVAL_JS] = Probes::evalJs
         handlers[Method.BLOCK_FX_THREAD] = Probes::blockFxThread
+        handlers[Method.HIGHLIGHT] = Overlay::highlight
+        handlers[Method.PICK_START] = Overlay::pickStart
+        handlers[Method.SET_BAR_STATE] = DevBar::setBarState
     }
 
     fun dispatch(method: String, params: ObjectNode?): JsonNode {
@@ -93,7 +96,7 @@ internal class Dispatcher(private val rt: AgentRuntime) {
                 window = Windows.byIndex(p.intOrNull("windowIndex"))
                 root = window.scene.root
             }
-            val s = SceneSerializer(maxDepth, maxNodes)
+            val s = SceneSerializer(maxDepth, maxNodes, skin = p.path("skin").asBoolean(false))
             val out = Json.obj()
             out.setNode("window", Windows.describe(window, Windows.indexOf(window)))
             out.setNode("root", s.serialize(root))

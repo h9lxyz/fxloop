@@ -13,7 +13,7 @@ import javafx.stage.Window
 
 /** Window enumeration and addressing. Must be called on the FX thread. */
 internal object Windows {
-    fun showing(): List<Window> = Window.getWindows().filter { it.isShowing && it.scene != null }
+    fun showing(): List<Window> = Window.getWindows().filter { it.isShowing && it.scene != null && it.properties[Overlay.OVERLAY_KEY] != true }
 
     fun type(w: Window): String {
         if (w is PopupWindow) return "POPUP"

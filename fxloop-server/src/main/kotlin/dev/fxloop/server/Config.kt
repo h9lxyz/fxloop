@@ -28,7 +28,16 @@ data class Config(
     val screenshotRatePerSec: Double = 2.0,
     val testMode: Boolean = false,
     val replayOnRestart: Boolean = true,
+    val bar: String = "auto",
+    val editorUrl: String? = null,
+    val browser: String = "auto",
 ) {
+    /** Dev bar in the app: `FXLOOP_BAR=on|off`, `auto` = on unless a headless mode is set. */
+    val barEnabled: Boolean get() = when (bar) { "on" -> true; "off" -> false; else -> headless == null }
+
+    /** Whether the server may open a browser for the inspector (`FXLOOP_BROWSER=none` disables). */
+    val browserEnabled: Boolean get() = !"none".equals(browser, ignoreCase = true)
+
     companion object {
         fun load(env: Map<String, String>, args: Array<String>): Config {
             val v = env.filterKeys { it.startsWith("FXLOOP_") }.toMutableMap()
@@ -62,6 +71,9 @@ data class Config(
                 screenshotRatePerSec = str("FXLOOP_SCREENSHOT_RATE")?.toDouble() ?: 2.0,
                 testMode = bool("FXLOOP_TEST"),
                 replayOnRestart = !"false".equals(str("FXLOOP_REPLAY"), ignoreCase = true),
+                bar = str("FXLOOP_BAR")?.lowercase() ?: "auto",
+                editorUrl = str("FXLOOP_EDITOR_URL"),
+                browser = str("FXLOOP_BROWSER")?.lowercase() ?: "auto",
             )
         }
 

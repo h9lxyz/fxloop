@@ -2,11 +2,17 @@ package dev.fxloop.server.see
 
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.ObjectNode
+import dev.fxloop.protocol.Fcp
+import dev.fxloop.protocol.FcpException
+import dev.fxloop.protocol.Json
 import dev.fxloop.protocol.Tokens
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.URLDecoder
+import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
@@ -15,11 +21,25 @@ import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
-/** Opt-in, loopback-only, token-guarded, read-only live viewer (PRD 04 §3.7). */
-class Viewer(private val requestedPort: Int, private val token: String, private val store: ScreenStore) : AutoCloseable {
+/** Backend of the inspector API: an FCP call (method, params, timeout ms) against the running app. */
+typealias ViewerApi = (method: String, params: ObjectNode, timeoutMs: Long) -> JsonNode
+
+/**
+ * Opt-in, loopback-only, token-guarded live viewer (PRD 04 §3.7) plus the CSS inspector API (PRD 08): read-only
+ * except `POST /api/highlight` and `POST /api/pick`, which are visual-only and ephemeral.
+ */
+class Viewer(
+    private val requestedPort: Int,
+    private val token: String,
+    private val store: ScreenStore,
+    private val api: ViewerApi? = null,
+    private val connected: () -> Boolean = { false },
+    private val editorUrl: String? = null,
+) : AutoCloseable {
     private var server: HttpServer? = null
     private var executor: ExecutorService? = null
-    private val subscribers: MutableSet<LinkedBlockingQueue<String>> = ConcurrentHashMap.newKeySet()
+    private val subscribers: MutableMap<LinkedBlockingQueue<String>, String> = ConcurrentHashMap()
+    private val bucket = TokenBucket(RATE_PER_SEC, RATE_PER_SEC)
 
     @Volatile
     private var closed = false
@@ -40,7 +60,7 @@ class Viewer(private val requestedPort: Int, private val token: String, private 
         s.createContext("/") { handle(it) }
         store.onNewFrame { f ->
             val msg = "event: frame\ndata: {\"seq\":${f.seq}}\n\n"
-            for (q in subscribers) q.offer(msg)
+            for (q in subscribers.keys) q.offer(msg)
         }
         executor = ex
         server = s
@@ -49,11 +69,23 @@ class Viewer(private val requestedPort: Int, private val token: String, private 
 
     fun url(): String = "http://127.0.0.1:$port/?t=$token"
 
+    /** Base of the inspector page URL (callers append `&h=…&path=…`). */
+    fun inspectUrl(): String = "http://127.0.0.1:$port/inspect?t=${URLEncoder.encode(token, StandardCharsets.UTF_8)}"
+
+    /** Broadcasts a named SSE event to every subscriber. */
+    fun publish(event: String, json: JsonNode) {
+        val msg = "event: $event\ndata: ${Json.write(json).replace("\n", " ")}\n\n"
+        for (q in subscribers.keys) q.offer(msg)
+    }
+
+    /** Connected `/sse?from=<page>` subscribers, e.g. `from=inspect` for the inspector page. */
+    fun subscriberCount(from: String): Int = subscribers.values.count { it == from }
+
     @Synchronized
     override fun close() {
         closed = true
         server?.let {
-            for (q in subscribers) q.offer("")
+            for (q in subscribers.keys) q.offer("")
             it.stop(0)
             executor?.shutdownNow()
             server = null
@@ -62,7 +94,9 @@ class Viewer(private val requestedPort: Int, private val token: String, private 
 
     private fun handle(ex: HttpExchange) {
         try {
-            if (ex.requestMethod != "GET") {
+            val path = ex.requestURI.path
+            val allowed = if (path in POST_PATHS) "POST" else "GET"
+            if (ex.requestMethod != allowed) {
                 send(ex, 405, "text/plain", "method not allowed".toByteArray())
                 return
             }
@@ -71,8 +105,8 @@ class Viewer(private val requestedPort: Int, private val token: String, private 
                 send(ex, 403, "text/plain", "forbidden".toByteArray())
                 return
             }
-            val path = ex.requestURI.path
             when (path) {
+                "/inspect" -> inspectPage(ex)
                 "/" -> send(ex, 200, "text/html; charset=utf-8", page().toByteArray())
                 "/latest.png" -> {
                     val f = store.latestScreenshot()
@@ -87,7 +121,9 @@ class Viewer(private val requestedPort: Int, private val token: String, private 
                     Gallery.render(store.list(), "/screens/", "?t=$token").toByteArray(),
                 )
                 "/sse" -> sse(ex)
-                else -> if (path.startsWith("/screens/")) {
+                else -> if (path.startsWith("/api/")) {
+                    api(ex, path.removePrefix("/api/"))
+                } else if (path.startsWith("/screens/")) {
                     screen(ex, path.removePrefix("/screens/"))
                 } else {
                     send(ex, 404, "text/plain", "not found".toByteArray())
@@ -99,6 +135,82 @@ class Viewer(private val requestedPort: Int, private val token: String, private 
             ex.close()
         }
     }
+
+    private fun inspectPage(ex: HttpExchange) {
+        val body = Viewer::class.java.getResourceAsStream(INSPECT_RESOURCE)?.use { it.readAllBytes() }
+        if (body == null) send(ex, 404, "text/plain", "inspector page missing".toByteArray())
+        else send(ex, 200, "text/html; charset=utf-8", body)
+    }
+
+    private fun api(ex: HttpExchange, name: String) {
+        if (!bucket.tryTake()) {
+            send(ex, 429, "application/json", Json.write(error("RATE_LIMITED", "too many requests")).toByteArray())
+            return
+        }
+        val q = ex.requestURI.rawQuery
+        fun p(k: String) = queryParam(q, k)?.takeIf { it.isNotEmpty() }
+        val params = Json.obj()
+        // h (handle) is preferred; path is the fallback
+        fun target() {
+            p("h")?.toIntOrNull()?.let { params.put("handle", it) }
+            p("path")?.let { params.put("path", it) }
+        }
+        val method: String
+        var timeout = 15_000L
+        when (name) {
+            "windows" -> method = Fcp.Method.STATUS
+            "tree" -> {
+                method = Fcp.Method.GET_SCENE_GRAPH
+                p("window")?.toIntOrNull()?.let { params.put("windowIndex", it) }
+                if (p("skin") in TRUE) params.put("skin", true)
+                target()
+                params.put("maxDepth", 64).put("maxNodes", 3000)
+            }
+            "styles" -> { method = Fcp.Method.CSS_CASCADE; target() }
+            "layout" -> { method = Fcp.Method.EXPLAIN_LAYOUT; target() }
+            "suggest" -> {
+                method = Fcp.Method.CSS_SUGGEST
+                target()
+                p("property")?.let { params.put("property", it) }
+                p("value")?.let { params.put("value", it) }
+                p("file")?.let { params.put("file", it) }
+            }
+            "highlight" -> {
+                method = Fcp.Method.HIGHLIGHT
+                if (p("clear") in TRUE) params.put("clear", true) else target()
+            }
+            "pick" -> {
+                method = Fcp.Method.PICK_START
+                p("window")?.toIntOrNull()?.let { params.put("windowIndex", it) }
+                if (p("cancel") in TRUE) params.put("cancel", true)
+            }
+            else -> {
+                send(ex, 404, "text/plain", "not found".toByteArray())
+                return
+            }
+        }
+        val backend = api
+        if (backend == null || !connected()) {
+            send(ex, 503, "application/json", Json.write(error("NO_APP", "no application is connected")).toByteArray())
+            return
+        }
+        val out: JsonNode = try {
+            val r = backend(method, params, timeout)
+            when (name) {
+                "windows" -> r.path("windows")
+                "styles" -> if (r is ObjectNode && editorUrl != null) r.put("editorUrl", editorUrl) else r
+                else -> r
+            }
+        } catch (e: FcpException) {
+            error(e.code, e.message ?: e.code)
+        } catch (e: Exception) {
+            error("INTERNAL", e.message ?: e.javaClass.simpleName)
+        }
+        send(ex, 200, "application/json", Json.write(out).toByteArray())
+    }
+
+    private fun error(code: String, message: String): ObjectNode =
+        Json.obj { putObject("error").put("code", code).put("message", message) }
 
     private fun screen(ex: HttpExchange, name: String) {
         if (!SAFE_NAME.matches(name)) {
@@ -115,7 +227,7 @@ class Viewer(private val requestedPort: Int, private val token: String, private 
 
     private fun sse(ex: HttpExchange) {
         val q = LinkedBlockingQueue<String>()
-        subscribers.add(q)
+        subscribers[q] = queryParam(ex.requestURI.rawQuery, "from") ?: ""
         try {
             ex.responseHeaders.set("Content-Type", "text/event-stream")
             ex.responseHeaders.set("Cache-Control", "no-store")
@@ -172,7 +284,27 @@ class Viewer(private val requestedPort: Int, private val token: String, private 
         return null
     }
 
+    /** Simple thread-safe token bucket: [capacity] burst, [perSec] refill. */
+    private class TokenBucket(private val capacity: Int, private val perSec: Int) {
+        private var tokens = capacity.toDouble()
+        private var last = System.nanoTime()
+
+        @Synchronized
+        fun tryTake(): Boolean {
+            val now = System.nanoTime()
+            tokens = minOf(capacity.toDouble(), tokens + (now - last) / 1e9 * perSec)
+            last = now
+            if (tokens < 1) return false
+            tokens -= 1
+            return true
+        }
+    }
+
     private companion object {
+        const val RATE_PER_SEC = 30
+        const val INSPECT_RESOURCE = "/dev/fxloop/server/inspect/inspect.html"
+        val POST_PATHS = setOf("/api/highlight", "/api/pick")
+        val TRUE = setOf("1", "true")
         val SAFE_NAME = Regex("^\\d{4,}-[a-z0-9-]+\\.png$")
     }
 }

@@ -3,6 +3,7 @@ package dev.fxloop.agent
 import com.fasterxml.jackson.databind.node.ObjectNode
 import dev.fxloop.protocol.Json
 import javafx.scene.Node
+import javafx.scene.Parent
 import javafx.scene.control.Cell
 import javafx.scene.control.TableRow
 
@@ -12,7 +13,7 @@ import javafx.scene.control.TableRow
  * output ≤ 64 KB). Default-valued flags are omitted: `visible` only when false, `disabled`/`focused` only when true;
  * the type's default style class is omitted.
  */
-internal class SceneSerializer(private val maxDepth: Int, private val maxNodes: Int, private val maxBytes: Int = DEFAULT_MAX_BYTES) {
+internal class SceneSerializer(private val maxDepth: Int, private val maxNodes: Int, private val maxBytes: Int = DEFAULT_MAX_BYTES, private val skin: Boolean = false) {
     private var bytes = 0
 
     companion object {
@@ -26,11 +27,12 @@ internal class SceneSerializer(private val maxDepth: Int, private val maxNodes: 
 
     fun serialize(root: Node): ObjectNode = node(root, 0, NodePath.of(root))
 
-    private fun node(n: Node, depth: Int, path: String?): ObjectNode {
+    private fun node(n: Node, depth: Int, path: String?, skinOnly: Boolean = false): ObjectNode {
         emitted++
         val o = Json.obj()
         o.put("h", AgentRuntime.current().handles.handleOf(n))
         o.put("path", path)
+        if (skinOnly) o.put("skin", true)
         o.put("type", NodePath.typeName(n))
         if (!n.id.isNullOrEmpty()) o.put("fxId", n.id)
         val defaultClass = NodePath.typeName(n).replace(Regex("([a-z])([A-Z])"), "$1-$2").lowercase()
@@ -44,7 +46,8 @@ internal class SceneSerializer(private val maxDepth: Int, private val maxNodes: 
         if (n.isDisabled) o.put("disabled", true)
         if (n.isFocused) o.put("focused", true)
         NodeInfo.screenBounds(n)?.let { o.setNode("boundsScreen", it) }
-        val kids = LogicalTree.children(n)
+        val logical = LogicalTree.children(n)
+        val kids = if (skin) (n as? Parent)?.childrenUnmodifiable ?: emptyList() else logical
         if (LogicalTree.isVirtualized(n)) {
             o.put("itemCount", NodeInfo.itemCount(n))
             val sel = NodeInfo.selectedIndex(n)
@@ -71,7 +74,7 @@ internal class SceneSerializer(private val maxDepth: Int, private val maxNodes: 
                 children.add(Json.obj().put("truncated", true).put("kids", kids.size - i))
                 break
             }
-            children.add(node(kids[i], depth + 1, "$path/${segs[i]}"))
+            children.add(node(kids[i], depth + 1, "$path/${segs[i]}", skin && logical.none { it === kids[i] }))
         }
         return o
     }

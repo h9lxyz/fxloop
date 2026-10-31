@@ -15,7 +15,7 @@ FXLoop is a **developer tool** that lets an MCP client (an LLM agent) inspect an
 | Prompt-injected agent reads/writes arbitrary files | Tool file paths (screenshot/export outputs, references) are **confined to the project directory** (`BAD_REQUEST: path escapes the project directory`). |
 | Silent hijack of running JVMs | `fx_attach` is explicit, audit-logged (`dev.fxloop.audit` logger: `AUDIT attach requested/attached pid=...`) and can be disabled with `-Dfxloop.attach=false` on the server. |
 | Arbitrary script execution in the app | `fx_eval_js` is **off** unless `FXLOOP_WEBVIEW=true`. |
-| Data exfiltration | **No telemetry.** The server makes no network calls of its own (build tools may fetch dependencies as usual). The optional live viewer binds `127.0.0.1` and requires a token. |
+| Data exfiltration | **No telemetry.** The server makes no network calls of its own (build tools may fetch dependencies as usual). The optional live viewer (and the CSS inspector API on it) binds `127.0.0.1` and requires a token; it is read-only except two visual-only POSTs (`/api/highlight`, `/api/pick`) and is rate-limited. |
 
 Out of scope: a malicious process running as the same OS user (it can read your files anyway), and untrusted MCP clients: anything connected to the MCP server can drive the app, so only configure it for agents you trust.
 
