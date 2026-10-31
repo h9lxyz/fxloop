@@ -58,6 +58,19 @@ class Viewer(
     @Volatile
     private var lastStatus: String? = null
 
+    @Volatile
+    private var movedTo: String? = null
+
+    /**
+     * Another server's inspector now serves the app (the `fxloop:run` helper yielded to an agent session): pages get
+     * an SSE `moved {url}` event, also on connect, and switch over; null when the app is back here.
+     */
+    fun setMovedTo(url: String?) {
+        if (url == movedTo) return
+        movedTo = url
+        publish("moved", Json.obj { if (url != null) put("url", url) else putNull("url") })
+    }
+
     /** Publishes the compact bar-state JSON as an SSE `status` event and keeps it for new subscribers. */
     fun publishStatus(json: String) {
         lastStatus = json
@@ -349,6 +362,7 @@ class Viewer(
             val os = ex.responseBody
             os.write(": connected\n\n".toByteArray(StandardCharsets.UTF_8))
             lastStatus?.let { os.write("event: status\ndata: $it\n\n".toByteArray(StandardCharsets.UTF_8)) }
+            movedTo?.let { os.write("event: moved\ndata: ${Json.write(Json.obj { put("url", it) })}\n\n".toByteArray(StandardCharsets.UTF_8)) }
             os.flush()
             while (!closed) {
                 var msg = q.poll(15, TimeUnit.SECONDS)

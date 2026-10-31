@@ -60,6 +60,21 @@ class Ctx(val config: Config) {
         it.start()
         viewer = it
         log.info("live viewer: {}", it.url())
+        advertiseInspector()
+    }
+
+    /**
+     * An agent session that holds the app records its inspector in `<fxloopDir>/inspector.json` (owner-only, like the
+     * handshake), so the `fxloop:run` inspector helper, which yields the app to us, can send its open pages here: the
+     * Ask agent box then reaches the agent that is listening. The helper itself never advertises.
+     */
+    private fun advertiseInspector() {
+        val v = viewer ?: return
+        if (config.sidecar || !session.connected) return
+        runCatching {
+            dev.fxloop.protocol.OwnerOnly.write(session.fxloopDir.resolve(INSPECTOR_FILE),
+                Json.write(Json.obj { put("pid", ProcessHandle.current().pid()); put("url", v.inspectUrl()) }))
+        }.onFailure { log.debug("cannot write {}: {}", INSPECTOR_FILE, it.toString()) }
     }
 
     /** Project layout for the CSS engine, so `file` names the source stylesheet rather than its build copy (PRD 08 §3.2). */
@@ -149,6 +164,7 @@ class Ctx(val config: Config) {
             reloader.checkpoint(session.startedAt.takeIf { session.mode == AppSession.Mode.EMBEDDED })
             if (session.mode == AppSession.Mode.EMBEDDED) live.developerOwnsApp()
             live.push()
+            advertiseInspector()
         }
         session.onAgentEvent(::onAgentEvent)
     }
@@ -315,6 +331,10 @@ class Ctx(val config: Config) {
     }
 
     fun shutdown() {
+        if (!config.sidecar) runCatching {
+            val f = session.fxloopDir.resolve(INSPECTOR_FILE)
+            if (Json.parse(java.nio.file.Files.readString(f)).path("pid").asLong() == ProcessHandle.current().pid()) java.nio.file.Files.delete(f)
+        }
         runCatching { watch.dispose() }
         runCatching { viewer?.close() }
         runCatching { session.shutdown() }
@@ -322,6 +342,19 @@ class Ctx(val config: Config) {
     }
 
     companion object {
+        /** Inspector of the agent session holding the app, read by the `fxloop:run` helper ([advertiseInspector]). */
+        const val INSPECTOR_FILE = "inspector.json"
+
+        /** The advertised URL if [file] names a live process and a loopback inspector URL; else null. */
+        fun advertisedInspector(file: java.nio.file.Path): String? = runCatching {
+            val j = Json.parse(java.nio.file.Files.readString(file))
+            val url = j.path("url").asText("")
+            val alive = ProcessHandle.of(j.path("pid").asLong(-1)).map { it.isAlive }.orElse(false)
+            url.takeIf { alive && INSPECT_URL.matches(it) }
+        }.getOrNull()
+
+        private val INSPECT_URL = Regex("^http://127\\.0\\.0\\.1:\\d{1,5}/inspect\\?t=[A-Za-z0-9_%-]+$")
+
         private val SHARED_EVENT_TOOLS = setOf("fx_click_node", "fx_type_keys")
 
         private fun sha256(text: String): String = java.security.MessageDigest.getInstance("SHA-256")

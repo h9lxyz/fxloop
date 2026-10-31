@@ -25,6 +25,7 @@ object PromptTools {
             Schema.obj().integer("timeoutSec", "How long to wait (default 120)", 1, 600)
                 .bool("includeImage", "Attach a screenshot of the prompt's node (default true)")) { a ->
             val q = ctx.prompts
+            ctx.ensureViewer() // advertises this session's inspector, so the fxloop:run helper's pages move here
             val inspectors = ctx.viewer?.subscriberCount("inspect") ?: 0
             val p = q.take(a.path("timeoutSec").asLong(120) * 1000)
                 ?: return@tool ok("no prompt yet" + (if (inspectors == 0) "; no inspector page is open (fx_open_inspector)" else "") +

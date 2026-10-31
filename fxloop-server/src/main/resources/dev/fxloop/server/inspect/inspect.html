@@ -1514,6 +1514,15 @@ function connect(){
     if (!j.active) state.disabled = Object.create(null);
     if (was !== now) loadStyles();
   });
+  es.addEventListener('moved', function(ev){
+    var j; try { j = JSON.parse(ev.data); } catch(e){ return; }
+    if (!j.url || j.url.indexOf(location.origin + '/') === 0 || !/^http:\/\/127\.0\.0\.1:\d+\/inspect\?/.test(j.url)) return;
+    // An agent session has the app: continue in its inspector (same node), where Ask agent reaches the listening agent.
+    var u = j.url + '&window=' + state.win;
+    if (state.sel && state.sel.path) u += '&path=' + encodeURIComponent(state.sel.path);
+    var b = $('banner'); b.textContent = 'An agent session has the app — switching to its inspector…'; b.style.display = 'block';
+    setTimeout(function(){ location.replace(u); }, 600);
+  });
   es.addEventListener('prompts', function(ev){
     var j; try { j = JSON.parse(ev.data); } catch(e){ return; }
     state.prompts = j; renderPrompts();

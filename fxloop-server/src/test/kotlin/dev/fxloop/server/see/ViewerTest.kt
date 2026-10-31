@@ -349,4 +349,22 @@ class ViewerTest {
             assertThat(req("http://127.0.0.1:${v.port}/api/prompts?t=tok").statusCode()).isEqualTo(404)
         }
     }
+
+    @Test
+    fun movedIsSentOnConnectAndOnChange(@TempDir dir: Path) {
+        Viewer(0, "tok", ScreenStore(dir, 10)).use { v ->
+            v.start()
+            v.setMovedTo("http://127.0.0.1:1234/inspect?t=abc")
+            val conn = URI.create("http://127.0.0.1:${v.port}/sse?t=tok&from=inspect").toURL().openConnection() as HttpURLConnection
+            conn.readTimeout = 10_000
+            val reader = BufferedReader(InputStreamReader(conn.inputStream))
+            var line: String
+            do line = reader.readLine() while (line != "event: moved")
+            assertThat(reader.readLine()).isEqualTo("data: {\"url\":\"http://127.0.0.1:1234/inspect?t=abc\"}")
+            v.setMovedTo(null)
+            do line = reader.readLine() while (line != "event: moved")
+            assertThat(reader.readLine()).isEqualTo("data: {\"url\":null}")
+            conn.disconnect()
+        }
+    }
 }

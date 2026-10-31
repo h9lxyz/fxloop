@@ -154,6 +154,8 @@ private fun runSidecar(ctx: Ctx): Nothing {
                 yielded = true
             }
         }
+        // While an agent session has the app, open pages follow it to that session's inspector (Ask agent reaches it).
+        viewer.setMovedTo(if (ctx.session.connected) null else Ctx.advertisedInspector(ctx.session.fxloopDir.resolve(Ctx.INSPECTOR_FILE)))
         Thread.sleep(1500)
     }
 }
