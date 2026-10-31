@@ -29,11 +29,14 @@ class VisualAcceptanceTest {
 
     @Test
     fun `G12 state strip renders every state and restores the node`() {
-        val r = h.raw("fx_capture_states", args("query" to "#addBtn"))
+        val boundBefore = h.prop("#addBtn", "disable").asBoolean()
+        assertThat(h.raw("fx_capture_states", args("query" to "#addBtn")).isError).isFalse() // bound disable: pseudo-class path
+        assertThat(h.prop("#addBtn", "disable").asBoolean()).isEqualTo(boundBefore)
+        val r = h.raw("fx_capture_states", args("query" to "#boomBtn"))
         assertThat(r.isError).describedAs(r.text).isFalse()
         assertThat(r.structured!!["states"].size()).isEqualTo(5)
         assertThat(r.images).hasSize(1)
-        assertThat(h.prop("#addBtn", "disable").asBoolean()).isFalse()
+        assertThat(h.prop("#boomBtn", "disable").asBoolean()).isFalse()
     }
 
     @Test

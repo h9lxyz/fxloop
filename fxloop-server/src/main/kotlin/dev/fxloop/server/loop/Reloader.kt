@@ -150,7 +150,8 @@ class Reloader(private val session: AppSession, private val visuals: Visuals) {
         vd.put("beforeSeq", before.seq)
         vd.put("afterSeq", after.seq)
         when {
-            c.diff.changedPct < 0.01 -> vd.put("hint",
+            // "≈ 0": below 0.05 % only caret blink / AA noise can be left (PRD 04 §4)
+            c.diff.changedPct < NO_CHANGE_PCT -> vd.put("hint",
                 "no visual change — the edited selector may not match any node; check fx_explain_style on the intended target")
             c.diff.changedPct > 30 -> vd.put("hint", "change affected more than expected — selector may be broader than intended (see regions)")
         }
@@ -252,6 +253,7 @@ class Reloader(private val session: AppSession, private val visuals: Visuals) {
     }
 
     companion object {
+        const val NO_CHANGE_PCT = 0.05
         val BUILD_FILES = setOf("pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts",
             "gradle.properties", "module-info.java")
 

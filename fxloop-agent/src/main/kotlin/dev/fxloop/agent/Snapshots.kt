@@ -188,7 +188,12 @@ internal object Snapshots {
     private fun applyState(node: Node, state: String) {
         when (state) {
             "none" -> {}
-            "disabled" -> node.isDisable = true
+            // a bound disable property cannot be written: fall back to the :disabled pseudo-class
+            "disabled" -> if (node.disableProperty().isBound) {
+                node.pseudoClassStateChanged(javafx.css.PseudoClass.getPseudoClass("disabled"), true)
+            } else {
+                node.isDisable = true
+            }
             else -> {
                 node.pseudoClassStateChanged(PseudoClass.getPseudoClass(state), true)
                 if ("pressed" == state) {
@@ -200,7 +205,8 @@ internal object Snapshots {
     }
 
     private fun resetState(node: Node, original: Set<PseudoClass>, wasDisabled: Boolean) {
-        node.isDisable = wasDisabled
+        if (!node.disableProperty().isBound) node.isDisable = wasDisabled
+        node.pseudoClassStateChanged(javafx.css.PseudoClass.getPseudoClass("disabled"), node.isDisabled)
         for (name in PSEUDO) {
             val pc = PseudoClass.getPseudoClass(name)
             node.pseudoClassStateChanged(pc, original.contains(pc))
