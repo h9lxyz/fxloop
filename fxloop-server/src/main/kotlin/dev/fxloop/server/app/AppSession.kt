@@ -18,7 +18,6 @@ import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
-import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /**
@@ -126,7 +125,8 @@ class AppSession(val config: Config) {
         if (config.testMode) cmd += "-Dfxloop.test=true"
         // G10: JetBrains Runtime enhanced redefinition (structural hot-swaps); only meaningful on JBR via FXLOOP_JAVA_HOME
         if (config.jbr) cmd += "-XX:+AllowEnhancedClassRedefinition"
-        cmd += "-javaagent:${agentJar()}=handshake=$handshake,tokenFile=$tokenFile,state=${dir.resolve("state.json")},logs=${config.captureAppLogs}"
+        cmd += "-javaagent:${agentJar()}=handshake=$handshake,tokenFile=$tokenFile,state=${dir.resolve("state.json")}," +
+            "logs=${config.captureAppLogs},ownerPid=${ProcessHandle.current().pid()}"
         val classpath = buildList {
             if (d.mainModule == null) add(d.outputDir)
             addAll(d.classpath)
@@ -142,7 +142,7 @@ class AppSession(val config: Config) {
         stdout.clear()
         stderr.clear()
         val p = try {
-            ProcessBuilder(cmd).directory(File(d.workingDir)).start()
+            ProcessTree.track(ProcessBuilder(cmd).directory(File(d.workingDir)).start())
         } catch (e: IOException) {
             throw ToolException("LAUNCH_FAILED", "cannot launch the app: ${e.message}", "check FXLOOP_JAVA_HOME / agent jar")
         }
@@ -231,12 +231,7 @@ class AppSession(val config: Config) {
     private fun killProcess(): Int? {
         val p = process ?: return null
         process = null
-        p.destroy()
-        if (!p.waitFor(3, TimeUnit.SECONDS)) {
-            p.destroyForcibly()
-            p.waitFor(5, TimeUnit.SECONDS)
-        }
-        exitCode = if (p.isAlive) null else p.exitValue()
+        exitCode = ProcessTree.kill(p) // the whole tree: xvfb-run → Xvfb + java, never just the wrapper
         return exitCode
     }
 

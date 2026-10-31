@@ -29,6 +29,7 @@ class AgentRuntime private constructor(
             FxmlHook.install(instrumentation)
         }
         Thread(::awaitFxAndListen, "fxloop-agent-init").apply { isDaemon = true }.start()
+        options.ownerPid?.let(OwnerWatchdog::start)
     }
 
     private fun awaitFxAndListen() {

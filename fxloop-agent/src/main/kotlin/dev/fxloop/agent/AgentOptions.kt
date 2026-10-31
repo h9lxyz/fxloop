@@ -6,7 +6,8 @@ import java.nio.file.Path
 
 /**
  * Agent arguments, `key=value` pairs separated by commas:
- * `handshake=<path>,tokenFile=<path>,state=<path>,logs=true,fxmlHook=true`. `tokenFile` (owner-only
+ * `handshake=<path>,tokenFile=<path>,state=<path>,logs=true,fxmlHook=true,ownerPid=<pid>`.
+ * `ownerPid` is the launching fxloop server: when it disappears (even SIGKILL) the app exits on its own. `tokenFile` (owner-only
  * file written by the server) is preferred over `token=` because command lines are visible to other users.
  */
 data class AgentOptions(
@@ -15,6 +16,7 @@ data class AgentOptions(
     val stateFile: Path?,
     val captureLogs: Boolean,
     val fxmlHook: Boolean,
+    val ownerPid: Long? = null,
 ) {
     companion object {
         @JvmStatic
@@ -41,6 +43,7 @@ data class AgentOptions(
                 hs?.let { Path.of(it) }, token, state?.let { Path.of(it) },
                 (map["logs"] ?: "false").equals("true", ignoreCase = true),
                 (map["fxmlHook"] ?: "true").equals("true", ignoreCase = true),
+                map["ownerPid"]?.toLongOrNull(),
             )
         }
 

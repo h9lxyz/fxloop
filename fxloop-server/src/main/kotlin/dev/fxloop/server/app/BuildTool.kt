@@ -90,7 +90,7 @@ class BuildTool(private val config: Config) {
     fun run(cmd: List<String>, timeoutSec: Long): Result {
         log.info("running {}", cmd.joinToString(" "))
         val p = try {
-            ProcessBuilder(cmd).directory(config.projectDir.toFile()).redirectErrorStream(true).start()
+            ProcessTree.track(ProcessBuilder(cmd).directory(config.projectDir.toFile()).redirectErrorStream(true).start())
         } catch (e: IOException) {
             throw ToolException("BUILD_FAILED", "cannot run ${cmd[0]}: ${e.message}",
                 "install Maven/Gradle, add a wrapper, or set FXLOOP_BUILD_CMD")
@@ -99,9 +99,10 @@ class BuildTool(private val config: Config) {
         val out = StringBuilder()
         val pump = thread(isDaemon = true) { runCatching { out.append(String(p.inputStream.readAllBytes())) } }
         if (!p.waitFor(timeoutSec, TimeUnit.SECONDS)) {
-            p.destroyForcibly()
+            ProcessTree.kill(p)
             return Result(-1, "timed out after $timeoutSec s")
         }
+        ProcessTree.kill(p.toHandle(), graceMs = 0) // untrack; reaps any stray grandchild of the build script
         pump.join(5000)
         return Result(p.exitValue(), out.toString())
     }
