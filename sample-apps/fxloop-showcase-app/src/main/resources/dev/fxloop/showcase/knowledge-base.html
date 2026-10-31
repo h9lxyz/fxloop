@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: Georgia, serif; margin: 24px; color: #333; background: #ffffff; }
+  h1 { font-size: 26px; color: #1e5bd8; }
+  .search { width: 220px; padding: 4px; }
+  .article { border-bottom: 1px solid #eee; padding: 10px 0; }
+  .article a { color: #7fa7f5; text-decoration: none; }
+  .meta { color: #cfcfcf; font-size: 11px; }
+  #empty { display: none; color: #999; }
+</style>
+</head>
+<body>
+  <h1>{{title}}</h1>
+  <input id="kbSearch" class="search" placeholder="Search articles">
+  <div id="articles">
+    <div class="article"><a href="#roles">Managing roles and a second admin</a><div class="meta">Updated 3 days ago · 4 min read</div></div>
+    <div class="article"><a href="#sso">Fixing SSO login loops after certificate rotation</a><div class="meta">Updated 2 weeks ago · 6 min read</div></div>
+    <div class="article"><a href="#csv">Importing CSV files with special characters</a><div class="meta">Updated last month · 3 min read</div></div>
+    <div class="article"><a href="#refunds">Refunds and duplicate charges</a><div class="meta">Updated last month · 2 min read</div></div>
+  </div>
+  <p id="empty">No articles match your search.</p>
+<script>
+  document.getElementById('serach').addEventListener('input', function (e) {
+    var q = e.target.value.toLowerCase();
+    var shown = 0;
+    document.querySelectorAll('.article').forEach(function (a) {
+      var match = a.textContent.toLowerCase().indexOf(q) >= 0;
+      a.style.display = match ? '' : 'none';
+      if (match) shown++;
+    });
+    document.getElementById('empty').style.display = shown ? 'none' : 'block';
+  });
+</script>
+</body>
+</html>

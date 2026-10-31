@@ -1,0 +1,137 @@
+/* Ticket Desk */
+
+.app-root {
+    -fx-background-color: #f4f5f7;
+    -fx-font-family: "System";
+}
+
+.label {
+    -fx-font-size: 11px;
+}
+
+/* ---------- header ---------- */
+
+.header {
+    -fx-background-color: white;
+    -fx-padding: 10 16 10 16;
+}
+
+.icon-button {
+    -fx-background-color: transparent;
+    -fx-font-size: 13px;
+    -fx-padding: 0;
+    -fx-min-width: 18px;
+    -fx-pref-width: 18px;
+    -fx-max-width: 18px;
+    -fx-min-height: 18px;
+    -fx-pref-height: 18px;
+    -fx-max-height: 18px;
+}
+
+.badge {
+    -fx-background-color: #ee6b6b;
+    -fx-text-fill: white;
+    -fx-background-radius: 8;
+    -fx-padding: 0 5 0 5;
+    -fx-font-size: 10px;
+}
+
+/* ---------- buttons ---------- */
+
+.button:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+.primary-button {
+    -fx-background-color: #2a6ef2;
+    -fx-text-fill: white;
+    -fx-background-radius: 4;
+    -fx-padding: 6 14 6 14;
+}
+
+.primary-button:hovered {
+    -fx-background-color: #1e5bd8;
+}
+
+.primary-button:pressed {
+    -fx-background-color: #2a6ef2;
+}
+
+.danger-button {
+    -fx-background-color: #2a6ef2;
+    -fx-text-fill: white;
+    -fx-background-radius: 4;
+}
+
+/* ---------- sidebar ---------- */
+
+.sidebar {
+    -fx-background-color: #1f2430;
+    -fx-padding: 12 8 12 8;
+}
+
+.nav-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: #8a93a6;
+    -fx-alignment: center-left;
+    margin: 4px;
+}
+
+.nav-button:hover {
+    -fx-text-fill: white;
+}
+
+/* ---------- content ---------- */
+
+.card {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-border-color: #dddddd;
+    -fx-padding: 12;
+}
+
+#detailsPane .text-field {
+    -fx-pref-width: 200px;
+}
+
+.section-title {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #333333;
+}
+
+.status-chip {
+    -fx-padding: 1 8 1 8;
+    -fx-background-radius: 10;
+}
+
+.table-view .column-header .label {
+    -fx-text-fill: #a0a8b0;
+    -fx-font-weight: normal;
+}
+
+.kpi-caption {
+    -fx-text-fill: #9aa3ad;
+}
+
+.kpi-value {
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
+/* ---------- footer ---------- */
+
+.footer {
+    -fx-background-color: #f4f5f7;
+    -fx-border-color: #e6e6e6 transparent transparent transparent;
+}
+
+.footer .label {
+    -fx-text-fill: #bbbbbb;
+}
+
+.sync-indicator {
+    -fx-background-color: #3cb371;
+    -fx-background-radius: 4;
+}

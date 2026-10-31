@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox fx:id="settingsRoot" styleClass="settings-root" spacing="20" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="dev.fxloop.showcase.SettingsController">
+    <padding>
+        <Insets top="16" right="16" bottom="16" left="16"/>
+    </padding>
+
+    <Label text="%settings.title" styleClass="settings-title"/>
+
+    <CheckBox fx:id="darkModeCheck" text="%settings.darkMode"/>
+    <Label fx:id="hintLabel" text="%settings.darkModeHint" styleClass="hint"/>
+
+    <CheckBox fx:id="notificationsCheck" text="%settings.notifications"/>
+
+    <HBox spacing="10">
+        <Label text="%settings.language"/>
+        <ComboBox fx:id="languageCombo"/>
+    </HBox>
+
+    <HBox spacing="10">
+        <Label text="%settings.signature"/>
+        <TextField fx:id="signatureField" prefWidth="300"/>
+    </HBox>
+
+    <Label fx:id="hintLabel" text="%settings.languageHint" styleClass="hint"/>
+
+    <HBox spacing="8">
+        <Button fx:id="okBtn" text="%action.ok" onAction="#onOk"/>
+        <Button fx:id="applyBtn" text="%action.apply" disable="true"/>
+        <Button fx:id="cancelBtn" text="%action.cancel" onAction="#onCancel"/>
+    </HBox>
+</VBox>

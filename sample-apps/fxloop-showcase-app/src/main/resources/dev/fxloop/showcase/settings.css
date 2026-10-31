@@ -1,0 +1,25 @@
+.settings-root {
+    -fx-background-color: #fbfaf7;
+    -fx-font-family: "Georgia";
+}
+
+.settings-title {
+    -fx-font-size: 24px;
+    -fx-text-fill: #2f6b3a;
+}
+
+.hint {
+    -fx-text-fill: #cccccc;
+    -fx-font-style: italic;
+}
+
+.button {
+    -fx-background-color: #3f8f4f;
+    -fx-text-fill: white;
+    -fx-background-radius: 20;
+    -fx-padding: 4 18 4 18;
+}
+
+.button:disabled {
+    -fx-opacity: 1;
+}
