@@ -1,0 +1,11 @@
+{"window":{"index":0,"title":"Mock App","type":"STAGE"},"truncated":false,"nodeCount":8,
+ "root":{"h":1,"path":"Stage[0]/Scene/VBox","type":"VBox","styleClass":"root","kids":3,"children":[
+  {"h":2,"path":"Stage[0]/Scene/VBox/Label","type":"Label","text":"Welcome <b>x</b>","styleClass":"label","kids":0,"children":[]},
+  {"h":3,"path":"Stage[0]/Scene/VBox/HBox","type":"HBox","styleClass":"panel","kids":2,"children":[
+    {"h":12,"path":"Stage[0]/Scene/VBox/HBox/Button#save","type":"Button","fxId":"save","text":"Save","styleClass":"button primary","kids":1,"children":[
+      {"h":13,"path":"Stage[0]/Scene/VBox/HBox/Button#save/LabeledText","type":"LabeledText","skin":true,"styleClass":"text","kids":0,"children":[]}
+    ]},
+    {"h":14,"path":"Stage[0]/Scene/VBox/HBox/Button#cancel","type":"Button","fxId":"cancel","text":"Cancel","styleClass":"button","kids":0,"children":[]}
+  ]},
+  {"truncated":true,"kids":40}
+ ]}}
