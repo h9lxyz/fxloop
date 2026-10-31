@@ -6,6 +6,7 @@ import dev.fxloop.protocol.FcpException
 import dev.fxloop.protocol.Json
 import java.util.Locale
 import javafx.event.Event
+import javafx.event.EventTarget
 import javafx.geometry.Point2D
 import javafx.scene.Node
 import javafx.scene.control.ButtonBase
@@ -16,6 +17,7 @@ import javafx.scene.control.ScrollPane
 import javafx.scene.control.TabPane
 import javafx.scene.control.TextInputControl
 import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.input.PickResult
@@ -31,7 +33,22 @@ internal object Interaction {
         val mode = p.path("mode").asText("robot")
         val button = MouseButton.valueOf(p.path("button").asText("primary").uppercase(Locale.ROOT))
         val clickCount = maxOf(1, p.path("clickCount").asInt(1))
-        val result = Fx.call {
+        val human = AgentRuntime.current().human
+        val bracket = human.open("event" != mode)
+        val result: ObjectNode
+        val conflicts: Int
+        try {
+            result = clickOnce(p, mode, button, clickCount, bracket)
+            settle(p)
+        } finally {
+            conflicts = human.close(bracket)
+        }
+        result.put("conflicts", conflicts)
+        return result
+    }
+
+    private fun clickOnce(p: ObjectNode, mode: String, button: MouseButton, clickCount: Int, bracket: HumanInput.Bracket): ObjectNode {
+        return Fx.call {
             val out = Json.obj()
             out.put("mode", mode)
             if (!Targets.hasTarget(p)) {
@@ -43,6 +60,7 @@ internal object Interaction {
                 }
                 val x = p.get("x").asDouble()
                 val y = p.get("y").asDouble()
+                bracket.expectPoint = Point2D(x, y)
                 robotClick(x, y, button, clickCount)
                 out.put("x", x).put("y", y)
                 return@call out
@@ -56,18 +74,17 @@ internal object Interaction {
             }
             out.setNode("target", Targets.summary(node))
             if ("event" == mode) {
-                eventClick(node, button, clickCount)
+                AgentRuntime.current().human.asAgent { eventClick(node, button, clickCount) }
             } else {
                 ensureVisible(node)
                 val c = center(node)
+                bracket.expectPoint = c
                 robotClick(c.x, c.y, button, clickCount)
                 out.put("x", Math.round(c.x)).put("y", Math.round(c.y))
             }
             out.put("clicked", true)
             out
         }
-        settle(p)
-        return result
     }
 
     private fun robotClick(x: Double, y: Double, button: MouseButton, count: Int) {
@@ -175,7 +192,52 @@ internal object Interaction {
     private fun clamp(v: Double, lo: Double, hi: Double): Double = maxOf(lo, minOf(hi, v))
 
     fun typeKeys(p: ObjectNode): ObjectNode {
-        val keys = p.path("keys")
+        val mode = p.path("mode").asText("robot")
+        if (mode != "robot" && mode != "event") {
+            throw FcpException(Fcp.Error.BAD_REQUEST, "mode must be 'robot' or 'event'")
+        }
+        val combos = parseCombos(p.path("keys"))
+        val human = AgentRuntime.current().human
+        val bracket = human.open("robot" == mode, expectKeys = combos.flatten().toSet())
+        val out: ObjectNode
+        val conflicts: Int
+        try {
+            if (Targets.hasTarget(p)) {
+                Fx.run { Targets.resolve(p).requestFocus() }
+            }
+            for (combo in combos) {
+                Fx.run {
+                    if ("event" == mode) {
+                        val scene = Windows.byIndex(null).scene
+                        val target: EventTarget = if (Targets.hasTarget(p)) Targets.resolve(p) else scene.focusOwner ?: scene.root
+                        human.asAgent { fireKeys(target, combo) }
+                    } else {
+                        val r = robot()
+                        for (c in combo) r.keyPress(c)
+                        for (i in combo.indices.reversed()) r.keyRelease(combo[i])
+                    }
+                }
+            }
+            settle(p)
+            out = Fx.call {
+                val o = Json.obj()
+                o.put("typed", combos.size)
+                o.put("mode", mode)
+                val focus = Windows.byIndex(null).scene.focusOwner
+                if (focus != null) {
+                    o.setNode("focusedAfter", Targets.summary(LogicalTree.owner(focus) ?: focus))
+                }
+                o
+            }
+        } finally {
+            conflicts = human.close(bracket)
+        }
+        out.put("conflicts", conflicts)
+        return out
+    }
+
+    /** `[{code, modifiers?}]` to key chords (modifiers first, main key last). */
+    internal fun parseCombos(keys: com.fasterxml.jackson.databind.JsonNode): List<List<KeyCode>> {
         if (!keys.isArray || keys.isEmpty) {
             throw FcpException(Fcp.Error.BAD_REQUEST, "keys must be a non-empty array of {code, modifiers?}")
         }
@@ -186,26 +248,32 @@ internal object Interaction {
             combo.add(keyCode(k.path("code").asText()))
             combos.add(combo)
         }
-        if (Targets.hasTarget(p)) {
-            Fx.run { Targets.resolve(p).requestFocus() }
-        }
-        for (combo in combos) {
-            Fx.run {
-                val r = robot()
-                for (c in combo) r.keyPress(c)
-                for (i in combo.indices.reversed()) r.keyRelease(combo[i])
-            }
-        }
-        settle(p)
-        return Fx.call {
-            val out = Json.obj()
-            out.put("typed", combos.size)
-            val scene = Windows.byIndex(null).scene
-            val focus = scene.focusOwner
-            if (focus != null) {
-                out.setNode("focusedAfter", Targets.summary(LogicalTree.owner(focus) ?: focus))
-            }
-            out
+        return combos
+    }
+
+    /** Fires KEY_PRESSED, KEY_TYPED (printable, no ctrl/alt/meta) and KEY_RELEASED for one chord at [target]. FX thread. */
+    internal fun fireKeys(target: EventTarget, combo: List<KeyCode>) {
+        val code = combo.last()
+        val mods = combo.dropLast(1)
+        val shift = KeyCode.SHIFT in mods
+        val ctrl = KeyCode.CONTROL in mods
+        val alt = KeyCode.ALT in mods
+        val meta = KeyCode.META in mods || KeyCode.COMMAND in mods
+        fun key(type: javafx.event.EventType<KeyEvent>, ch: String, text: String, c: KeyCode) =
+            Event.fireEvent(target, KeyEvent(target, target, type, ch, text, c, shift, ctrl, alt, meta))
+        key(KeyEvent.KEY_PRESSED, KeyEvent.CHAR_UNDEFINED, code.getName(), code)
+        val ch = if (ctrl || alt || meta) null else typedChar(code, shift)
+        if (ch != null) key(KeyEvent.KEY_TYPED, ch, "", KeyCode.UNDEFINED)
+        key(KeyEvent.KEY_RELEASED, KeyEvent.CHAR_UNDEFINED, code.getName(), code)
+    }
+
+    private fun typedChar(code: KeyCode, shift: Boolean): String? {
+        val n = code.name
+        return when {
+            n.length == 1 && n[0] in 'A'..'Z' -> if (shift) n else n.lowercase(Locale.ROOT)
+            n.startsWith("DIGIT") || n.startsWith("NUMPAD") && n.length == 7 -> n.last().toString()
+            code == KeyCode.SPACE -> " "
+            else -> null
         }
     }
 
@@ -233,7 +301,22 @@ internal object Interaction {
     fun setText(p: ObjectNode): ObjectNode {
         val text = p.path("text").asText("")
         val clearFirst = p.path("clearFirst").asBoolean(true)
-        val out = Fx.call {
+        val human = AgentRuntime.current().human
+        val bracket = human.open(false)
+        val out: ObjectNode
+        val conflicts: Int
+        try {
+            out = setTextOnce(p, text, clearFirst)
+            settle(p)
+        } finally {
+            conflicts = human.close(bracket)
+        }
+        out.put("mode", "event").put("conflicts", conflicts)
+        return out
+    }
+
+    private fun setTextOnce(p: ObjectNode, text: String, clearFirst: Boolean): ObjectNode {
+        return Fx.call {
             val node = Targets.resolve(p)
             val input: TextInputControl? = when {
                 node is TextInputControl -> node
@@ -262,8 +345,6 @@ internal object Interaction {
             o.put("valueAfter", input.text)
             o
         }
-        settle(p)
-        return out
     }
 
     /** Lets robot-injected events reach the FX thread before the next read (agent-side settle). */
