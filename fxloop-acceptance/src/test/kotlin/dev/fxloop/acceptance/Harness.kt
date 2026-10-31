@@ -36,7 +36,8 @@ class Harness(
         val headless = headlessOverride ?: System.getenv("FXLOOP_ACCEPTANCE_HEADLESS") ?: "xvfb"
         val config = Config(
             projectDir = project,
-            buildCmd = repo.resolve("mvnw").toString(),
+            // Maven apps use the repo wrapper; Gradle apps find their own gradlew (wrapper preference, PRD 03 §2)
+            buildCmd = if (Files.exists(project.resolve("pom.xml"))) repo.resolve("mvnw").toString() else null,
             headless = headless.takeIf { it != "none" },
             appArgs = appArgs,
             webview = webview,
@@ -104,9 +105,9 @@ class Harness(
             val src = repo.resolve("sample-apps/$app")
             val dst = Files.createTempDirectory("fxloop-acceptance-")
             Files.walk(src).use { s ->
-                s.asSequence().filter { !src.relativize(it).startsWith("target") }.forEach {
+                s.asSequence().filter { rel -> listOf("target", "build", ".gradle").none { src.relativize(rel).startsWith(it) } }.forEach {
                     val t = dst.resolve(src.relativize(it).toString())
-                    if (Files.isDirectory(it)) Files.createDirectories(t) else Files.copy(it, t, StandardCopyOption.REPLACE_EXISTING)
+                    if (Files.isDirectory(it)) Files.createDirectories(t) else Files.copy(it, t, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES)
                 }
             }
             val pom = dst.resolve("pom.xml")

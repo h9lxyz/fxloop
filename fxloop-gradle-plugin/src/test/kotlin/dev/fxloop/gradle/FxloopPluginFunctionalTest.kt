@@ -75,22 +75,22 @@ class FxloopPluginFunctionalTest {
         assertThat(r.output).contains("FXLoop: mainClass=demo.Launcher")
 
         val d = descriptor()
-        assertEquals("gradle", d.buildTool())
-        assertEquals("demo.Launcher", d.mainClass())
-        assertNull(d.mainModule())
-        assertEquals(real("build/classes/java/main"), d.outputDir())
-        assertThat(d.classpath()).anyMatch { it.contains("javafx-controls-21.0.13-linux.jar") }
-        assertThat(d.classpath()).anyMatch { it.contains("javafx-base-21.0.13-linux.jar") }
-        assertThat(d.classpath()).doesNotContain(d.outputDir())
-        assertThat(d.classpath()).contains(real("build/resources/main"))
-        assertTrue(d.classpath().all { Path.of(it).isAbsolute })
-        assertThat(d.modulePath()).isEmpty()
-        assertThat(d.addModules()).isEmpty()
-        assertThat(d.sourceRoots()).containsExactly(real("src/main/java"))
-        assertThat(d.resourceRoots()).containsExactly(real("src/main/resources"))
-        assertEquals(project.toRealPath().toString(), d.workingDir())
-        assertEquals(Runtime.version().feature().toString(), d.release())
-        assertTrue(!d.annotationProcessors())
+        assertEquals("gradle", d.buildTool)
+        assertEquals("demo.Launcher", d.mainClass)
+        assertNull(d.mainModule)
+        assertEquals(real("build/classes/java/main"), d.outputDir)
+        assertThat(d.classpath).anyMatch { it.contains("javafx-controls-21.0.13-linux.jar") }
+        assertThat(d.classpath).anyMatch { it.contains("javafx-base-21.0.13-linux.jar") }
+        assertThat(d.classpath).doesNotContain(d.outputDir)
+        assertThat(d.classpath).contains(real("build/resources/main"))
+        assertTrue(d.classpath.all { Path.of(it).isAbsolute })
+        assertThat(d.modulePath).isEmpty()
+        assertThat(d.addModules).isEmpty()
+        assertThat(d.sourceRoots).containsExactly(real("src/main/java"))
+        assertThat(d.resourceRoots).containsExactly(real("src/main/resources"))
+        assertEquals(project.toRealPath().toString(), d.workingDir)
+        assertEquals(Runtime.version().feature().toString(), d.release)
+        assertTrue(!d.annotationProcessors)
     }
 
     @Test
@@ -98,7 +98,7 @@ class FxloopPluginFunctionalTest {
         buildFile()
         write("src/main/java/demo/DemoApp.java", app("DemoApp"))
         runner("fxloopPrepare").build()
-        assertEquals("demo.DemoApp", descriptor().mainClass())
+        assertEquals("demo.DemoApp", descriptor().mainClass)
     }
 
     @Test
@@ -129,9 +129,9 @@ class FxloopPluginFunctionalTest {
         write("src/main/java/demo/AppTwo.java", app("AppTwo"))
         runner("fxloopPrepare").build()
         val d = descriptor()
-        assertEquals("demo.AppTwo", d.mainClass())
-        assertThat(d.jvmArgs()).containsExactly("-Xmx64m")
-        assertThat(d.appArgs()).containsExactly("--seed")
+        assertEquals("demo.AppTwo", d.mainClass)
+        assertThat(d.jvmArgs).containsExactly("-Xmx64m")
+        assertThat(d.appArgs).containsExactly("--seed")
     }
 
     @Test
@@ -145,7 +145,7 @@ class FxloopPluginFunctionalTest {
         write("src/main/java/demo/AppOne.java", app("AppOne"))
         write("src/main/java/demo/AppTwo.java", app("AppTwo"))
         runner("fxloopPrepare").build()
-        assertEquals("demo.AppOne", descriptor().mainClass())
+        assertEquals("demo.AppOne", descriptor().mainClass)
     }
 
     @Test
@@ -157,10 +157,10 @@ class FxloopPluginFunctionalTest {
         assertThat(second.output).contains("Reusing configuration cache")
 
         val d = descriptor()
-        assertNull(d.mainModule())
-        assertThat(d.modulePath()).anyMatch { it.contains("javafx-controls-21.0.13-linux.jar") }
-        assertThat(d.addModules()).contains("javafx.controls", "javafx.base", "javafx.graphics")
-        assertThat(d.classpath()).noneMatch { it.contains("javafx-") }
+        assertNull(d.mainModule)
+        assertThat(d.modulePath).anyMatch { it.contains("javafx-controls-21.0.13-linux.jar") }
+        assertThat(d.addModules).contains("javafx.controls", "javafx.base", "javafx.graphics")
+        assertThat(d.classpath).noneMatch { it.contains("javafx-") }
     }
 
     @Test
@@ -168,7 +168,7 @@ class FxloopPluginFunctionalTest {
         buildFile("tasks.withType<JavaCompile> { options.release = 17 }")
         write("src/main/java/demo/DemoApp.java", app("DemoApp"))
         runner("fxloopPrepare").build()
-        assertEquals("17", descriptor().release())
+        assertEquals("17", descriptor().release)
     }
 
     @Test
