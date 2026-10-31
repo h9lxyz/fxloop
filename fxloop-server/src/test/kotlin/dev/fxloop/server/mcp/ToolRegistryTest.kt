@@ -38,7 +38,7 @@ class ToolRegistryTest {
             "fx_set_property", "fx_take_screenshot", "fx_reload", "fx_reload_fxml", "fx_get_journal", "fx_describe_at",
             "fx_lint_fxml", "fx_get_node_details", "fx_connect_existing", "fx_set_watch_mode", "fx_compare_screenshots",
             "fx_get_screenshot", "fx_lint_visual", "fx_attach", "fx_export_test", "fx_explain_property", "fx_explain_style",
-            "fx_explain_layout", "fx_eval_js", "fx_capture_states")
+            "fx_explain_layout", "fx_eval_js", "fx_capture_states", "fx_suggest_override", "fx_open_inspector")
         val specs = reg.toMcp()
         assertThat(specs).allSatisfy { assertThat(it.tool().annotations().openWorldHint()).isFalse() }
         assertThat(specs.first { it.tool().name() == "fx_get_scene_graph" }.tool().annotations().readOnlyHint()).isTrue()

@@ -34,6 +34,8 @@ _Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-ref
 | [`fx_attach`](#fx_attach) | write | Attach to JVM |
 | [`fx_explain_property`](#fx_explain_property) | read | Explain property |
 | [`fx_explain_style`](#fx_explain_style) | read | Explain style |
+| [`fx_suggest_override`](#fx_suggest_override) | read | Suggest CSS override |
+| [`fx_open_inspector`](#fx_open_inspector) | read | Open CSS inspector |
 | [`fx_explain_layout`](#fx_explain_layout) | read | Explain layout |
 | [`fx_eval_js`](#fx_eval_js) | write | Evaluate JavaScript |
 
@@ -84,7 +86,7 @@ Uncaught exceptions captured on the JavaFX Application Thread (class, message, t
 
 ## fx_get_scene_graph
 
-Bounded JSON of the logical scene graph of a window (or subtree): h (handle), path, type, fxId, styleClass, text, value, visible/disabled/focused, boundsScreen, kids. Virtualized controls report itemCount and visibleCells only. Skin internals of built-in controls are omitted.
+Bounded JSON of the logical scene graph of a window (or subtree): h (handle), path, type, fxId, styleClass, text, value, visible (only when false), disabled/focused (only when true), boundsScreen, kids. Output is budgeted (depth, nodes, ~56 KB) with {truncated:true} markers. Virtualized controls report itemCount and visibleCells only. Skin internals of built-in controls are omitted unless skin=true.
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -93,6 +95,7 @@ Bounded JSON of the logical scene graph of a window (or subtree): h (handle), pa
 | `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
 | `rootHandle` | integer |  | Subtree root handle |
+| `skin` | boolean |  | Include skin (control-internal) nodes; they are addressed by handle |
 | `maxDepth` | integer |  | Depth budget (default 12) |
 | `maxNodes` | integer |  | Node budget (default 400) |
 
@@ -357,7 +360,7 @@ Why does a property have its value? value, type, bound, binding dependency tree 
 
 ## fx_explain_style
 
-CSS-styled properties of a node with their origin (USER_AGENT/AUTHOR/INLINE/USER), inline style, style classes, pseudo-classes and candidate stylesheets along the parent chain. Paginated.
+CSS-styled properties of a node with their origin (USER_AGENT/AUTHOR/INLINE/USER), inline style, style classes, pseudo-classes and candidate stylesheets along the parent chain. With rules (default) each property also names the winner rule (selector, file:line), the overridden rules with reasons (all of them when property is given) and blockers that stop an override (inline style, !important, code-set value). Paginated.
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -368,6 +371,32 @@ CSS-styled properties of a node with their origin (USER_AGENT/AUTHOR/INLINE/USER
 | `property` | string |  | One CSS property, e.g. -fx-text-fill |
 | `limit` | integer |  | Page size |
 | `offset` | integer |  | Page offset |
+| `rules` | boolean |  | Rule-level cascade: winner rule with file:line, overridden rules with reasons, blockers (default true). false = origin-only output as before |
+
+## fx_suggest_override
+
+Suggest the smallest CSS rule that makes a property of a node take effect: selector, target file, whether !important is needed, a ready-to-paste snippet, why, and blockers (inline style, code-set value). Does not edit anything; apply it with your editor, then fx_reload.
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `handle` | integer |  | Session node handle (from fx_get_scene_graph / fx_find_nodes) |
+| `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
+| `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
+| `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
+| `property` | string | yes | CSS property, e.g. -fx-background-color |
+| `value` | string |  | Desired value, e.g. #ff0000 |
+| `file` | string |  | Stylesheet to put the rule in (project-relative); default: best match |
+
+## fx_open_inspector
+
+For the human developer: opens the browser CSS inspector (live scene tree, styles with rule file:line, layout) on the running app, optionally preselecting a node. Returns the URL and whether a browser was opened (FXLOOP_BROWSER=none disables opening). Do not call it to inspect yourself; use fx_explain_style.
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `handle` | integer |  | Session node handle (from fx_get_scene_graph / fx_find_nodes) |
+| `path` | string |  | Stable node path, e.g. Stage[0]/Scene/VBox/Button#addBtn or Stage[0]//Button#addBtn |
+| `query` | string |  | CSS selector that must match exactly one node, e.g. #addBtn |
+| `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
 
 ## fx_explain_layout
 

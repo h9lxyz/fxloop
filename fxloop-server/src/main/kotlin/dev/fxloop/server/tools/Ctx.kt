@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import dev.fxloop.protocol.Fcp
 import dev.fxloop.protocol.FcpException
 import dev.fxloop.protocol.Json
+import dev.fxloop.protocol.Tokens
 import dev.fxloop.server.Config
 import dev.fxloop.server.app.AppSession
 import dev.fxloop.server.loop.Journal
@@ -13,6 +14,7 @@ import dev.fxloop.server.loop.Reloader
 import dev.fxloop.server.loop.SceneDiff
 import dev.fxloop.server.loop.WatchMode
 import dev.fxloop.server.mcp.ToolResult
+import dev.fxloop.server.see.Inspector
 import dev.fxloop.server.see.ScreenStore
 import dev.fxloop.server.see.Viewer
 import dev.fxloop.server.see.Visuals
@@ -30,8 +32,46 @@ class Ctx(val config: Config) {
             javaTier = watchModeName() == "all", consume = false)) { Json.obj() }
     }
     var viewer: Viewer? = null
+    val inspector = Inspector({ ensureViewer() }, config.browserEnabled)
+
+    /** Builds the viewer with the inspector API wired to [session] and starts it (port 0 = ephemeral). */
+    @Synchronized
+    fun ensureViewer(port: Int = 0): Viewer = viewer ?: Viewer(port, Tokens.generate(), visuals.store,
+        api = { m, p, t -> session.call(m, p, t) }, connected = { session.connected }, editorUrl = config.editorUrl).also {
+        it.start()
+        viewer = it
+        log.info("live viewer: {}", it.url())
+    }
+
+    private fun publish(event: String, json: JsonNode) {
+        viewer?.publish(event, json)
+    }
+
+    private fun onAgentEvent(event: String, payload: JsonNode) {
+        when (event) {
+            Fcp.Event.INSPECTOR_REQUESTED -> inspector.open(payload.path("h").takeIf { it.isInt }?.asInt(), payload.path("path").asText(null))
+            Fcp.Event.HUMAN_PICK -> {
+                publish("pick", payload)
+                if ((viewer?.subscriberCount("inspect") ?: 0) == 0) {
+                    inspector.open(payload.path("h").takeIf { it.isInt }?.asInt(), payload.path("path").asText(null))
+                }
+            }
+        }
+    }
 
     init {
+        session.onAgentEvent { e, p -> runCatching { onAgentEvent(e, p) }.onFailure { log.debug("agent event {} failed", e, it) } }
+        reloader.onReloaded { r ->
+            publish("reload", Json.obj {
+                val files = putArray("files")
+                val names = putArray("tiers")
+                r.path("tiersApplied").forEach { t ->
+                    names.add(t.path("tier").asText())
+                    t.path("files").forEach { f -> if (files.none { it.asText() == f.asText() }) files.add(f.asText()) }
+                }
+            })
+        }
+
         session.onLaunched {
             reloader.checkpoint()
             applyWatchMode(watch.mode.takeIf { it != "off" } ?: config.watchMode)

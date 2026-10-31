@@ -137,7 +137,7 @@ class AppSession(val config: Config) {
         // G10: JetBrains Runtime enhanced redefinition (structural hot-swaps); only meaningful on JBR via FXLOOP_JAVA_HOME
         if (config.jbr) cmd += "-XX:+AllowEnhancedClassRedefinition"
         cmd += "-javaagent:${agentJar()}=handshake=$handshake,tokenFile=$tokenFile,state=${dir.resolve("state.json")}," +
-            "logs=${config.captureAppLogs},ownerPid=${ProcessHandle.current().pid()}"
+            "logs=${config.captureAppLogs},bar=${if (config.barEnabled) "on" else "off"},ownerPid=${ProcessHandle.current().pid()}"
         val classpath = buildList {
             if (d.mainModule == null) add(d.outputDir)
             addAll(d.classpath)
@@ -197,12 +197,20 @@ class AppSession(val config: Config) {
         c.request(Fcp.Method.GET_UI_ERRORS, Json.obj { put("sinceSeq", 0) }).path("errors").forEach(errors::add)
     }
 
+    private val agentListeners = java.util.concurrent.CopyOnWriteArrayList<(String, JsonNode) -> Unit>()
+
+    /** Registers a listener for every agent event (runs on the FCP reader thread; exceptions are swallowed). */
+    fun onAgentEvent(listener: (String, JsonNode) -> Unit) {
+        agentListeners += listener
+    }
+
     private fun onEvent(event: String, payload: JsonNode?) {
         if (payload == null) return
         when (event) {
             Fcp.Event.UI_ERROR -> errors.add(payload)
             Fcp.Event.APP_LOG -> appLogs.add(payload)
         }
+        for (l in agentListeners) runCatching { l(event, payload) }
     }
 
     @Synchronized

@@ -179,12 +179,46 @@ object WhyTools {
         }
         reg.tool("fx_explain_style", "Explain style", Kind.READ,
             "CSS-styled properties of a node with their origin (USER_AGENT/AUTHOR/INLINE/USER), inline style, style " +
-                "classes, pseudo-classes and candidate stylesheets along the parent chain. Paginated.",
+                "classes, pseudo-classes and candidate stylesheets along the parent chain. With rules (default) each property " +
+                "also names the winner rule (selector, file:line), the overridden rules with reasons (all of them when " +
+                "property is given) and blockers that stop an override (inline style, !important, code-set value). Paginated.",
             Schema.obj().target().str("property", "One CSS property, e.g. -fx-text-fill").integer("limit", "Page size", 1, 200)
-                .integer("offset", "Page offset")) { a ->
+                .integer("offset", "Page offset")
+                .bool("rules", "Rule-level cascade: winner rule with file:line, overridden rules with reasons, blockers (default true). false = origin-only output as before")) { a ->
             val r = s.call(Fcp.Method.EXPLAIN_STYLE, a) as ObjectNode
-            ok(r["items"].joinToString("\n") { "${it["cssProperty"].asText()} = ${it["value"]} [${it["origin"].asText()}]" }
+            ok(r["items"].joinToString("\n") { styleLine(it) }
                 .ifEmpty { "no CSS-styled properties" } + "\nstylesheets: " + r["candidateStylesheets"].joinToString { it["url"].asText() }, r)
+        }
+        reg.tool("fx_suggest_override", "Suggest CSS override", Kind.READ,
+            "Suggest the smallest CSS rule that makes a property of a node take effect: selector, target file, whether " +
+                "!important is needed, a ready-to-paste snippet, why, and blockers (inline style, code-set value). Does not " +
+                "edit anything; apply it with your editor, then fx_reload.",
+            Schema.obj().target().str("property", "CSS property, e.g. -fx-background-color")
+                .str("value", "Desired value, e.g. #ff0000").str("file", "Stylesheet to put the rule in (project-relative); default: best match")
+                .required("property")) { a ->
+            val r = s.call(Fcp.Method.CSS_SUGGEST, a) as ObjectNode
+            ok(buildString {
+                append(r.path("snippet").asText(""))
+                r.path("why").asText(null)?.let { append("\nwhy: ").append(it) }
+                r.path("file").asText(null)?.let { append("\nfile: ").append(it) }
+                r.path("blockers").forEach { append("\nblocker: ").append(blockerText(it)) }
+            }, r)
+        }
+        reg.tool("fx_open_inspector", "Open CSS inspector", Kind.READ,
+            "For the human developer: opens the browser CSS inspector (live scene tree, styles with rule file:line, " +
+                "layout) on the running app, optionally preselecting a node. Returns the URL and whether a browser was " +
+                "opened (FXLOOP_BROWSER=none disables opening). Do not call it to inspect yourself; use fx_explain_style.",
+            Schema.obj().target()) { a ->
+            var h: Int? = null
+            var path: String? = null
+            if (a.has("handle") || a.has("path") || a.has("query")) {
+                s.ensureStarted()
+                val t = (s.call(Fcp.Method.NODE_DETAILS, a) as ObjectNode).let { it["target"] ?: it }
+                h = t.path("h").takeIf { it.isInt }?.asInt()
+                path = t.path("path").asText(null)
+            }
+            val r = ctx.inspector.open(h, path)
+            ok((if (r["opened"].asBoolean()) "opened " else "inspector at ") + r["url"].asText(), r)
         }
         reg.tool("fx_explain_layout", "Explain layout", Kind.READ,
             "Why is it there/that size? layout/parent/screen bounds, insets, min/pref/max sizes, parent constraints " +
@@ -203,5 +237,22 @@ object WhyTools {
                 ok("result: ${r["result"]}", r)
             }
         }
+    }
+}
+
+private fun blockerText(b: com.fasterxml.jackson.databind.JsonNode) =
+    "${b.path("kind").asText()}: ${b.path("cause").asText()}" + b.path("next").asText(null)?.let { " -> $it" }.orEmpty()
+
+/** One text line per explain-style item: rule-level when the agent sent a winner, origin-only otherwise. */
+internal fun styleLine(it: com.fasterxml.jackson.databind.JsonNode): String {
+    val base = "${it["cssProperty"].asText()} = ${it["value"]} [${it["origin"].asText()}]"
+    val w = it.path("winner")
+    if (!w.isObject) return base
+    val where = w.path("file").asText(null)?.let { f -> " ($f${if (w.has("line")) ":" + w.path("line").asInt() else ""})" }.orEmpty()
+    val n = if (it.has("overridden")) it.path("overridden").size() else it.path("overriddenCount").asInt()
+    return buildString {
+        append(base).append(" <- ").append(w.path("selector").asText("?")).append(where)
+        if (n > 0) append(" (+$n overridden)")
+        it.path("blockers").forEach { b -> append("\n    blocker ").append(blockerText(b)) }
     }
 }

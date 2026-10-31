@@ -19,6 +19,9 @@ The server reads `FXLOOP_*` environment variables (set them in the MCP client's 
 | `FXLOOP_APP_LOGS` / `--app-logs` | `false` | Capture app `java.util.logging` records (incl. SLF4J via JUL bridge) into `fx_get_logs source=app`. |
 | `FXLOOP_WEBVIEW` / `--webview` | `false` | Enables `fx_eval_js` (otherwise `DISABLED`). |
 | `FXLOOP_VIEWER` / `--viewer` | off | Port for the live screenshot viewer (token-protected HTTP). |
+| `FXLOOP_BAR` / `--bar` | `auto` | Dev bar popup in the launched app (`-javaagent …,bar=on\|off`): `on`, `off`, or `auto` = on unless `FXLOOP_HEADLESS` is set. Its inspector button opens the browser CSS inspector. |
+| `FXLOOP_EDITOR_URL` / `--editor-url` | unset | Template for "open in editor" links in the inspector, e.g. `idea://open?file={file}&line={line}`; returned as `editorUrl` by `/api/styles`. |
+| `FXLOOP_BROWSER` / `--browser` | `auto` | `none` stops the server from opening a browser for `fx_open_inspector` and dev-bar picks (the URL is still returned). |
 | `FXLOOP_WATCH` / `--watch` | `css-only` | Initial file-watch mode: `css-only`, `all` (also Java/FXML), `off`. Change at runtime with `fx_set_watch_mode`. |
 | `FXLOOP_EXTERNAL_COMPILE` / `--external-compile` | `false` | The IDE/build tool compiles; the server HotSwaps changed classes from the output dir instead of running its own javac. |
 | `FXLOOP_JBR` / `--jbr` | `false` | Opt into JetBrains Runtime enhanced redefinition: adds `-XX:+AllowEnhancedClassRedefinition` to the launch so structural hot-swaps are attempted before restarting; marks hotswap results `jbrEnhanced`. Requires launching on JBR (`FXLOOP_JAVA_HOME`). See [limitations](limitations.md). |
