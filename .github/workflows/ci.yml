@@ -56,7 +56,10 @@ jobs:
           cache: maven
       - name: Install Xvfb
         run: sudo apt-get update && sudo apt-get install -y xvfb
+      - uses: gradle/actions/setup-gradle@v6
       - run: ./mvnw -B install -DskipTests
+      # The Gradle and Kotlin lane tests resolve the dev.fxloop plugin from mavenLocal.
+      - run: ./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin publishToMavenLocal
       - run: ./mvnw -B -Pacceptance verify -pl fxloop-acceptance  # the harness starts its own xvfb-run per launch
       - uses: actions/upload-artifact@v7
         if: failure()
