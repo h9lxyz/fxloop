@@ -3,6 +3,12 @@ updates:
   - package-ecosystem: maven
     directory: "/"
     schedule: { interval: weekly }
+    # The JavaFX 21 compile baseline is deliberate (JDK 17 apps); 25/27 are covered by CI lanes. Patch bumps only.
+    ignore:
+      - dependency-name: "org.openjfx:*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.testfx:openjfx-monocle"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: gradle
     directory: "/fxloop-gradle-plugin"
     schedule: { interval: weekly }
