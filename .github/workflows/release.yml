@@ -23,7 +23,7 @@ jobs:
           server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # Requires publishing configuration (distributionManagement or a central publishing plugin) in the POMs.
       - name: Maven deploy (signed, sources, javadoc, SBOM)
