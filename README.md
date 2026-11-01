@@ -155,7 +155,7 @@ back. Diffing, compiling, journaling and test generation happen in the server.
 |---|---|
 | **Agents** | Claude Code, Cursor, VS Code (Copilot agent mode), Codex CLI, Gemini CLI, any stdio MCP client |
 | **Apps** | Java or Kotlin, Maven or Gradle, FXML or code-built UI, classpath or module path |
-| **Runtime** | JDK 17+, built and tested against JavaFX 21. Launch on JetBrains Runtime and structural hot-swaps are enabled automatically |
+| **Runtime** | JDK 17+ with JavaFX 21, 25 or 27 (your app's own; 25 needs JDK 23+, 27 needs JDK 25+), all tested in CI. Launch on JetBrains Runtime and structural hot-swaps are enabled automatically |
 | **Displays** | A real desktop, or headless on Xvfb or Monocle for devcontainers, SSH and CI ([templates](docs/ci/README.md)) |
 | **Ways to connect** | Launched by the server, run by you (`fxloop:run`, `fxloopRun`), started from your IDE with `fxloop-dev`, or attached to any local JavaFX JVM by pid |
 

@@ -11,8 +11,11 @@ import java.nio.file.Path
  * `openjfx-monocle` jar; `xvfb` wraps the launch in `xvfb-run` (handled by [AppSession]).
  */
 object Headless {
-    /** Our compatibility table: JavaFX feature line → openjfx-monocle version. Missing line → use xvfb. */
-    val MONOCLE = mapOf(17 to "17.0.10", 21 to "21.0.2")
+    /**
+     * Our compatibility table: JavaFX feature line → openjfx-monocle version. Missing line → use xvfb.
+     * There is no Monocle 25 or 27; 21.0.2 runs FXLoop's own headless suites on JavaFX 25 and 27 (CI lanes).
+     */
+    val MONOCLE = mapOf(17 to "17.0.10", 21 to "21.0.2", 25 to "21.0.2", 27 to "21.0.2")
 
     private val FX_JAR = Regex("""javafx-graphics-(\d+)[.\d]*.*\.jar$""")
 

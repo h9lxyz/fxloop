@@ -5,14 +5,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import dev.fxloop.agent.NodePath
 import dev.fxloop.protocol.Json
 import java.util.IdentityHashMap
-import javafx.css.CompoundSelector
 import javafx.css.CssMetaData
 import javafx.css.CssParser
 import javafx.css.Declaration
 import javafx.css.ParsedValue
+import javafx.css.PseudoClass
 import javafx.css.Rule
 import javafx.css.Selector
-import javafx.css.SimpleSelector
 import javafx.css.StyleOrigin
 import javafx.css.Styleable
 import javafx.css.StyleableProperty
@@ -223,10 +222,9 @@ internal object Specificity {
         var ids = 0
         var classes = 0
         var types = 0
-        val parts = if (sel is CompoundSelector) sel.selectors else listOf(sel as SimpleSelector)
-        for (s in parts) {
+        for (s in Selectors.parts(sel)) {
             if (!s.id.isNullOrEmpty()) ids++
-            classes += s.styleClasses.size + s.createMatch().pseudoClasses.size
+            classes += s.styleClasses.size + s.pseudoClasses.size
             if (s.name.isNotEmpty() && s.name != "*") types++
         }
         return "$ids,$classes,$types"
@@ -472,7 +470,35 @@ internal class Explainer(val node: Node, val engine: Engine) {
 
 /** Selector diagnostics for blockers and suggestions. */
 internal object Selectors {
-    fun parts(sel: Selector): List<SimpleSelector> = if (sel is CompoundSelector) sel.selectors else listOf(sel as SimpleSelector)
+    /**
+     * One simple selector of a (possibly compound) selector. JavaFX 25 moved `SimpleSelector` and
+     * `CompoundSelector` out of the public API, so the parts are read back from `Selector.toString()`,
+     * whose shape (`Type.class#id:pseudo`, joined by `" "` or `">"`) is the same in JavaFX 21 to 27.
+     */
+    class Part(val text: String, val name: String, val id: String?, val styleClasses: List<String>, val pseudoClasses: List<PseudoClass>) {
+        override fun toString() = text
+    }
+
+    private val SEGMENT = Regex("([.#:])([^.#:]+)")
+
+    fun parts(sel: Selector): List<Part> =
+        sel.toString().split(' ', '>').filter { it.isNotEmpty() }.map { part(it) }
+
+    fun part(text: String): Part {
+        val name = text.takeWhile { it != '.' && it != '#' && it != ':' }
+        var id: String? = null
+        val classes = ArrayList<String>()
+        val pseudo = ArrayList<PseudoClass>()
+        for (m in SEGMENT.findAll(text, name.length)) {
+            val v = m.groupValues[2]
+            when (m.groupValues[1]) {
+                "#" -> id = v
+                "." -> classes += v
+                else -> pseudo += PseudoClass.getPseudoClass(v)
+            }
+        }
+        return Part(text, name, id, classes, pseudo)
+    }
 
     /** First reason [sel] does not match [n] (rightmost part first), or `null` when it matches. */
     fun failure(sel: Selector, n: Node): String? {
@@ -482,7 +508,7 @@ internal object Selectors {
         }
         if (!last.id.isNullOrEmpty() && last.id != n.id) return "missing id #${last.id}" + (n.id?.let { " (node id is #$it)" } ?: "")
         last.styleClasses.firstOrNull { it !in n.styleClass }?.let { return "missing style class '$it'" }
-        val pseudo = last.createMatch().pseudoClasses
+        val pseudo = last.pseudoClasses
         pseudo.firstOrNull { it !in n.pseudoClassStates }?.let { return "pseudo-class :${it.pseudoClassName} is not active" }
         if (sel.applies(n) && sel.stateMatches(n, n.pseudoClassStates)) return null
         val ancestors = parts(sel).dropLast(1).joinToString(" ") { Sheets.key(it.toString()) }
