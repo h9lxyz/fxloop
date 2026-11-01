@@ -136,8 +136,10 @@ class LiveDevAcceptanceTest {
             val needed = h.ok("fx_get_app_status")["actionNeeded"]
             assertThat(needed.any { it["kind"].asText() == "restart" }).describedAs(needed.toString()).isTrue()
 
-            // the developer presses the restart hotkey (injected as human keys)
-            humanKeys(h, "#tabs", "F5", "CONTROL", "SHIFT")
+            // the developer presses the restart hotkey (injected as human keys); the restart may kill the app before it answers
+            val keys = h.raw("fx_test_human_input", args("kind" to "keys", "query" to "#tabs",
+                "keys" to listOf(mapOf("code" to "F5", "modifiers" to listOf("CONTROL", "SHIFT")))))
+            if (keys.isError) assertThat(keys.structured?.path("code")?.asText()).describedAs(keys.text).isEqualTo("DISCONNECTED")
             var newPid = 0L
             await("restart with a new pid", 60_000) {
                 val st = h.ctx.session.status() // not fx_get_app_status: a NEW session state would auto-start a second app

@@ -13,6 +13,11 @@
   <name>FXLoop :: Agent</name>
   <description>Thin in-JVM agent: FX-thread bridge, scene graph, robot input, snapshots, reload hooks. Loaded via -javaagent, attach, or embedded via fxloop-dev.</description>
 
+  <properties>
+    <!-- CI's newer-JavaFX lanes test the agent separately (compiled against 21, run on the newer runtime). -->
+    <fxloop.agent.skipTests>false</fxloop.agent.skipTests>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>dev.fxloop</groupId>
@@ -130,6 +135,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
+          <skip>${fxloop.agent.skipTests}</skip>
           <systemPropertyVariables>
             <testfx.robot>glass</testfx.robot>
             <testfx.headless>true</testfx.headless>
