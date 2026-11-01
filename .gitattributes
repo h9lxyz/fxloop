@@ -1,0 +1,6 @@
+# LF everywhere, also in Windows checkouts: tests compare skills, docs and generated files byte for byte.
+* text=auto eol=lf
+# Windows scripts are committed with CRLF; leave them as they are.
+*.cmd -text
+*.bat -text
+*.jar binary
