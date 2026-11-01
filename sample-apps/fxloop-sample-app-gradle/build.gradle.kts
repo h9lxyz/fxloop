@@ -33,7 +33,7 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("org.testfx:testfx-junit5:4.0.18")
-    testImplementation("org.hamcrest:hamcrest:2.2") // TestFX API exposes Matcher
+    testImplementation("org.hamcrest:hamcrest:3.0") // TestFX API exposes Matcher
     testImplementation("org.testfx:openjfx-monocle:21.0.2")
 }
 
