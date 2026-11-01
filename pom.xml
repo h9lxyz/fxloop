@@ -50,7 +50,7 @@
     <!-- Compile Kotlin in the Maven JVM: no long-lived ~1 GB Kotlin daemons left behind by builds and tests. -->
     <kotlin.compiler.daemon>false</kotlin.compiler.daemon>
     <javafx.version>21.0.13</javafx.version>
-    <jackson.version>2.21.1</jackson.version>
+    <jackson.version>2.22.4</jackson.version>
     <mcp.version>2.1.0</mcp.version>
     <bytebuddy.version>1.18.16</bytebuddy.version>
     <directory-watcher.version>0.19.1</directory-watcher.version>
