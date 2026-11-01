@@ -283,10 +283,23 @@ class ViewerTest {
     fun rateCap429(@TempDir dir: Path) {
         viewer(dir, api = { _, _, _ -> Json.obj() }).use { v ->
             v.start()
-            val codes = (1..120).map { req("http://127.0.0.1:${v.port}/api/windows?t=tok").statusCode() }
-            assertThat(codes).contains(429)
-            assertThat(codes.first()).isEqualTo(200)
+            // One concurrent burst: sequential requests on a slow runner can stay under the 30/s refill rate.
+            val req = HttpRequest.newBuilder(URI.create("http://127.0.0.1:${v.port}/api/windows?t=tok")).build()
+            val codes = (1..120).map { http.sendAsync(req, HttpResponse.BodyHandlers.discarding()) }.map { it.get(10, TimeUnit.SECONDS).statusCode() }
+            assertThat(codes).contains(200, 429)
         }
+    }
+
+    @Test
+    fun tokenBucketBurstsThenRefills() {
+        var now = 0L
+        val bucket = Viewer.TokenBucket(3, 2) { now }
+        assertThat((1..4).map { bucket.tryTake() }).containsExactly(true, true, true, false)
+        now += 500_000_000
+        assertThat(bucket.tryTake()).isTrue()
+        assertThat(bucket.tryTake()).isFalse()
+        now += 10_000_000_000
+        assertThat((1..4).map { bucket.tryTake() }).containsExactly(true, true, true, false)
     }
 
     @Test

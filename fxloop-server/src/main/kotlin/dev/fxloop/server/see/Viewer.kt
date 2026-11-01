@@ -498,13 +498,13 @@ class Viewer(
     }
 
     /** Simple thread-safe token bucket: [capacity] burst, [perSec] refill. */
-    private class TokenBucket(private val capacity: Int, private val perSec: Int) {
+    internal class TokenBucket(private val capacity: Int, private val perSec: Int, private val clock: () -> Long = System::nanoTime) {
         private var tokens = capacity.toDouble()
-        private var last = System.nanoTime()
+        private var last = clock()
 
         @Synchronized
         fun tryTake(): Boolean {
-            val now = System.nanoTime()
+            val now = clock()
             tokens = minOf(capacity.toDouble(), tokens + (now - last) / 1e9 * perSec)
             last = now
             if (tokens < 1) return false

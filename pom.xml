@@ -307,6 +307,17 @@
   </build>
 
   <profiles>
+    <!-- Monocle 21.x is Java 21 bytecode; on a JDK 17 build the FX tests need the 17.x line. -->
+    <profile>
+      <id>monocle-jdk17</id>
+      <activation>
+        <jdk>[17,21)</jdk>
+      </activation>
+      <properties>
+        <monocle.version>17.0.10</monocle.version>
+      </properties>
+    </profile>
+
     <!-- Sample and gauntlet apps with their Monocle tests: not part of the default build; `./mvnw -Psamples install`. -->
     <profile>
       <id>samples</id>

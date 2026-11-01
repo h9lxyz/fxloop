@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import dev.fxloop.protocol.Fcp
 import dev.fxloop.protocol.FcpException
 import dev.fxloop.protocol.Json
+import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 import javafx.collections.FXCollections
 import javafx.scene.Node
@@ -356,7 +357,7 @@ class AgentFxTest {
     @Test
     fun optionsParsing() {
         val o = AgentOptions.parse("handshake=/tmp/h.json,token=abc,logs=true,fxmlHook=false")
-        assertThat(o.handshake.toString()).isEqualTo("/tmp/h.json")
+        assertThat(o.handshake).isEqualTo(Path.of("/tmp/h.json"))
         assertThat(o.token).isEqualTo("abc")
         assertThat(o.captureLogs).isTrue()
         assertThat(o.fxmlHook).isFalse()
