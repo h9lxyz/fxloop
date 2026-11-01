@@ -46,7 +46,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - run: ./mvnw -B install -DskipTests
       - run: ./mvnw -B -Pacceptance verify -pl fxloop-acceptance  # the harness starts its own xvfb-run per launch
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: acceptance-reports
