@@ -61,7 +61,7 @@ class ToolRegistryTest {
     fun `config reads env and cli flags`() {
         val c = Config.load(mapOf("FXLOOP_PROJECT_DIR" to "/tmp/x", "FXLOOP_JVM_ARGS" to "-Xmx1g \"-Da=b c\""),
             arrayOf("--headless=monocle", "--viewer=0"))
-        assertThat(c.projectDir).isEqualTo(Path.of("/tmp/x"))
+        assertThat(c.projectDir).isEqualTo(Path.of("/tmp/x").toAbsolutePath()) // on Windows: current drive
         assertThat(c.jvmArgs).containsExactly("-Xmx1g", "-Da=b c")
         assertThat(c.headless).isEqualTo("monocle")
         assertThat(c.viewerPort).isZero()
