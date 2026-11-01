@@ -148,6 +148,8 @@ internal object ViewState {
                     if (t.selectedProperty().isBound) "bound" else { t.isSelected = sel; null }
                 })
             }
+            // Node is sealed from JavaFX 25 on, which makes the compiler demand exhaustiveness.
+            else -> {}
         }
         selectionPart(n)?.let { parts.add(it) }
         if (LogicalTree.isVirtualized(n)) {

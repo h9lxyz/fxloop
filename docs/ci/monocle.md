@@ -10,6 +10,7 @@ Monocle must match the JavaFX feature line of the app. This is exactly what the 
 |---|---|
 | 17 | `17.0.10` |
 | 21 | `21.0.2` |
+| 25, 27 | `21.0.2` (no newer Monocle exists; CI runs FXLoop's headless suites with it on both) |
 | anything else | no known build: use `FXLOOP_HEADLESS=xvfb` (honest gap) |
 
 The line is read from the `javafx-graphics-<N>...jar` on the app's class/module path.

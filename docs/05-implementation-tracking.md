@@ -23,7 +23,10 @@ Statuses last reconciled against the code on 2026-10-31. The implementation lang
 | Packaging | maven-shade-plugin, maven-plugin-plugin, Gradle `java-gradle-plugin` | latest |
 | SBOM / formatting | cyclonedx-maven-plugin, spotless | latest |
 
-Baseline: Java 17 bytecode (`--release 17`), built and tested locally on JDK 25 + JavaFX 21.
+Baseline: Java 17 bytecode (`--release 17`), compiled against JavaFX 21. CI builds and tests JDK 17/21 on JavaFX 21 and
+JDK 25 on JavaFX 25.0.5 and 27.0.1 (`-Djavafx.version=…`), on Linux, macOS and Windows. Since JavaFX 25 the
+`SimpleSelector`/`CompoundSelector` classes are internal, so the CSS inspector reads selector parts from
+`Selector.toString()` instead.
 
 ---
 
