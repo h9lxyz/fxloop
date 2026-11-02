@@ -147,10 +147,13 @@ object CoreTools {
         reg.tool("fx_get_scene_graph", "Get scene graph", Kind.READ,
             "Bounded JSON of the logical scene graph of a window (or subtree): h (handle), path, type, fxId, styleClass, " +
                 "text, value, visible (only when false), disabled/focused (only when true), boundsScreen, kids. Output is budgeted " +
-                "(depth, nodes, ~56 KB) with {truncated:true} markers. Virtualized controls report itemCount and " +
-                "visibleCells only. Skin internals of built-in controls are omitted unless skin=true.",
+                "(depth, nodes, ~56 KB) with {truncated:true} markers. shown:false marks a node that is not rendered (it or an " +
+                "ancestor, e.g. an inactive tab or ribbon page, is hidden or transparent); it has no boundsScreen. User nodes " +
+                "hosted by built-in controls (graphics, cell graphics, tab/column graphics, a showing placeholder, the current " +
+                "page) are children. Virtualized controls report itemCount, visibleCells and excluded {reason:virtualized, count} " +
+                "for items without a rendered cell. Skin internals of built-in controls are omitted unless skin=true.",
             Schema.obj().target().integer("rootHandle", "Subtree root handle")
-                .bool("skin", "Include skin (control-internal) nodes; they are addressed by handle")
+                .bool("skin", "Include skin (control-internal) nodes; they carry skin:true and no path, so address them by handle")
                 .integer("maxDepth", "Depth budget (default 12)", 1, 64).integer("maxNodes", "Node budget (default 400)", 1, 5000)) { a ->
             s.ensureStarted()
             val r = s.call(Fcp.Method.GET_SCENE_GRAPH, a) as ObjectNode
@@ -160,7 +163,8 @@ object CoreTools {
 
         reg.tool("fx_find_nodes", "Find nodes", Kind.READ,
             "Find nodes by CSS selector (query, e.g. '#addBtn', '.button'), case-insensitive text contains (text), or " +
-                "simple type name (type). Searches all showing windows incl. popups unless windowIndex is set. Paginated.",
+                "simple type name (type). Searches all showing windows incl. popups unless windowIndex is set. Paginated. " +
+                "shown:false means not rendered (e.g. on an inactive tab or ribbon page); such hits have no boundsScreen.",
             Schema.obj().str("query", "CSS selector").str("text", "Text contains (case-insensitive)").str("type", "Simple class name, e.g. Button")
                 .integer("windowIndex", "Restrict to one window").integer("limit", "Page size (default 20)", 1, 200)
                 .integer("offset", "Page offset")) { a ->

@@ -212,6 +212,7 @@ internal object Introspect {
             else -> {}
         }
         val hints = out.putArray("hints")
+        NodeInfo.notShownReason(node)?.let { hints.add("not rendered ($it): the bounds above are stale") }
         if (!node.isManaged) hints.add("unmanaged node: ignored by parent layout, positioned by layoutX/Y only")
         if (node.translateX != 0.0 || node.translateY != 0.0) {
             hints.add("translate offset applied after layout — node appears shifted relative to its slot")

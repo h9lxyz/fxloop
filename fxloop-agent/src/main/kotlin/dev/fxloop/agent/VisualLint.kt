@@ -16,9 +16,14 @@ import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
 import javafx.scene.text.Text
 
-/** Computable visual heuristics complementing screenshots (PRD 04 §3.5). All findings carry `heuristic:true`. */
+/**
+ * Computable visual heuristics complementing screenshots (PRD 04 §3.5). All findings carry `heuristic:true`. The
+ * result also says how many logical nodes were `checked` and what was `excluded` on purpose (hidden subtrees, items
+ * of virtualized controls without a rendered cell), so a clean result is not mistaken for full coverage.
+ */
 internal object VisualLint {
     val ALL: Set<String> = setOf("textTruncated", "siblingOverlap", "zeroSizeVisible", "outOfScene", "lowContrast")
+    private const val MAX_EXCLUDED = 20
 
     fun lint(p: ObjectNode): ObjectNode {
         val checks = HashSet<String>()
@@ -28,10 +33,11 @@ internal object VisualLint {
             val scope = if (Targets.hasTarget(p)) Targets.resolve(p)
             else Windows.byIndex(p.intOrNull("windowIndex")).scene.root
             val findings = ArrayList<JsonNode>()
-            val nodes = NodePath.descendantsInclusive(scope)
+            val nodes = ArrayList<Node>()
+            val excluded = ArrayList<ObjectNode>()
+            if (NodeInfo.shown(scope)) collect(scope, nodes, excluded) else excluded.add(hidden(scope))
             val sceneBounds: Bounds = BoundingBox(0.0, 0.0, scope.scene.width, scope.scene.height)
             for (n in nodes) {
-                if (!treeVisible(n)) continue
                 if ("textTruncated" in checks && n is Labeled && truncated(n)) {
                     findings.add(
                         finding(
@@ -73,18 +79,39 @@ internal object VisualLint {
             }
             val out = Paging.page(findings, p.path("offset").asInt(0), minOf(200, p.path("limit").asInt(50)))
             out.put("scope", NodePath.of(scope))
+            out.put("checked", nodes.size)
+            val ex = out.putArray("excluded")
+            excluded.sortedByDescending { it.path("count").asInt() }.take(MAX_EXCLUDED).forEach { ex.add(it) }
+            if (excluded.size > MAX_EXCLUDED) out.put("excludedMore", excluded.size - MAX_EXCLUDED)
             out
         }
     }
 
-    private fun treeVisible(n: Node): Boolean {
-        var c: Node? = n
-        while (c != null) {
-            if (!c.isVisible || c.opacity == 0.0) return false
-            c = c.parent
+    /** Visible logical nodes in tree order; hidden subtrees and unrendered virtualized items go to `excluded`. */
+    private fun collect(n: Node, out: MutableList<Node>, excluded: MutableList<ObjectNode>) {
+        out.add(n)
+        val kids = LogicalTree.children(n)
+        val unrendered = LogicalTree.unrenderedItems(n, kids)
+        if (unrendered > 0) {
+            excluded.add(
+                exclusion(
+                    n, "virtualized", unrendered,
+                    "$unrendered of ${NodeInfo.itemCount(n)} items have no rendered cell and were not checked; scroll them into view and lint again",
+                ),
+            )
         }
-        return true
+        for (c in kids) {
+            if (NodeInfo.shownBelow(c, n)) collect(c, out, excluded) else excluded.add(hidden(c))
+        }
     }
+
+    private fun hidden(n: Node): ObjectNode {
+        val count = NodePath.descendantsInclusive(n).size
+        return exclusion(n, "hidden", count, "not visible (hidden, transparent, unselected tab or collapsed pane); its $count node(s) were not checked")
+    }
+
+    private fun exclusion(n: Node, reason: String, count: Int, detail: String): ObjectNode =
+        Json.obj().put("path", NodePath.of(n)).put("reason", reason).put("count", count).put("detail", detail)
 
     private fun finding(check: String, n: Node, detail: String, severity: String, suggestion: String): ObjectNode {
         val o = Json.obj()

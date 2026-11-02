@@ -90,7 +90,9 @@ object SeeTools {
 
         reg.tool("fx_lint_visual", "Lint visual", Kind.READ,
             "Heuristic visual checks on a window or subtree: textTruncated, siblingOverlap, zeroSizeVisible, outOfScene, " +
-                "lowContrast (WCAG ratio vs nearest solid background). Pair with an annotated screenshot.",
+                "lowContrast (WCAG ratio vs nearest solid background). Pair with an annotated screenshot. checked counts the " +
+                "rendered nodes inspected; excluded lists what was skipped on purpose (reason hidden: a hidden subtree such as " +
+                "an inactive tab; reason virtualized: items without a rendered cell), so show or scroll to it and lint again.",
             Schema.obj().target().strArray("checks", "Subset of checks (default all)").integer("limit", "Page size (default 50)", 1, 200)
                 .integer("offset", "Page offset")) { a ->
             ctx.session.ensureStarted()

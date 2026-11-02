@@ -21,7 +21,7 @@ object ActTools {
         reg.tool("fx_click_node", "Click node", Kind.WRITE,
             "Click a node (handle/path/query) or screen point (x,y). mode=robot (default in agent control) moves the real mouse via " +
                 "javafx Robot — picking, hover and focus behave like a user; enclosing tabs/scroll panes are brought into " +
-                "view first. mode=event (default when control is shared) fires synthetic events (no real input, leaves the developer's mouse alone). " +
+                "view first, and a target that is still not rendered (e.g. on a hidden ribbon page) is refused. mode=event (default when control is shared) fires synthetic events (no real input, leaves the developer's mouse alone). " +
                 "Returns effects (scene diff), mode and conflicts (human input during the action).",
             Schema.obj().target().number("x", "Screen x (instead of a target)").number("y", "Screen y")
                 .strEnum("button", "Mouse button (default primary)", "primary", "secondary", "middle")

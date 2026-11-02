@@ -43,10 +43,22 @@ internal object NodeInfo {
         for (c in row.childrenUnmodifiable) {
             if (c is Cell<*> && c.isVisible) {
                 if (sb.isNotEmpty()) sb.append(" | ")
-                sb.append(c.text ?: "")
+                sb.append(cellText(c) ?: "")
             }
         }
         return sb.toString()
+    }
+
+    /**
+     * A cell's text, or for a graphic-only custom cell the texts inside its graphic. Only for summaries (rows,
+     * `visibleCells`): the cell's own `text` stays what `getText()` returns, so assertions built from it hold.
+     */
+    fun cellText(c: Node): String? {
+        if (c !is Cell<*> || c is TableRow<*> || c is TreeTableRow<*>) return text(c)
+        if (!c.text.isNullOrEmpty()) return c.text
+        val g = c.graphic ?: return c.text
+        val parts = NodePath.descendantsInclusive(g).mapNotNull { n -> text(n)?.takeIf { it.isNotBlank() } }
+        return if (parts.isEmpty()) c.text else parts.joinToString(" ")
     }
 
     /** Type-specific value, or `null`. */
@@ -78,6 +90,40 @@ internal object NodeInfo {
         is TreeView<*> -> n.selectionModel.selectedIndex
         is IndexedCell<*> -> if (n.isSelected) n.index else null
         else -> null
+    }
+
+    /**
+     * Whether [n] is rendered: in a scene, with it and every ancestor (skin nodes included) visible and not fully
+     * transparent. A node's own `visible` is not enough: a ribbon or tab pane hides inactive pages through a skin
+     * region, and their nodes keep stale bounds stacked under the active page.
+     */
+    fun shown(n: Node): Boolean = n.scene != null && shownBelow(n, null)
+
+    /** [n] and its ancestors up to, not including, [ancestor] are visible and not fully transparent. */
+    fun shownBelow(n: Node, ancestor: Node?): Boolean {
+        var c: Node? = n
+        while (c !== ancestor) {
+            if (c == null) return false
+            if (!c.isVisible || c.opacity == 0.0) return false
+            c = c.parent
+        }
+        return true
+    }
+
+    /** Why [n] is not rendered, naming the hidden or transparent node; `null` when it is rendered. */
+    fun notShownReason(n: Node): String? {
+        if (n.scene == null) return "not in a scene"
+        var c: Node? = n
+        while (c != null) {
+            if (!c.isVisible || c.opacity == 0.0) {
+                val state = if (c.isVisible) "fully transparent" else "hidden"
+                if (c === n) return "it is $state"
+                val at = if (LogicalTree.isLogical(c)) NodePath.of(c) else "a skin node (${NodePath.typeName(c)}) of ${NodePath.of(c)}"
+                return "$at is $state"
+            }
+            c = c.parent
+        }
+        return null
     }
 
     fun screenBounds(n: Node): ObjectNode? {

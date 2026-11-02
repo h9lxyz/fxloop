@@ -77,6 +77,13 @@ internal object Interaction {
                 AgentRuntime.current().human.asAgent { eventClick(node, button, clickCount) }
             } else {
                 ensureVisible(node)
+                // its center would hit whatever is rendered there instead, e.g. the active ribbon page's control
+                NodeInfo.notShownReason(node)?.let {
+                    throw FcpException(
+                        Fcp.Error.UNSUPPORTED_TARGET,
+                        NodePath.of(node) + " is not rendered: $it; show it first (select its tab or page) or use mode=event",
+                    )
+                }
                 val c = center(node)
                 bracket.expectPoint = c
                 robotClick(c.x, c.y, button, clickCount)

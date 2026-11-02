@@ -58,6 +58,11 @@ internal object Overlay {
     }
 
     private fun show(n: Node): ObjectNode {
+        // an unrendered node's bounds are stale and usually overlap the visible page: drawing them misleads
+        NodeInfo.notShownReason(n)?.let {
+            clearHighlight()
+            return Json.obj().put("shown", false).put("reason", "not rendered: $it")
+        }
         val b = n.localToScreen(n.boundsInLocal)
         val owner = n.scene?.window
         if (b == null || owner == null || !owner.isShowing) {

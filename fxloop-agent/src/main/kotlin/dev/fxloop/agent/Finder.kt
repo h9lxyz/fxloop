@@ -39,9 +39,11 @@ internal object Finder {
         val items = ArrayList<JsonNode>()
         for (n in hits) {
             val s = Targets.summary(n)
+            val shown = NodeInfo.shown(n)
             s.put("visible", n.isVisible)
+            s.put("shown", shown)
             s.put("disabled", n.isDisabled)
-            NodeInfo.screenBounds(n)?.let { s.setNode("boundsScreen", it) }
+            if (shown) NodeInfo.screenBounds(n)?.let { s.setNode("boundsScreen", it) }
             items.add(s)
         }
         return Paging.page(items, offset, limit)

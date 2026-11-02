@@ -128,7 +128,7 @@ internal object Snapshots {
         val out = Json.array()
         var total = 0
         for (n in pool) {
-            if (!n.isVisible || n.scene == null || n.scene.window !== window) continue
+            if (!NodeInfo.shown(n) || n.scene.window !== window) continue
             if ("interactive" == filter && !(n.isFocusTraversable || n is Labeled)) continue
             val b = n.localToScreen(n.boundsInLocal)
             if (b == null || b.width < 1 || b.height < 1) continue

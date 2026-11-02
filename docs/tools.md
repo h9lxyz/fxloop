@@ -109,7 +109,7 @@ Uncaught exceptions captured on the JavaFX Application Thread (class, message, t
 
 ## fx_get_scene_graph
 
-Bounded JSON of the logical scene graph of a window (or subtree): h (handle), path, type, fxId, styleClass, text, value, visible (only when false), disabled/focused (only when true), boundsScreen, kids. Output is budgeted (depth, nodes, ~56 KB) with {truncated:true} markers. Virtualized controls report itemCount and visibleCells only. Skin internals of built-in controls are omitted unless skin=true.
+Bounded JSON of the logical scene graph of a window (or subtree): h (handle), path, type, fxId, styleClass, text, value, visible (only when false), disabled/focused (only when true), boundsScreen, kids. Output is budgeted (depth, nodes, ~56 KB) with {truncated:true} markers. shown:false marks a node that is not rendered (it or an ancestor, e.g. an inactive tab or ribbon page, is hidden or transparent); it has no boundsScreen. User nodes hosted by built-in controls (graphics, cell graphics, tab/column graphics, a showing placeholder, the current page) are children. Virtualized controls report itemCount, visibleCells and excluded {reason:virtualized, count} for items without a rendered cell. Skin internals of built-in controls are omitted unless skin=true.
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -119,13 +119,13 @@ Bounded JSON of the logical scene graph of a window (or subtree): h (handle), pa
 | `windowIndex` | integer |  | Window index (see fx_get_app_status.windows); default: focused window |
 | `picked` | boolean |  | Target the node the developer picked in pick mode (see fx_get_picked) |
 | `rootHandle` | integer |  | Subtree root handle |
-| `skin` | boolean |  | Include skin (control-internal) nodes; they are addressed by handle |
+| `skin` | boolean |  | Include skin (control-internal) nodes; they carry skin:true and no path, so address them by handle |
 | `maxDepth` | integer |  | Depth budget (default 12) |
 | `maxNodes` | integer |  | Node budget (default 400) |
 
 ## fx_find_nodes
 
-Find nodes by CSS selector (query, e.g. '#addBtn', '.button'), case-insensitive text contains (text), or simple type name (type). Searches all showing windows incl. popups unless windowIndex is set. Paginated.
+Find nodes by CSS selector (query, e.g. '#addBtn', '.button'), case-insensitive text contains (text), or simple type name (type). Searches all showing windows incl. popups unless windowIndex is set. Paginated. shown:false means not rendered (e.g. on an inactive tab or ribbon page); such hits have no boundsScreen.
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -174,7 +174,7 @@ Deepest addressable node at a screen point (from a screenshot or boundsScreen): 
 
 ## fx_click_node
 
-Click a node (handle/path/query) or screen point (x,y). mode=robot (default in agent control) moves the real mouse via javafx Robot — picking, hover and focus behave like a user; enclosing tabs/scroll panes are brought into view first. mode=event (default when control is shared) fires synthetic events (no real input, leaves the developer's mouse alone). Returns effects (scene diff), mode and conflicts (human input during the action).
+Click a node (handle/path/query) or screen point (x,y). mode=robot (default in agent control) moves the real mouse via javafx Robot — picking, hover and focus behave like a user; enclosing tabs/scroll panes are brought into view first, and a target that is still not rendered (e.g. on a hidden ribbon page) is refused. mode=event (default when control is shared) fires synthetic events (no real input, leaves the developer's mouse alone). Returns effects (scene diff), mode and conflicts (human input during the action).
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -308,7 +308,7 @@ Pixel diff of two frames (seq or path; after may be capture:true for a fresh cap
 
 ## fx_lint_visual
 
-Heuristic visual checks on a window or subtree: textTruncated, siblingOverlap, zeroSizeVisible, outOfScene, lowContrast (WCAG ratio vs nearest solid background). Pair with an annotated screenshot.
+Heuristic visual checks on a window or subtree: textTruncated, siblingOverlap, zeroSizeVisible, outOfScene, lowContrast (WCAG ratio vs nearest solid background). Pair with an annotated screenshot. checked counts the rendered nodes inspected; excluded lists what was skipped on purpose (reason hidden: a hidden subtree such as an inactive tab; reason virtualized: items without a rendered cell), so show or scroll to it and lint again.
 
 | Param | Type | Required | Description |
 |---|---|---|---|

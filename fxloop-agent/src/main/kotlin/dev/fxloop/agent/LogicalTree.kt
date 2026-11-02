@@ -5,14 +5,17 @@ import javafx.scene.Parent
 import javafx.scene.control.Accordion
 import javafx.scene.control.ButtonBar
 import javafx.scene.control.Cell
+import javafx.scene.control.ComboBox
 import javafx.scene.control.Control
 import javafx.scene.control.IndexedCell
 import javafx.scene.control.Labeled
 import javafx.scene.control.ListView
 import javafx.scene.control.MenuBar
+import javafx.scene.control.Pagination
 import javafx.scene.control.ScrollPane
 import javafx.scene.control.SplitPane
 import javafx.scene.control.TabPane
+import javafx.scene.control.TableColumnBase
 import javafx.scene.control.TableRow
 import javafx.scene.control.TableView
 import javafx.scene.control.TitledPane
@@ -24,27 +27,90 @@ import javafx.scene.control.TreeView
 /**
  * The agent's view of the scene graph: layout containers expose their children, built-in controls are
  * leaves (skin internals are noise for an LLM), composite controls expose their logical content, and
- * virtualized controls expose only their visible, non-empty cells (PRD 01 §5).
+ * virtualized controls expose only their visible, non-empty cells (PRD 01 §5). User nodes a built-in control
+ * hosts in its skin (graphics of labeled controls, cells, tabs and columns; a showing placeholder) are content too.
  */
 internal object LogicalTree {
     fun isVirtualized(n: Node): Boolean = n is ListView<*> || n is TableView<*> || n is TreeView<*> || n is TreeTableView<*>
 
     fun children(node: Node): List<Node> {
         if (node !is Parent) return emptyList()
+        // hosted content follows the primary content, so the paths of the primary content keep their indices
         return when {
             node is ScrollPane -> listOfNotNull(node.content)
-            node is TabPane -> node.tabs.mapNotNull { it.content }
+            node is TabPane -> node.tabs.mapNotNull { it.content } + node.tabs.mapNotNull { hosted(it.graphic, node) }
             node is SplitPane -> node.items.toList()
-            node is TitledPane -> listOfNotNull(node.content)
+            node is TitledPane -> listOfNotNull(node.content, hosted(node.graphic, node))
             node is ToolBar -> node.items.toList()
             node is ButtonBar -> node.buttons.toList()
             node is Accordion -> node.panes.toList()
-            isVirtualized(node) -> visibleCells(node)
+            isVirtualized(node) -> visibleCells(node) + listOfNotNull(hosted(placeholder(node), node)) + columnGraphics(node)
             node is MenuBar -> descendantsOfType(node, Labeled::class.java)
-            node is Cell<*> -> if (node is TableRow<*> || node is TreeTableRow<*>) rowCells(node) else emptyList()
-            node is Control && node.javaClass.name.startsWith("javafx.scene.control.") -> emptyList()
+            node is Cell<*> ->
+                (if (node is TableRow<*> || node is TreeTableRow<*>) rowCells(node) else emptyList()) +
+                    listOfNotNull(hosted(node.graphic, node), hosted(treeItemGraphic(node), node))
+            node is Labeled && isBuiltIn(node) -> listOfNotNull(hosted(node.graphic, node))
+            // the current page sits in the skin's `.page` stack panes (documented substructure)
+            node is Pagination -> node.childrenUnmodifiable.filter { it.isVisible && "page" in it.styleClass }
+                .flatMap { (it as? Parent)?.childrenUnmodifiable.orEmpty() }
+            node is ComboBox<*> -> listOfNotNull(hosted(node.buttonCell?.graphic, node))
+            isBuiltIn(node) -> emptyList()
             else -> node.childrenUnmodifiable.toList()
         }
+    }
+
+    private fun isBuiltIn(n: Node): Boolean = n is Control && n.javaClass.name.startsWith("javafx.scene.control.")
+
+    /**
+     * [n] when `owner`'s skin currently displays it: a descendant of `owner` with no hidden node in between (a
+     * placeholder's region stays in the skin, hidden, while the control has items). [n]'s own `visible` flag does not
+     * matter: a hidden graphic is still content, reported as `visible:false`.
+     */
+    private fun hosted(n: Node?, owner: Node): Node? {
+        var p = n?.parent ?: return null
+        while (p !== owner) {
+            if (!p.isVisible) return null
+            p = p.parent ?: return null
+        }
+        return n
+    }
+
+    /** A tree table row's skin draws the tree item's graphic itself, as a direct child next to the row's cells. */
+    private fun treeItemGraphic(c: Cell<*>): Node? = (c as? TreeTableRow<*>)?.treeItem?.graphic?.takeIf { it.parent === c }
+
+    private fun placeholder(n: Node): Node? = when (n) {
+        is ListView<*> -> n.placeholder
+        is TableView<*> -> n.placeholder
+        is TreeTableView<*> -> n.placeholder
+        else -> null
+    }
+
+    /** Header graphics of all (nested) columns, in column order. */
+    private fun columnGraphics(n: Node): List<Node> {
+        val columns: List<TableColumnBase<*, *>> = when (n) {
+            is TableView<*> -> n.columns
+            is TreeTableView<*> -> n.columns
+            else -> return emptyList()
+        }
+        val out = ArrayList<Node>()
+        fun add(cs: List<TableColumnBase<*, *>>) {
+            for (c in cs) {
+                hosted(c.graphic, n)?.let { out.add(it) }
+                add(c.columns)
+            }
+        }
+        add(columns)
+        return out
+    }
+
+    /**
+     * Items of a virtualized control without a rendered cell. The logical tree, and everything walking it (paths,
+     * search, lint, snapshots), cannot see them until they are scrolled into view.
+     */
+    fun unrenderedItems(n: Node, kids: List<Node> = children(n)): Int {
+        if (!isVirtualized(n)) return 0
+        val items = NodeInfo.itemCount(n) ?: return 0
+        return maxOf(0, items - kids.count { it is IndexedCell<*> })
     }
 
     /** Visible, non-empty cells of a virtualized control, in index order. */
@@ -104,7 +170,7 @@ internal object LogicalTree {
     private fun enclosingContentOwner(found: Node, node: Node): Node? {
         var c: Node? = found.parent
         while (c != null) {
-            if (c is Control && c.javaClass.name.startsWith("javafx.scene.control.")) {
+            if (isBuiltIn(c)) {
                 return if (children(c).contains(node)) c else null
             }
             c = c.parent
