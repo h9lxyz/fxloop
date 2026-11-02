@@ -1,0 +1,7 @@
+.root { -fx-base: #3c3f41; }
+.parent { -hover: derive(-fx-base, 20%); }
+.x { -fx-background-color: -hover; }
+.cyc { -a: -b; -b: -a; }
+.cy { -fx-background-color: -a; }
+.b { -fx-background-color: red; }
+.b:hover { -fx-background-color: blue; }
