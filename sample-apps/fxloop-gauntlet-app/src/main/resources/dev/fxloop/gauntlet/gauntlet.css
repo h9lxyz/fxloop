@@ -17,3 +17,15 @@
 #cxSkin { -fx-fill: red; }
 .cx-fonted { -fx-font: 12px "System"; -fx-font-size: 20px; }
 .cx-unresolved { -fx-text-fill: -nowhere; }
+
+/* ---- Inspector v2 (PRD 09 §12): hover rule, derived looked-up chain, dead rules, a misspelt selector. ---- */
+.cx-hoverable { -fx-background-color: #dddddd; }
+.cx-hoverable:hover { -fx-background-color: #ff9900; }
+.root { -gx-base: #3c3f41; }
+.cx-derive-box { -gx-mid: -gx-base; -gx-hover: derive(-gx-mid, 20%); }
+#cxDerived { -fx-background-color: -gx-hover; }
+/* dead: every name exists in the app, but nothing has this structure */
+.cx-bar > .label { -fx-text-fill: purple; }
+.cx-derive-box .button { -fx-padding: 20; }
+/* misspelt: there is no .cx-pannel */
+.cx-pannel .button { -fx-padding: 2; }

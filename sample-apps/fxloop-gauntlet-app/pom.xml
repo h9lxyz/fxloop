@@ -28,6 +28,10 @@
       <artifactId>javafx-web</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-fxml</artifactId>
+    </dependency>
+    <dependency>
       <groupId>dev.fxloop</groupId>
       <artifactId>fxloop-dev</artifactId>
     </dependency>
