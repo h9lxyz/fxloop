@@ -146,8 +146,10 @@ and the [fxloop-dev API](configuration.md#live-dev-loop-fxloop-dev-api).
   cascade with `file:line` for each rule, and layout boxes. Under `fxloop:run` / `fxloopRun` (or with
   `FXLOOP_INSPECTOR_EDIT=true`) you can also try changes live: edit a value, untick a declaration or add a rule. They go
   into a scratch stylesheet in the running app. *Apply to file…* shows which lines of which stylesheet would change and,
-  once you confirm, writes them there, reloads the CSS and clears the scratch; *Ask agent to apply* hands them to the
-  agent instead ([configuration](configuration.md)).
+  once you confirm, writes them there, reloads the CSS and clears the scratch; you can send each rule to another of your
+  stylesheets instead. Rules from a library's stylesheet are marked with where it was loaded from: *Map to source…*
+  tells FXLoop where the library's source file is, so changes can be saved there too. *Ask agent to apply* hands them to
+  the agent instead ([configuration](configuration.md)).
 - **Ask agent (prototype).** The inspector's *Ask agent* box sends a request about the selected node; click a property
   name first to scope it to that declaration (selector and `file:line` go along). An agent that is listening
   (`fx_wait_for_prompt`, a long poll it calls in a loop) receives your text, the node's path and a screenshot of it,

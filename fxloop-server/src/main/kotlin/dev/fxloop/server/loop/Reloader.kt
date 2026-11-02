@@ -56,6 +56,12 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
     private val outputs = ChangeScanner()
 
     /**
+     * Sheet URLs the developer mapped a stylesheet outside the project to (inspector, [dev.fxloop.server.see.CssMappings]):
+     * a reload of that source copies it over a build copy the app loads from a directory; a jar cannot be updated.
+     */
+    var mappedSheets: (Path) -> List<String> = { emptyList() }
+
+    /**
      * Source/resource file → (mtime, live) for every file a reload since the last checkpoint already brought into
      * `outputDir`; `live` = also swapped into the running app. Watch-mode reloads do not advance the baseline, so this
      * keeps a watch reload and an explicit `fx_reload` from compiling the same edit twice, and tells a restart whether
@@ -290,6 +296,11 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
         val cleared = opt.clearScratch && clearScratch() != null
         val r = session.call(Fcp.Method.RELOAD_CSS, Json.obj { set<JsonNode>("files", Json.strings(rels)) }) as ObjectNode
         if (cleared) r.put("scratchCleared", true)
+        val fromJars = css.filter { f -> mappedSheets(f).any { !it.startsWith("file:", ignoreCase = true) } }
+        if (fromJars.isNotEmpty()) {
+            r.put("libraryNote", fromJars.joinToString(", ") { it.name } + ": the app loads this stylesheet from a library jar, " +
+                "so it keeps the old copy until the library is rebuilt and the app restarted")
+        }
         tiers.add(tier("css", rels, t0, r))
         if (before == null) return
         val after = safeCapture("css-after") ?: return
@@ -394,16 +405,17 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
      * root-relative paths. That is every classpath directory already holding the file — Gradle serves resources from
      * `build/resources/main`, not from the classes dir — and `outputDir` when none does yet (new files).
      */
-    private fun copyResources(d: LaunchDescriptor, files: List<Path>): List<String> = files.map { f ->
+    private fun copyResources(d: LaunchDescriptor, files: List<Path>): List<String> = files.flatMap { f ->
         val root = (d.resourceRoots + d.sourceRoots).map(Path::of).lastOrNull { f.startsWith(it) }
         if (root == null) {
-            f.name
+            val mapped = mappedSheets(f)
+            if (mapped.isEmpty()) listOf(f.name) else copyMapped(f, mapped)
         } else {
             val rel = root.relativize(f).toString().replace('\\', '/')
             val dirs = (listOf(d.outputDir) + d.classpath).map(Path::of).filter { Files.isDirectory(it) }.distinct()
             val targets = dirs.map { it.resolve(rel) }.filter { Files.exists(it) }.ifEmpty { listOf(Path.of(d.outputDir).resolve(rel)) }
             targets.forEach { copyWithRetry(f, it) }
-            rel
+            listOf(rel)
         }
     }
 
@@ -441,6 +453,20 @@ class Reloader(private val session: AppSession, private val visuals: Visuals, pr
             "gradle.properties", "module-info.java")
 
         /** Retry-with-backoff (Windows file locks on target/classes, PRD 02 §14). */
+        /**
+         * A mapped stylesheet source ([mappedSheets] gives the sheet [urls] it stands for): copied over each build copy
+         * the app loads through a `file:` URL, whose URL path (as the app spelled it) is then what the CSS reload
+         * matches. A jar-loaded sheet is left alone: reloading it would only re-read the old copy.
+         */
+        internal fun copyMapped(f: Path, urls: List<String>): List<String> = urls.mapNotNull { url ->
+            if (!url.startsWith("file:", ignoreCase = true)) return@mapNotNull null
+            val uri = runCatching { java.net.URI(url) }.getOrNull() ?: return@mapNotNull null
+            val loaded = runCatching { Path.of(uri).toAbsolutePath().normalize() }.getOrNull() ?: return@mapNotNull null
+            if (!loaded.name.lowercase().endsWith(".css") || !Files.isRegularFile(loaded)) return@mapNotNull null
+            if (!Files.isSameFile(loaded, f)) copyWithRetry(f, loaded)
+            uri.rawPath
+        }
+
         private fun copyWithRetry(from: Path, to: Path) {
             var attempt = 0
             while (true) {

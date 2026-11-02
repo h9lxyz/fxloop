@@ -64,6 +64,8 @@ internal object Reloads {
         for (i in sheets.indices) {
             val url = sheets[i]
             val bare = if (url.contains("?")) url.substring(0, url.indexOf('?')) else url
+            // a jar entry cannot change under a running app, and `?fxloop=` would make its URL unloadable
+            if (bare.startsWith("jar:", ignoreCase = true) || bare.startsWith("jrt:", ignoreCase = true)) continue
             for (r in rel) {
                 if (bare.endsWith("/$r") || bare.endsWith(r)) {
                     sheets[i] = "$bare?fxloop=$gen"

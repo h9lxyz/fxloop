@@ -145,7 +145,7 @@ internal object CssInspect {
             ?: r.inheritedFrom?.let { (_, c) -> c.matched?.let { valueText(engine.textOf(c, it)) } } ?: "<value>"
         val file = p.path("file").asText(null) ?: defaultFile(ex)
         file?.let { out.put("file", it) } ?: out.put("fileNote", "no project stylesheet applies to this node; add one to the scene or a parent")
-        if (p.hasNonNull("file") && ex.cascade.sheets.none { engine.roots.projectFile(it.parsed.absFile) == file }) {
+        if (p.hasNonNull("file") && ex.cascade.sheets.none { engine.roots.displayFile(it.url, it.parsed.absFile) == file }) {
             blockers.addObject().put("kind", "sheet-not-applied").put("cause", "$file is not in any stylesheet list on this node's path")
                 .put("next", "add it to the Scene or a Parent's getStylesheets(), or pick another file")
         }
@@ -227,7 +227,7 @@ internal object CssInspect {
         val arr = Json.array()
         for (s in ex.cascade.sheets) {
             if (s.parsed.parseErrors.isEmpty() && s.parsed.stylesheet != null) continue
-            val file = ex.engine.roots.projectFile(s.parsed.absFile) ?: Sheets.shortName(s.url)
+            val file = ex.engine.roots.displayFile(s.url, s.parsed.absFile)
             arr.addObject().put("kind", "sheet-error")
                 .put("cause", if (s.parsed.stylesheet == null) "$file could not be loaded: ${s.parsed.reason}"
                     else "$file has ${s.parsed.parseErrors.size} parse error(s): ${s.parsed.parseErrors.first()}")

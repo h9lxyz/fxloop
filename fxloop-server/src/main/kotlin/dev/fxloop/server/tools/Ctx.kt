@@ -16,6 +16,7 @@ import dev.fxloop.server.loop.Reloader
 import dev.fxloop.server.loop.SceneDiff
 import dev.fxloop.server.loop.WatchMode
 import dev.fxloop.server.mcp.ToolResult
+import dev.fxloop.server.see.CssMappings
 import dev.fxloop.server.see.Inspector
 import dev.fxloop.server.see.Prompts
 import dev.fxloop.server.see.ScreenStore
@@ -46,6 +47,11 @@ class Ctx(val config: Config) {
     var viewer: Viewer? = null
     private val restarting = AtomicBoolean(false)
 
+    /** Stylesheets outside the project the developer mapped to their source in the inspector (PRD 08 §5). */
+    val cssMappings = CssMappings(config.projectDir) {
+        session.descriptor?.let { d -> java.nio.file.Path.of(d.workingDir).resolve(d.outputDir).toAbsolutePath().normalize() }
+    }
+
     val inspector = Inspector({ ensureViewer() }, config.browserEnabled)
 
     /** Developer prompts from the inspector's Ask agent box ([PromptTools]); every change is pushed to the page. */
@@ -56,7 +62,7 @@ class Ctx(val config: Config) {
     fun ensureViewer(port: Int = 0): Viewer = viewer ?: Viewer(port, Tokens.generate(), visuals.store,
         api = { m, p, t -> session.call(m, if (m in CSS_METHODS) withCssRoots(p) else p, t) }, connected = { session.connected }, editorUrl = config.editorUrl,
         editEnabled = { config.inspectorEdit || session.appInspectorEdit }, lockText = { live.lockText() },
-        releaseLock = { live.unlock("developer") }, scratchApply = ::applyScratch, prompts = prompts).also {
+        releaseLock = { live.unlock("developer") }, scratchApply = ::applyScratch, prompts = prompts, sheetMap = cssMappings).also {
         it.start()
         viewer = it
         log.info("live viewer: {}", it.url())
@@ -77,8 +83,12 @@ class Ctx(val config: Config) {
         }.onFailure { log.debug("cannot write {}: {}", INSPECTOR_FILE, it.toString()) }
     }
 
-    /** Project layout for the CSS engine, so `file` names the source stylesheet rather than its build copy (PRD 08 §3.2). */
+    /**
+     * Project layout for the CSS engine, so `file` names the source stylesheet rather than its build copy (PRD 08 §3.2),
+     * plus the developer's mappings of stylesheets outside the project to their source.
+     */
     fun withCssRoots(p: ObjectNode): ObjectNode {
+        p.set<JsonNode>("cssMappings", cssMappings.toJson())
         val d = session.descriptor ?: return p.put("projectDir", config.projectDir.toString())
         val wd = java.nio.file.Path.of(d.workingDir)
         fun abs(s: String) = wd.resolve(s).toAbsolutePath().normalize().toString()
@@ -89,22 +99,34 @@ class Ctx(val config: Config) {
     }
 
     /**
-     * Inspector *Apply to file*: asks the agent where each scratch rule goes ([Fcp.Method.CSS_SCRATCH_PLAN]); a dry run
-     * returns that plan. Otherwise checks every file (a project stylesheet, unchanged since the agent read it), writes
-     * them, reloads the CSS and drops the scratch sheet. Returns `{applied, files:[{file, changes}]}`.
+     * Inspector *Apply to file*: asks the agent where each scratch rule goes ([Fcp.Method.CSS_SCRATCH_PLAN]; [targets]
+     * picks the stylesheet for scratch rule n); a dry run returns that plan. Otherwise checks every file (a project
+     * stylesheet or a mapped library source, unchanged since the agent read it), writes them, reloads the CSS and drops
+     * the scratch sheet, except for rules saved into a library the app loads from a jar: those stay in scratch CSS so the
+     * app keeps showing them until the library is rebuilt. Returns `{applied, items, files:[{file, changes}], scratch}`.
      */
-    fun applyScratch(dryRun: Boolean): ObjectNode {
+    fun applyScratch(dryRun: Boolean, targets: Map<Int, String> = emptyMap()): ObjectNode {
         if (session.descriptor == null || session.mode == AppSession.Mode.ATTACHED) {
             throw dev.fxloop.server.mcp.ToolException("RELOAD_UNAVAILABLE",
                 "Apply to file needs a session with the project's source layout (not attach mode); use Copy as CSS", null)
         }
-        val plan = session.call(Fcp.Method.CSS_SCRATCH_PLAN, withCssRoots(Json.obj()), 15_000) as ObjectNode
+        val params = withCssRoots(Json.obj())
+        if (targets.isNotEmpty()) params.putObject("targets").also { t -> targets.forEach { (n, f) -> t.put(n.toString(), f) } }
+        val plan = session.call(Fcp.Method.CSS_SCRATCH_PLAN, params, 15_000) as ObjectNode
         val files = plan.path("files").toList()
         val summary = Json.obj {
             put("dryRun", dryRun)
             put("rules", plan.path("rules").asInt())
+            plan.path("items").takeIf { it.isArray }?.let { set<JsonNode>("items", it) }
             val arr = putArray("files")
-            files.forEach { f -> arr.addObject().put("file", f.path("file").asText()).set<JsonNode>("changes", f.path("changes")) }
+            files.forEach { f ->
+                val o = arr.addObject().put("file", f.path("file").asText())
+                if (f.path("external").asBoolean()) {
+                    o.put("external", true).put("live", f.path("live").asBoolean(true))
+                    f.path("from").asText(null)?.let { o.put("from", it) }
+                }
+                o.set<JsonNode>("changes", f.path("changes"))
+            }
         }
         if (dryRun || files.isEmpty()) return summary.put("applied", false)
         val d = session.descriptor
@@ -113,8 +135,9 @@ class Ctx(val config: Config) {
         val output = d?.let { wd.resolve(it.outputDir).toAbsolutePath().normalize() }
         val writes = files.map { f ->
             val path = java.nio.file.Path.of(f.path("absFile").asText()).toAbsolutePath().normalize()
+            val inProject = roots.any { path.startsWith(it) } && (output == null || !path.startsWith(output))
             val ok = path.fileName.toString().lowercase().endsWith(".css") && java.nio.file.Files.isRegularFile(path) &&
-                roots.any { path.startsWith(it) } && (output == null || !path.startsWith(output))
+                (inProject || cssMappings.isMapped(path))
             if (!ok) throw dev.fxloop.server.mcp.ToolException("NOT_A_PROJECT_STYLESHEET", "${f.path("file").asText()} is not a stylesheet of this project", null)
             val now = sha256(java.nio.file.Files.readString(path))
             if (now != f.path("sha256").asText()) {
@@ -123,11 +146,17 @@ class Ctx(val config: Config) {
             path to f.path("text").asText()
         }
         writes.forEach { (path, text) -> java.nio.file.Files.writeString(path, text) }
+        val keep = plan.path("keep").asText("")
         val r = reloader.reload(Reloader.Options(files = writes.map { it.first.toString() }, allowRestart = false, replay = false,
-            visualDiff = false, javaTier = false, consume = false, clearScratch = true)) { _, _ -> Json.obj() }
+            visualDiff = false, javaTier = false, consume = false, clearScratch = keep.isBlank())) { _, _ -> Json.obj() }
+        val scratch = if (keep.isBlank()) Json.obj { put("active", false); put("rules", 0) }
+        else session.call(Fcp.Method.CSS_SCRATCH_SET, Json.obj { put("css", keep) }, 15_000)
         live.reloaded("inspector: CSS applied to " + files.joinToString(", ") { it.path("file").asText().substringAfterLast('/') },
             true, live.actionItems())
-        return summary.put("applied", true).also { it.set<JsonNode>("reload", r) }
+        return summary.put("applied", true).also {
+            it.set<JsonNode>("reload", r)
+            it.set<JsonNode>("scratch", scratch)
+        }
     }
 
     /** [dev.fxloop.server.mcp.ToolRegistry.observer]: the dev bar shows what the agent is doing while a tool runs. */
@@ -141,6 +170,7 @@ class Ctx(val config: Config) {
     }
 
     init {
+        reloader.mappedSheets = { cssMappings.urlsFor(it) }
         live.watchMode = { watch.mode }
         live.statusSink = { viewer?.publishStatus(it) }
         reloader.onReloaded { r ->

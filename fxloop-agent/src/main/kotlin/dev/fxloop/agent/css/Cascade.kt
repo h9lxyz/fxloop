@@ -154,9 +154,8 @@ internal class Engine(val roots: SourceRoots) {
             o.put("file", Sheets.scratchLabel(ref, m.rule)).put("scratch", true)
         } else if (ref != null) {
             o.put("sheet", ref.url)
-            val abs = ref.parsed.absFile
-            o.put("file", roots.projectFile(abs) ?: Sheets.shortName(ref.url))
-            roots.sourceFile(abs)?.let { o.put("absFile", it.toString()) }
+            o.put("file", roots.displayFile(ref.url, ref.parsed.absFile))
+            roots.editFile(ref.url, ref.parsed.absFile)?.let { o.put("absFile", it.toString()) }
             val src = ref.parsed.sources[m.rule]
             if (src != null) o.put("line", lineOf(c, src))
         }

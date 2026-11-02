@@ -30,12 +30,27 @@ import java.util.concurrent.TimeUnit
 typealias ViewerApi = (method: String, params: ObjectNode, timeoutMs: Long) -> JsonNode
 
 /**
+ * The inspector's stylesheet mappings ([CssMappings]): a sheet outside the project → its local source file. [set]
+ * throws [IllegalArgumentException] with a message for the developer on bad input.
+ */
+interface SheetMap {
+    /** `{url, resource?, suggestions:[file]}`: existing files the sheet is likely built from. */
+    fun suggest(url: String): JsonNode
+
+    /** Maps [url] to [file], or removes its mapping when [file] is blank: `{url, file}`. */
+    fun set(url: String, file: String?): JsonNode
+}
+
+/**
  * Opt-in, loopback-only, token-guarded live viewer (PRD 04 §3.7) plus the CSS inspector API (PRD 08): read-only
  * except `POST /api/highlight` and `POST /api/pick`, which are visual-only and ephemeral. While [editEnabled]
  * (`FXLOOP_INSPECTOR_EDIT`, or a developer-run app started with it) the scratch-CSS endpoints exist too (PRD 08 §5): they accept CSS text only, which the
- * agent parses before installing. `POST /api/scratch/apply` (`?dryRun=1` previews) writes the scratch rules into the
- * project's stylesheets through [scratchApply]. Without the flag they answer 404; while the agent holds the input lock
- * ([lockText]) the editing endpoints answer 423 and `POST /api/lock/release` lets the developer take over.
+ * agent parses before installing. `POST /api/scratch/apply` (`?dryRun=1` previews; JSON body `{targets:{"<n>": file}}`
+ * picks a stylesheet per scratch rule) writes the scratch rules into the project's stylesheets, or a library's mapped
+ * source, through [scratchApply]. With [sheetMap], `GET /api/sheet-map/suggest?url=` and `POST /api/sheet-map`
+ * (JSON `{url, file}`) map a stylesheet outside the project to its source. Without the flag they answer 404; while the
+ * agent holds the input lock ([lockText]) the editing endpoints answer 423 and `POST /api/lock/release` lets the
+ * developer take over.
  * With [prompts], `POST /api/prompt` (JSON `{text, window?, h?, path?, property?, …}`) queues a developer prompt for
  * the agent, `POST /api/prompt/cancel?id=` withdraws one and `GET /api/prompts` lists them; changes arrive as SSE `prompts`.
  */
@@ -49,8 +64,9 @@ class Viewer(
     private val editEnabled: () -> Boolean = { false },
     private val lockText: () -> String? = { null },
     private val releaseLock: (() -> Unit)? = null,
-    private val scratchApply: ((dryRun: Boolean) -> JsonNode)? = null,
+    private val scratchApply: ((dryRun: Boolean, targets: Map<Int, String>) -> JsonNode)? = null,
     private val prompts: Prompts? = null,
+    private val sheetMap: SheetMap? = null,
 ) : AutoCloseable {
     private var server: HttpServer? = null
     private var executor: ExecutorService? = null
@@ -191,7 +207,7 @@ class Viewer(
     private fun handle(ex: HttpExchange) {
         try {
             val path = ex.requestURI.path
-            if (!editEnabled() && path.startsWith(SCRATCH_PREFIX)) {
+            if (!editEnabled() && EDIT_PREFIXES.any(path::startsWith)) {
                 send(ex, 404, "text/plain", "not found".toByteArray())
                 return
             }
@@ -255,7 +271,7 @@ class Viewer(
             p("h")?.toIntOrNull()?.let { params.put("handle", it) }
             p("path")?.let { params.put("path", it) }
         }
-        if (name.startsWith("scratch/")) {
+        if (name.startsWith("scratch/") || name == "sheet-map") {
             lockText()?.let { why ->
                 send(ex, 423, "application/json", Json.write(error("LOCKED", "editing is paused: $why")).toByteArray())
                 return
@@ -270,14 +286,30 @@ class Viewer(
             prompt(ex, name, prompts)
             return
         }
+        if (name == "sheet-map" || name == "sheet-map/suggest") {
+            sheetMapCall(ex, name)
+            return
+        }
         if (name == "scratch/apply") {
             val apply = scratchApply
             if (apply == null || !connected()) {
                 send(ex, 503, "application/json", Json.write(error("NO_APP", "no application is connected")).toByteArray())
                 return
             }
+            val targets = HashMap<Int, String>()
+            if (isJson(ex)) {
+                val body = readJson(ex) ?: return send(ex, 400, "application/json", Json.write(error("BAD_REQUEST", "body must be a JSON object")).toByteArray())
+                body.path("targets").fields().forEach { (k, v) ->
+                    val n = k.toIntOrNull()
+                    if (n != null && n > 0 && v.isTextual && v.asText().length <= MAX_PATH_CHARS) targets[n] = v.asText()
+                }
+            }
             val out: JsonNode = try {
-                apply(p("dryRun") in TRUE).also { if (it.path("applied").asBoolean()) publish("scratch", Json.obj { put("active", false); put("rules", 0) }) }
+                apply(p("dryRun") in TRUE, targets).also {
+                    if (it.path("applied").asBoolean()) {
+                        publish("scratch", it.path("scratch").takeIf { s -> s.isObject } ?: Json.obj { put("active", false); put("rules", 0) })
+                    }
+                }
             } catch (e: FcpException) {
                 error(e.code, e.message ?: e.code)
             } catch (e: dev.fxloop.server.mcp.ToolException) {
@@ -362,6 +394,37 @@ class Viewer(
             error("INTERNAL", e.message ?: e.javaClass.simpleName)
         }
         send(ex, 200, "application/json", Json.write(out).toByteArray())
+    }
+
+    /** `GET /api/sheet-map/suggest?url=` and `POST /api/sheet-map {url, file}`; a change is pushed as SSE `sheetMap`. */
+    private fun sheetMapCall(ex: HttpExchange, name: String) {
+        fun json(code: Int, body: JsonNode) = send(ex, code, "application/json", Json.write(body).toByteArray())
+        val map = sheetMap ?: return send(ex, 404, "text/plain", "not found".toByteArray())
+        try {
+            if (name == "sheet-map/suggest") {
+                val url = queryParam(ex.requestURI.rawQuery, "url")?.takeIf { it.isNotEmpty() } ?: return json(400, error("BAD_REQUEST", "url is required"))
+                return json(200, map.suggest(url))
+            }
+            if (!isJson(ex)) return json(415, error("BAD_REQUEST", "send the mapping as application/json"))
+            val body = readJson(ex) ?: return json(400, error("BAD_REQUEST", "body must be a JSON object"))
+            val url = body.path("url").asText("")
+            val file = body.path("file").takeIf { it.isTextual }?.asText()
+            if (file != null && file.length > MAX_PATH_CHARS) return json(400, error("BAD_REQUEST", "file is too long"))
+            val r = map.set(url, file)
+            publish("sheetMap", r)
+            json(200, r)
+        } catch (e: IllegalArgumentException) {
+            json(200, error("BAD_REQUEST", e.message ?: "bad request"))
+        }
+    }
+
+    private fun isJson(ex: HttpExchange) = ex.requestHeaders.getFirst("Content-Type").orEmpty().lowercase().startsWith("application/json")
+
+    /** The request body as a JSON object (at most 16 KB), or null. */
+    private fun readJson(ex: HttpExchange): ObjectNode? {
+        val raw = ex.requestBody.readNBytes(MAX_PROMPT_BYTES + 1)
+        if (raw.size > MAX_PROMPT_BYTES) return null
+        return runCatching { Json.MAPPER.readTree(raw) }.getOrNull() as? ObjectNode
     }
 
     private fun prompt(ex: HttpExchange, name: String, queue: Prompts?) {
@@ -517,8 +580,11 @@ class Viewer(
         const val RATE_PER_SEC = 30
         const val INSPECT_RESOURCE = "/dev/fxloop/server/inspect/inspect.html"
         val POST_PATHS = setOf("/api/highlight", "/api/pick", "/api/scratch/set", "/api/scratch/clear", "/api/scratch/apply",
-            "/api/lock/release", "/api/prompt", "/api/prompt/cancel")
-        const val SCRATCH_PREFIX = "/api/scratch"
+            "/api/lock/release", "/api/prompt", "/api/prompt/cancel", "/api/sheet-map")
+
+        /** Endpoints that only exist while inspector editing is on. */
+        val EDIT_PREFIXES = listOf("/api/scratch", "/api/sheet-map")
+        const val MAX_PATH_CHARS = 4096
         const val MAX_SCRATCH_BYTES = 64 * 1024
         const val MAX_PROMPT_BYTES = 16 * 1024
         const val MAX_PROMPT_CHARS = 4000

@@ -1,5 +1,6 @@
 package dev.fxloop.server.see
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import dev.fxloop.protocol.Fcp
 import dev.fxloop.protocol.FcpException
@@ -13,9 +14,11 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URI
+import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
@@ -241,7 +244,7 @@ class ViewerTest {
         val dryRuns = mutableListOf<Boolean>()
         Viewer(0, "tok", ScreenStore(dir, 10), { _, _, _ -> Json.obj { put("active", false) } }, { true }, editEnabled = { true },
             lockText = { lock }, releaseLock = { released++; lock = null },
-            scratchApply = { dry -> dryRuns += dry; Json.obj { put("applied", !dry); putArray("files").addObject().put("file", "app.css") } },
+            scratchApply = { dry, _ -> dryRuns += dry; Json.obj { put("applied", !dry); putArray("files").addObject().put("file", "app.css") } },
         ).use { v ->
             v.start()
             val base = "http://127.0.0.1:${v.port}"
@@ -262,6 +265,52 @@ class ViewerTest {
             assertThat(req("$base/api/lock/release?t=tok", "POST").body()).isEqualTo("{\"locked\":false}")
             assertThat(released).isEqualTo(1)
             assertThat(postCss("$base/api/scratch/set?t=tok", ".a { -fx-padding: 1; }").statusCode()).isEqualTo(200)
+        }
+    }
+
+    @Test
+    fun sheetMappingAndApplyTargets(@TempDir dir: Path) {
+        var edit = false
+        var lock: String? = null
+        val sets = mutableListOf<Pair<String, String?>>()
+        val targets = mutableListOf<Map<Int, String>>()
+        val map = object : SheetMap {
+            override fun suggest(url: String) = Json.obj { put("url", url); putArray("suggestions").add("/src/w.css") }
+            override fun set(url: String, file: String?): JsonNode {
+                require(file != "bad.css") { "bad.css does not exist" }
+                sets += url to file
+                return Json.obj { put("url", url); put("file", file) }
+            }
+        }
+        Viewer(0, "tok", ScreenStore(dir, 10), { _, _, _ -> Json.obj() }, { true }, editEnabled = { edit }, lockText = { lock },
+            scratchApply = { _, t -> targets += t; Json.obj { put("applied", false) } }, sheetMap = map,
+        ).use { v ->
+            v.start()
+            val base = "http://127.0.0.1:${v.port}"
+            val url = "jar:file:/w.jar!/w.css"
+            val q = URLEncoder.encode(url, StandardCharsets.UTF_8)
+            assertThat(req("$base/api/sheet-map/suggest?t=tok&url=$q").statusCode()).isEqualTo(404) // editing off
+            edit = true
+            assertThat(req("$base/api/sheet-map/suggest?t=tok&url=$q").body()).contains("/src/w.css")
+            assertThat(req("$base/api/sheet-map/suggest?t=tok").statusCode()).isEqualTo(400)
+            assertThat(req("$base/api/sheet-map?t=tok").statusCode()).isEqualTo(405)
+            assertThat(postCss("$base/api/sheet-map?t=tok", "{}", "text/plain").statusCode()).isEqualTo(415)
+            assertThat(postCss("$base/api/sheet-map?t=tok", "{\"url\":\"$url\",\"file\":\"/src/w.css\"}", "application/json").body())
+                .contains("\"file\":\"/src/w.css\"")
+            assertThat(postCss("$base/api/sheet-map?t=tok", "{\"url\":\"$url\",\"file\":\"bad.css\"}", "application/json").body())
+                .contains("\"code\":\"BAD_REQUEST\"").contains("does not exist")
+            assertThat(sets).containsExactly(url to "/src/w.css")
+
+            val body = "{\"targets\":{\"1\":\"src/main/resources/app.css\",\"x\":\"no\",\"2\":7}}"
+            assertThat(postCss("$base/api/scratch/apply?t=tok&dryRun=1", body, "application/json").statusCode()).isEqualTo(200)
+            assertThat(postCss("$base/api/scratch/apply?t=tok&dryRun=1", "[1]", "application/json").statusCode()).isEqualTo(400)
+            assertThat(req("$base/api/scratch/apply?t=tok&dryRun=1", "POST").statusCode()).isEqualTo(200)
+            assertThat(targets).containsExactly(mapOf(1 to "src/main/resources/app.css"), emptyMap())
+
+            lock = "agent driving"
+            assertThat(postCss("$base/api/sheet-map?t=tok", "{\"url\":\"$url\",\"file\":null}", "application/json").statusCode()).isEqualTo(423)
+            assertThat(req("$base/api/sheet-map/suggest?t=tok&url=$q").statusCode()).isEqualTo(200) // reading stays possible
+            assertThat(sets).hasSize(1)
         }
     }
 
