@@ -120,8 +120,8 @@ This keeps Principle 5 ("no surprise background mutations"): nothing restarts th
 A thin status bar the agent lays over the top edge of each app window. It works like Chrome's "controlled by automated test software" infobar, and it also carries the reload story. It is the developer's channel for what the agent already gets in tool results (dual-channel rule, Principle 8).
 
 ```
- dev loop · You can interact · Saves apply CSS live │ CSS applied · 12 ms │        Restart needed · pom.xml changed  [Restart] [Pick] [⌄]
- └── session (left) ─────────────────────────┘ └ last reload (fades) ┘        └── action needed (right, stays) ──┘
+ ⠿ ● FXLoop  dev loop · You can interact · Saves apply CSS live │ CSS applied · 12 ms     Restart needed · pom.xml changed [Restart] [Pick] ⋯ ⌄
+          └── session (left) ─────────────────────────┘ └ last reload (fades) ┘     └── action needed (right, stays) ──┘
 ```
 
 ### 7.1 Contents
@@ -164,7 +164,11 @@ Switching: the bar's toggle ("Let me drive" / "Hand back to agent"), the new too
 
 ### 7.3 Form and invisibility
 
-- **Not part of the app's scene graph.** A bar inserted into the scene would change the app's layout, which is exactly what the agent measures, lints and diffs. Instead it is an agent-owned `Popup` anchored to the top edge of each showing app stage. It follows moves and resizes, is 22 px tall and translucent, takes no focus, and is mouse-transparent except for its buttons. It can be collapsed to a corner pill (`[⌄]`, remembered in `target/fxloop/state.json`).
+- **Not part of the app's scene graph.** A bar inserted into the scene would change the app's layout, which is exactly what the agent measures, lints and diffs. Instead it is an agent-owned `Popup` anchored to the top edge of each showing app stage. It follows moves and resizes, is 24 px tall and translucent, and takes no focus. It can be collapsed to a corner pill (`[⌄]`, remembered in `target/fxloop/state.json`).
+- **Where it docks.** Above the window; when that is off screen (a maximized window or one at the top of the screen), over the title bar, leaving the window's own buttons clear (the right end, the left on macOS). When neither fits (an undecorated window at the top of the screen) it starts as a pill, and expanding that pill lays the bar over the top edge of the window.
+- **Narrow windows.** Segments get the width in a fixed order: action buttons, the action-needed reason, the brand, the session text, then Clear, Pick, activity, the control toggle, Open CSS inspector, scratch and last reload. What does not fit leaves the bar: buttons move into a `⋯` menu, texts are listed there too. A button is never squeezed into "…"; texts truncate with a tooltip holding the full text.
+- **Like a title bar.** Dragging the bar (anywhere but its buttons) moves the window and a double-click maximizes or restores it. Both are off while the agent's input lock holds, so the window stays where the agent expects it.
+- **Styles** come from the agent's `devbar.css`, scoped by id: popups inherit the app's stylesheets, and an id outranks the app's class selectors, so the app's `.button`/`.label` rules never restyle the bar.
 - **Invisible to the tools.** Excluded from window lists, scene-graph tools, finders, lint and effects, and hidden during every screenshot capture (agent-side, before the snapshot, restored after).
 - **Colors:** neutral (nothing pending), amber (agent driving), red (action needed). Text always carries the meaning; color is never the only signal.
 - `FXLOOP_BAR=auto|on|pill|off`; `auto` = on with a real display.
