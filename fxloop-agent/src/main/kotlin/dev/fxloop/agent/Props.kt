@@ -19,6 +19,14 @@ import javafx.css.Styleable
 import javafx.geometry.Insets
 import javafx.scene.Node
 import javafx.scene.paint.Color
+import javafx.scene.layout.AnchorPane
+import javafx.scene.layout.BorderPane
+import javafx.scene.layout.FlowPane
+import javafx.scene.layout.GridPane
+import javafx.scene.layout.HBox
+import javafx.scene.layout.StackPane
+import javafx.scene.layout.TilePane
+import javafx.scene.layout.VBox
 import javafx.scene.paint.Paint
 import kotlin.reflect.KClass
 
@@ -108,8 +116,82 @@ internal object Props {
         return w to name.removePrefix(WINDOW_PREFIX)
     }
 
+    /**
+     * A layout constraint key such as `HBox.hgrow`: the static `get/set` pair of the layout class. [kind] is `enum`,
+     * `number` or `insets`.
+     */
+    class Constraint(val key: String, val owner: Class<*>, val prop: String) {
+        private val cap = prop[0].uppercaseChar() + prop.substring(1)
+        private val setter: Method = owner.methods.first { it.name == "set$cap" && Modifier.isStatic(it.modifiers) && it.parameterCount == 2 }
+        private val getter: Method = owner.getMethod("get$cap", Node::class.java)
+        val type: Class<*> = setter.parameterTypes[1]
+        val kind: String = if (type.isEnum) "enum" else if (type == Insets::class.java) "insets" else "number"
+        val choices: List<String> get() = if (type.isEnum) type.enumConstants.map { (it as Enum<*>).name } else emptyList()
+
+        fun get(node: Node): Any? = getter.invoke(null, node)
+
+        fun set(node: Node, v: Any?) {
+            setter.invoke(null, node, v)
+        }
+
+        /** The value as the string `set` accepts back (insets as `t r b l`), null when unset. */
+        fun text(node: Node): String? = when (val v = get(node)) {
+            null -> null
+            is Insets -> "${v.top} ${v.right} ${v.bottom} ${v.left}"
+            is Enum<*> -> v.name
+            else -> v.toString()
+        }
+    }
+
+    private fun c(owner: Class<*>, vararg props: String) = props.map { Constraint("${owner.simpleName}.$it", owner, it) }
+
+    /** Constraint keys by layout class simple name, in display order. */
+    val CONSTRAINTS: Map<String, List<Constraint>> = linkedMapOf(
+        "HBox" to c(HBox::class.java, "hgrow", "margin"),
+        "VBox" to c(VBox::class.java, "vgrow", "margin"),
+        "GridPane" to c(GridPane::class.java, "columnIndex", "rowIndex", "columnSpan", "rowSpan", "halignment", "valignment", "hgrow", "vgrow", "margin"),
+        "AnchorPane" to c(AnchorPane::class.java, "topAnchor", "rightAnchor", "bottomAnchor", "leftAnchor"),
+        "BorderPane" to c(BorderPane::class.java, "alignment", "margin"),
+        "StackPane" to c(StackPane::class.java, "alignment", "margin"),
+        "FlowPane" to c(FlowPane::class.java, "margin"),
+        "TilePane" to c(TilePane::class.java, "alignment", "margin"),
+    )
+
+    private val BY_KEY: Map<String, Constraint> = CONSTRAINTS.values.flatten().associateBy { it.key }
+
+    fun constraint(name: String): Constraint? = BY_KEY[name]
+
+    private fun constraintGet(node: Node, k: Constraint): ObjectNode {
+        val o = Json.obj()
+        o.put("name", k.key)
+        o.put("value", k.text(node))
+        o.put("type", k.type.simpleName)
+        o.put("bound", false)
+        o.put("writable", true)
+        o.put("path", NodePath.of(node))
+        return o
+    }
+
+    private fun constraintSet(node: Node, k: Constraint, value: JsonNode?): ObjectNode {
+        val out = Json.obj()
+        out.put("valueBefore", k.text(node))
+        val clear = value == null || value.isNull || value.asText().isBlank()
+        try {
+            k.set(node, if (clear) null else coerce(value, k.type))
+        } catch (e: ReflectiveOperationException) {
+            throw FcpException(Fcp.Error.COERCION_FAILED, "setting ${k.key} failed: ${e.cause}")
+        }
+        node.parent?.requestLayout()
+        out.put("set", true)
+        out.put("name", k.key)
+        out.put("path", NodePath.of(node))
+        out.put("valueAfter", k.text(node))
+        return out
+    }
+
     fun get(p: ObjectNode): ObjectNode = Fx.call {
         val node = Targets.resolve(p)
+        constraint(p.path("name").asText())?.let { return@call constraintGet(node, it) }
         val (owner, prop) = owner(node, p.path("name").asText())
         describe(access(owner, prop), node).put("name", p.path("name").asText())
     }
@@ -129,6 +211,7 @@ internal object Props {
     fun set(p: ObjectNode): ObjectNode = Fx.call {
         val node = Targets.resolve(p)
         val name = p.path("name").asText()
+        constraint(name)?.let { return@call constraintSet(node, it, p.get("value")) }
         val (owner, prop) = owner(node, name)
         val a = access(owner, prop)
         if (a.bound()) {
