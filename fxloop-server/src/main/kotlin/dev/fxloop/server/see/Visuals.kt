@@ -89,6 +89,20 @@ class Visuals(private val session: AppSession, val store: ScreenStore, private v
         return Capture(f, png, out)
     }
 
+    /** PNG of one node (`target`: handle or path) at most [maxWidth] px wide, for the inspector; not persisted. */
+    fun nodePng(target: ObjectNode, maxWidth: Int): ByteArray {
+        throttle()
+        val p = target.deepCopy().apply { put("target", "node"); put("maxWidth", maxWidth) }
+        return Base64.getDecoder().decode(session.call(Fcp.Method.SCREENSHOT, p, 15_000)["pngB64"].asText())
+    }
+
+    /** The captioned pseudo-state strip of one node (`target`: handle or path), for the inspector; not persisted. */
+    fun statesStrip(target: ObjectNode): ByteArray {
+        throttle()
+        val r = session.call(Fcp.Method.CAPTURE_STATES, target.deepCopy(), 15_000)
+        return ImageOps.strip(r["frames"].map { Base64.getDecoder().decode(it["pngB64"].asText()) }, r["frames"].map { it["state"].asText() })
+    }
+
     /** Small internal window capture for automatic diffs (no image block). */
     fun captureForDiff(label: String): Frame =
         capture(Json.obj { put("target", "window"); put("maxWidth", DIFF_WIDTH); put("settleMs", 150) }, label).frame

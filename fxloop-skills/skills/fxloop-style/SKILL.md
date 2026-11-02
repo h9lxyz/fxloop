@@ -38,6 +38,9 @@ focus must survive restyling).
    `none`, focus must stay visible, and disabled must look disabled. Save the strip path.
 6. **Contrast:** `fx_lint_visual checks=["lowContrast"]`, plus explain-tool checks for the lint's blind spots. Fix
    until body text is at least 4.5:1.
+7. **Dead rules:** `fx_lint_css` lists rules that match no node (`unused`), misspelt classes or ids
+   (`unknownSelectors`) and stylesheet parse errors, with `file:line`. Open the other screens first; a rule may style
+   a view that is not showing. Fix typos, delete only what is dead on every screen.
 
 ## Dark mode
 

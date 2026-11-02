@@ -40,7 +40,7 @@ class ToolRegistryTest {
             "fx_get_screenshot", "fx_lint_visual", "fx_attach", "fx_export_test", "fx_explain_property", "fx_explain_style",
             "fx_explain_layout", "fx_eval_js", "fx_capture_states", "fx_set_control_mode", "fx_get_picked",
             "fx_test_human_input", "fx_test_get_bar_state", "fx_test_set_pick_mode",
-            "fx_suggest_override", "fx_open_inspector")
+            "fx_suggest_override", "fx_open_inspector", "fx_lint_css")
         assertThat(reg.all().first { it.name == "fx_get_picked" }.kind).isEqualTo(ToolDef.Kind.READ)
         assertThat(reg.all().first { it.name == "fx_set_control_mode" }.kind).isEqualTo(ToolDef.Kind.IDEMPOTENT_WRITE)
         val specs = reg.toMcp()

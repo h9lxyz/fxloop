@@ -25,7 +25,7 @@ object CoreTools {
         reg.tool("fx_get_app_status", "App status", Kind.READ,
             "Application state (starting/running/exited/stopped), pid, uptime, mode, FCP connection, showing windows " +
                 "(index, title, type STAGE|POPUP|DIALOG), the FXML load registry and scratchCss? (CSS the developer tried live in " +
-                "the inspector: apply it to the stylesheets, then fx_reload{clearScratch:true}). Auto-starts a never-started app, or connects " +
+                "the inspector: apply it to the stylesheets, then fx_reload{clearScratch:true}), scratchProps? ([{h, path, property, before, after}] layout/property edits the developer tried live: apply them to the FXML or code; clearScratch reverts them). Auto-starts a never-started app, or connects " +
                 "to the one the developer already runs from this project (mvn fxloop:run, gradle fxloopRun, FxLoopDev.install()).",
             Schema.obj()) {
             val started = s.ensureStarted()
@@ -35,6 +35,7 @@ object CoreTools {
             st.put("screensDir", ctx.visuals.relative(ctx.visuals.store.dir))
             val live = ctx.live.status(st["human"])
             listOf("control", "controlSetting", "human", "actionNeeded", "inputLock").forEach { k -> st.set<JsonNode>(k, live[k]) }
+            ctx.scratchProps.list().takeIf { it.isNotEmpty() }?.let { st.set<JsonNode>("scratchProps", dev.fxloop.server.see.ScratchProps.toJson(it)) }
             val windows = st.path("windows").joinToString("; ") { "#${it["index"]} ${it.path("type").asText()} '${it.path("title").asText("")}'" }
             val needed = live.path("actionNeeded").joinToString(", ") { "${it.path("reason").asText()} · ${it.path("next").asText()}" }
             val how = when {

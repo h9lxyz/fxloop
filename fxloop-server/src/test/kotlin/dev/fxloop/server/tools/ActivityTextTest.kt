@@ -15,6 +15,7 @@ class ActivityTextTest {
         assertThat(Ctx.activityText("fx_type_keys", keys)).isEqualTo("pressing Control+S")
         assertThat(Ctx.activityText("fx_set_text", Json.obj { put("query", "#name") })).isEqualTo("typing into #name")
         assertThat(Ctx.activityText("fx_take_screenshot", Json.obj())).isEqualTo("taking a screenshot")
+        assertThat(Ctx.activityText("fx_lint_css", Json.obj())).isEqualTo("checking the stylesheets for dead rules")
         assertThat(Ctx.activityText("fx_something_new", Json.obj())).isEqualTo("something new")
     }
 }

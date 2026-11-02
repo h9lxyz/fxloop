@@ -32,6 +32,7 @@ _Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-ref
 | [`fx_reload`](#fx_reload) | idempotent_write | Reload |
 | [`fx_reload_fxml`](#fx_reload_fxml) | idempotent_write | Reload FXML |
 | [`fx_set_watch_mode`](#fx_set_watch_mode) | idempotent_write | Set watch mode |
+| [`fx_lint_css`](#fx_lint_css) | read | Lint CSS |
 | [`fx_lint_fxml`](#fx_lint_fxml) | read | Lint FXML |
 | [`fx_connect_existing`](#fx_connect_existing) | write | Connect existing |
 | [`fx_attach`](#fx_attach) | write | Attach to JVM |
@@ -46,7 +47,7 @@ _Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-ref
 
 ## fx_get_app_status
 
-Application state (starting/running/exited/stopped), pid, uptime, mode, FCP connection, showing windows (index, title, type STAGE|POPUP|DIALOG), the FXML load registry and scratchCss? (CSS the developer tried live in the inspector: apply it to the stylesheets, then fx_reload{clearScratch:true}). Auto-starts a never-started app, or connects to the one the developer already runs from this project (mvn fxloop:run, gradle fxloopRun, FxLoopDev.install()).
+Application state (starting/running/exited/stopped), pid, uptime, mode, FCP connection, showing windows (index, title, type STAGE|POPUP|DIALOG), the FXML load registry and scratchCss? (CSS the developer tried live in the inspector: apply it to the stylesheets, then fx_reload{clearScratch:true}), scratchProps? ([{h, path, property, before, after}] layout/property edits the developer tried live: apply them to the FXML or code; clearScratch reverts them). Auto-starts a never-started app, or connects to the one the developer already runs from this project (mvn fxloop:run, gradle fxloopRun, FxLoopDev.install()).
 
 _No parameters._
 
@@ -222,7 +223,7 @@ Programmatically set the text of a TextInputControl (TextField/TextArea/editable
 
 ## fx_set_property
 
-Write a JavaFX property (coerces strings to boolean/number/enum/Color/Insets). Bound properties fail with PROPERTY_BOUND — write to the binding's source instead.
+Write a JavaFX property (coerces strings to boolean/number/enum/Color/Insets). Bound properties fail with PROPERTY_BOUND — write to the binding's source instead. name may also be a layout constraint key (value "" or null clears it): HBox.hgrow|margin, VBox.vgrow|margin, GridPane.columnIndex|rowIndex|columnSpan|rowSpan|halignment|valignment|hgrow|vgrow|margin, AnchorPane.topAnchor|rightAnchor|bottomAnchor|leftAnchor, BorderPane.alignment|margin, StackPane.alignment|margin, FlowPane.margin, TilePane.alignment|margin.
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -348,7 +349,7 @@ Apply your edits: detects changed files since the last launch/reload (or takes f
 | `remount` | boolean |  | Rebuild registered views after a HotSwap (default true) |
 | `carryState` | boolean |  | Carry view state (selection, scroll, text, …) across a remount/FXML swap (default true) |
 | `restartWhenHumanActive` | boolean |  | Restart even while the developer is using the app (default false: the restart is deferred) |
-| `clearScratch` | boolean |  | Remove the inspector's scratch CSS (fx_get_app_status.scratchCss) once you have applied it to the stylesheets; the css visualDiff then compares scratch vs. source (default false) |
+| `clearScratch` | boolean |  | Remove the inspector's scratch CSS (fx_get_app_status.scratchCss) and revert its scratch property edits (scratchProps) once you have applied them to the sources; the css visualDiff then compares scratch vs. source (default false) |
 | `effects` | boolean |  | Attach the scene-diff 'effects' of this action (default true) |
 
 ## fx_reload_fxml
@@ -367,6 +368,14 @@ Human-facing auto-apply on save: css-only (default) re-applies CSS instantly; al
 | Param | Type | Required | Description |
 |---|---|---|---|
 | `mode` | string (css-only\|all\|off) | yes | css-only | all | off |
+
+## fx_lint_css
+
+Dead, broken and misspelt rules in the author stylesheets of the open windows: unused (the rule's selectors match no node in the open windows), unknownSelectors (a style class or #id no node has, e.g. .bttn), and parse errors per sheet, all with file:line. Low severity: a rule may style a screen that is not open, so open the other screens (or pass windowIndex) before deleting anything. Pseudo-classes are ignored when matching.
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `windowIndex` | integer |  | One window (default: every showing window) |
 
 ## fx_lint_fxml
 
@@ -409,7 +418,7 @@ Why does a property have its value? value, type, bound, binding dependency tree 
 
 ## fx_explain_style
 
-CSS-styled properties of a node with their origin (USER_AGENT/AUTHOR/INLINE/USER), inline style, style classes, pseudo-classes and candidate stylesheets along the parent chain. With rules (default) each property also names the winner rule (selector, file:line), the overridden rules with reasons (all of them when property is given) and blockers that stop an override (inline style, !important, code-set value). Paginated.
+CSS-styled properties of a node with their origin (USER_AGENT/AUTHOR/INLINE/USER), inline style, style classes, pseudo-classes and candidate stylesheets along the parent chain. With rules (default) each property also names the winner rule (selector, file:line), the overridden rules with reasons (all of them when property is given) and blockers that stop an override (inline style, !important, code-set value). With states=["hover"] the cascade is simulated as if those pseudo-classes were set (nothing changes on the node; items carry simulation:"assumed"). Paginated.
 
 | Param | Type | Required | Description |
 |---|---|---|---|
@@ -421,6 +430,7 @@ CSS-styled properties of a node with their origin (USER_AGENT/AUTHOR/INLINE/USER
 | `property` | string |  | One CSS property, e.g. -fx-text-fill |
 | `limit` | integer |  | Page size |
 | `offset` | integer |  | Page offset |
+| `states` | array |  | Pseudo-classes to assume, without the colon, e.g. ["hover","focused"] |
 | `rules` | boolean |  | Rule-level cascade: winner rule with file:line, overridden rules with reasons, blockers (default true). false = origin-only output as before |
 
 ## fx_suggest_override

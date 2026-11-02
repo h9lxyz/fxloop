@@ -42,6 +42,17 @@ interface SheetMap {
 }
 
 /**
+ * Node images for the inspector, rendered by the app: [nodePng] a PNG of one node (at most `maxWidth` px wide),
+ * [statesStrip] a captioned strip of the node in each pseudo-state. Both count against the screenshot rate cap and
+ * throw [FcpException] when the node is gone.
+ */
+interface ViewerShots {
+    fun nodePng(h: Int?, path: String?, maxWidth: Int): ByteArray
+
+    fun statesStrip(h: Int?, path: String?): ByteArray
+}
+
+/**
  * Opt-in, loopback-only, token-guarded live viewer (PRD 04 §3.7) plus the CSS inspector API (PRD 08): read-only
  * except `POST /api/highlight` and `POST /api/pick`, which are visual-only and ephemeral. While [editEnabled]
  * (`FXLOOP_INSPECTOR_EDIT`, or a developer-run app started with it) the scratch-CSS endpoints exist too (PRD 08 §5): they accept CSS text only, which the
@@ -53,6 +64,11 @@ interface SheetMap {
  * developer take over.
  * With [prompts], `POST /api/prompt` (JSON `{text, window?, h?, path?, property?, …}`) queues a developer prompt for
  * the agent, `POST /api/prompt/cancel?id=` withdraws one and `GET /api/prompts` lists them; changes arrive as SSE `prompts`.
+ * Inspector v2 (PRD 09): `/api/states`, `/api/find`, `/api/sheets`, `/api/lint`, `/api/handlers`, `/api/property` and the multi
+ * `/api/highlight` are plain FCP calls; with [shots], `/api/shot` and `/api/strip` return PNGs. With [props] (edit-gated) the
+ * whole-state `/api/props` scratch property set, `/api/props/clear` and, through [fxmlApply], `/api/fxml/apply`. `evidence=1` on
+ * `/api/scratch/set` and `/api/props` adds a before/after node shot diff, kept for `/api/evidence`. [inspectorGone] runs when
+ * the last `/sse?from=inspect` page disconnects.
  */
 class Viewer(
     private val requestedPort: Int,
@@ -67,6 +83,10 @@ class Viewer(
     private val scratchApply: ((dryRun: Boolean, targets: Map<Int, String>) -> JsonNode)? = null,
     private val prompts: Prompts? = null,
     private val sheetMap: SheetMap? = null,
+    private val shots: ViewerShots? = null,
+    private val props: ScratchProps? = null,
+    private val fxmlApply: ((dryRun: Boolean) -> JsonNode)? = null,
+    private val inspectorGone: (() -> Unit)? = null,
 ) : AutoCloseable {
     private var server: HttpServer? = null
     private var executor: ExecutorService? = null
@@ -81,6 +101,12 @@ class Viewer(
 
     @Volatile
     private var movedTo: String? = null
+
+    /** A before/after node shot pair kept for `/api/evidence`. */
+    private class Evidence(val seq: Int, val before: ByteArray, val after: ByteArray)
+
+    private val evidence = ArrayDeque<Evidence>()
+    private var evidenceSeq = 0
 
     /**
      * Another server's inspector now serves the app (the `fxloop:run` helper yielded to an agent session): pages get
@@ -211,7 +237,7 @@ class Viewer(
                 send(ex, 404, "text/plain", "not found".toByteArray())
                 return
             }
-            val allowed = if (path in POST_PATHS) "POST" else "GET"
+            val allowed = if (path in POST_PATHS && !(path == "/api/props" && ex.requestMethod == "GET")) "POST" else "GET"
             if (ex.requestMethod != allowed) {
                 send(ex, 405, "text/plain", "method not allowed".toByteArray())
                 return
@@ -271,11 +297,16 @@ class Viewer(
             p("h")?.toIntOrNull()?.let { params.put("handle", it) }
             p("path")?.let { params.put("path", it) }
         }
-        if (name.startsWith("scratch/") || name == "sheet-map") {
+        if (name.startsWith("scratch/") || name == "sheet-map" ||
+            (ex.requestMethod == "POST" && (name == "props" || name == "props/clear" || name == "fxml/apply"))) {
             lockText()?.let { why ->
                 send(ex, 423, "application/json", Json.write(error("LOCKED", "editing is paused: $why")).toByteArray())
                 return
             }
+        }
+        if (name in V2_LOCAL) {
+            v2Local(ex, name, ::p)
+            return
         }
         if (name == "lock/release") {
             releaseLock?.invoke()
@@ -347,7 +378,41 @@ class Viewer(
             }
             "highlight" -> {
                 method = Fcp.Method.HIGHLIGHT
-                if (p("clear") in TRUE) params.put("clear", true) else target()
+                val handles = p("handles")?.split(',')?.mapNotNull { it.trim().toIntOrNull() }?.take(MAX_HANDLES).orEmpty()
+                if (p("clear") in TRUE) params.put("clear", true)
+                else if (handles.isNotEmpty()) {
+                    params.putArray("handles").also { a -> handles.forEach(a::add) }
+                    if (p("labels") in TRUE) params.put("labels", true)
+                } else target()
+            }
+            "states" -> {
+                method = Fcp.Method.FORCE_STATES
+                target()
+                val states = p("states")?.split(',')?.map { it.trim() }?.filter { STATE_NAME.matches(it) }?.distinct()?.take(MAX_STATES).orEmpty()
+                params.putArray("states").also { a -> states.forEach(a::add) }
+            }
+            "sheets" -> {
+                method = Fcp.Method.CSS_SHEETS
+                p("window")?.toIntOrNull()?.let { params.put("windowIndex", it) }
+                p("sheet")?.let { params.put("sheet", it.take(MAX_PATH_CHARS)) }
+            }
+            "lint" -> {
+                method = Fcp.Method.CSS_LINT
+                p("window")?.toIntOrNull()?.let { params.put("windowIndex", it) }
+            }
+            "find" -> {
+                method = Fcp.Method.FIND_NODES
+                val q = p("q")?.trim().orEmpty().take(MAX_SELECTOR_CHARS)
+                if (q.isEmpty()) return send(ex, 400, "application/json", Json.write(error("BAD_REQUEST", "q is required")).toByteArray())
+                findParams(q, params)
+                p("window")?.toIntOrNull()?.let { params.put("windowIndex", it) }
+                params.put("limit", MAX_FIND)
+            }
+            "handlers" -> { method = Fcp.Method.NODE_HANDLERS; target() }
+            "property" -> {
+                method = Fcp.Method.EXPLAIN_PROPERTY
+                target()
+                params.put("name", p("name").orEmpty().take(200))
             }
             "pick" -> {
                 method = Fcp.Method.PICK_START
@@ -381,7 +446,9 @@ class Viewer(
             return
         }
         val out: JsonNode = try {
-            val r = backend(method, params, timeout)
+            val r = if (name == "scratch/set" && p("evidence") in TRUE) {
+                withEvidence(p("h")?.toIntOrNull(), p("path")) { backend(method, params, timeout) }
+            } else backend(method, params, timeout)
             when (name) {
                 "windows" -> r.path("windows")
                 "styles" -> {
@@ -391,6 +458,7 @@ class Viewer(
                 }
                 "scratch" -> r.path("scratchCss").takeIf { it.isObject } ?: Json.obj { put("active", false); put("rules", 0) }
                 "scratch/set", "scratch/clear" -> r.also { publish("scratch", it) }
+                "find" -> compactFind(r)
                 else -> r
             }
         } catch (e: FcpException) {
@@ -399,6 +467,147 @@ class Viewer(
             error("INTERNAL", e.message ?: e.javaClass.simpleName)
         }
         send(ex, 200, "application/json", Json.write(out).toByteArray())
+    }
+
+    /** Endpoints that are not a single FCP call: node images, the scratch property set, FXML apply, evidence. */
+    private fun v2Local(ex: HttpExchange, name: String, p: (String) -> String?) {
+        fun json(code: Int, body: JsonNode) = send(ex, code, "application/json", Json.write(body).toByteArray())
+        fun noApp() = json(503, error("NO_APP", "no application is connected"))
+        val h = p("h")?.toIntOrNull()
+        val path = p("path")
+        try {
+            when (name) {
+                "evidence" -> {
+                    val seq = p("seq")?.toIntOrNull()
+                    val e = synchronized(evidence) { evidence.firstOrNull { it.seq == seq } }
+                    if (e == null) return send(ex, 404, "text/plain", "not found".toByteArray())
+                    when (p("which")) {
+                        "before" -> send(ex, 200, "image/png", e.before)
+                        "after" -> send(ex, 200, "image/png", e.after)
+                        else -> json(400, error("BAD_REQUEST", "which must be before or after"))
+                    }
+                }
+                "shot", "strip" -> {
+                    val s = shots
+                    if (s == null || !connected()) return noApp()
+                    if (h == null && path == null) return json(400, error("BAD_REQUEST", "h or path is required"))
+                    val png = if (name == "shot") s.nodePng(h, path, (p("w")?.toIntOrNull() ?: MAX_SHOT_WIDTH).coerceIn(16, MAX_SHOT_WIDTH))
+                    else s.statesStrip(h, path)
+                    send(ex, 200, "image/png", png)
+                }
+                "props" -> {
+                    val store = props ?: return send(ex, 404, "text/plain", "not found".toByteArray())
+                    if (ex.requestMethod == "GET") return json(200, ScratchProps.envelope(store.list()))
+                    if (!connected()) return noApp()
+                    if (!isJson(ex)) return json(415, error("BAD_REQUEST", "send the properties as application/json"))
+                    val body = readJson(ex) ?: return json(400, error("BAD_REQUEST", "body must be a JSON object"))
+                    val wants = parseWants(body.path("items"))
+                        ?: return json(400, error("BAD_REQUEST", "items must be an array of {h?, path?, property, value}"))
+                    val target = store.plan(wants).set.firstOrNull()
+                    val out = Json.obj()
+                    var result: ScratchProps.Result? = null
+                    if (p("evidence") in TRUE && target != null) {
+                        val ev = withEvidence(target.h, target.path) { Json.obj().also { result = store.replace(wants) } }
+                        ev.path("evidence").takeIf { it.isObject }?.let { out.set<JsonNode>("evidence", it) }
+                    } else {
+                        result = store.replace(wants)
+                    }
+                    val r = result!!
+                    out.set<JsonNode>("items", ScratchProps.toJson(r.items))
+                    if (r.errors.isNotEmpty()) {
+                        val a = out.putArray("errors")
+                        r.errors.forEach { a.addObject().put("path", it.path).put("property", it.property).put("message", it.message) }
+                    }
+                    publish("props", ScratchProps.envelope(r.items))
+                    json(200, out)
+                }
+                "props/clear" -> {
+                    val store = props ?: return send(ex, 404, "text/plain", "not found".toByteArray())
+                    if (!connected()) return noApp()
+                    store.clear()
+                    val out = ScratchProps.envelope(emptyList())
+                    publish("props", out)
+                    json(200, out)
+                }
+                "fxml/apply" -> {
+                    val apply = fxmlApply
+                    if (apply == null || !connected()) return noApp()
+                    val out = apply(p("dryRun") in TRUE)
+                    if (out.path("applied").asBoolean()) props?.let { publish("props", ScratchProps.envelope(it.list())) }
+                    json(200, out)
+                }
+            }
+        } catch (e: FcpException) {
+            json(200, error(e.code, e.message ?: e.code))
+        } catch (e: dev.fxloop.server.mcp.ToolException) {
+            json(200, error(e.code, e.message ?: e.code))
+        } catch (e: Exception) {
+            json(200, error("INTERNAL", e.message ?: e.javaClass.simpleName))
+        }
+    }
+
+    /** `items` of a `/api/props` body as wanted edits; null when malformed. A missing or null `value` clears the property. */
+    private fun parseWants(items: JsonNode): List<ScratchProps.Want>? {
+        if (!items.isArray || items.size() > MAX_PROPS) return null
+        return items.map { i ->
+            val property = i.path("property").asText("").takeIf { it.isNotEmpty() && it.length <= 200 } ?: return null
+            val path = i.path("path").takeIf { it.isTextual }?.asText()?.takeIf { it.length <= MAX_PATH_CHARS }
+            val h = i.path("h").takeIf { it.isInt }?.asInt()
+            if (path == null && h == null) return null
+            val v = i.path("value")
+            val value = if (v.isMissingNode || v.isNull) null else v.asText().take(MAX_CONTEXT_CHARS * 4)
+            ScratchProps.Want(h, path, property, value)
+        }
+    }
+
+    /**
+     * Runs [change] between two node shots (before; wait; after) and attaches `evidence: {changedPct, verdict, seq}` to the
+     * result; `changedPct` 0 means nothing visible changed. The pair is kept for `/api/evidence`. Without shots, or when a
+     * shot fails, the result is returned as is.
+     */
+    private fun withEvidence(h: Int?, path: String?, change: () -> JsonNode): JsonNode {
+        val s = shots
+        if (s == null || (h == null && path == null)) return change()
+        val before = runCatching { s.nodePng(h, path, MAX_SHOT_WIDTH) }.getOrNull()
+        val out = change()
+        if (before == null || out !is ObjectNode) return out
+        runCatching {
+            Thread.sleep(EVIDENCE_SETTLE_MS)
+            val after = s.nodePng(h, path, MAX_SHOT_WIDTH)
+            val d = ImageOps.diff(before, after, EVIDENCE_THRESHOLD, 800)
+            val seq = synchronized(evidence) {
+                evidence.addFirst(Evidence(++evidenceSeq, before, after))
+                while (evidence.size > EVIDENCE_KEPT) evidence.removeLast()
+                evidenceSeq
+            }
+            out.putObject("evidence").put("changedPct", Math.round(d.changedPct * 1000) / 1000.0).put("verdict", d.verdict).put("seq", seq)
+        }
+        return out
+    }
+
+    /** `text:Foo` → text, `type:Button` → type, anything else a CSS selector query. */
+    private fun findParams(q: String, params: ObjectNode) {
+        when {
+            q.startsWith("text:", ignoreCase = true) -> params.put("text", q.substring(5).trim())
+            q.startsWith("type:", ignoreCase = true) -> params.put("type", q.substring(5).trim())
+            q.startsWith("selector:", ignoreCase = true) -> params.put("query", q.substring(9).trim())
+            else -> params.put("query", q)
+        }
+    }
+
+    /** `{total, items:[{h, path, type, fxId?, window?, text?}], has_more?}`: the part of a `findNodes` page the page needs. */
+    private fun compactFind(r: JsonNode): JsonNode = Json.obj {
+        put("total", r.path("total").asInt())
+        val arr = putArray("items")
+        for (i in r.path("items")) {
+            arr.addObject().apply {
+                put("h", i.path("h").asInt())
+                put("path", i.path("path").asText())
+                put("type", i.path("type").asText())
+                for (k in listOf("fxId", "window", "text")) i.path(k).takeIf { !it.isMissingNode && !it.isNull }?.let { set<JsonNode>(k, it) }
+            }
+        }
+        if (r.path("has_more").asBoolean()) put("has_more", true)
     }
 
     /** `GET /api/sheet-map/suggest?url=` and `POST /api/sheet-map {url, file}`; a change is pushed as SSE `sheetMap`. */
@@ -519,7 +728,8 @@ class Viewer(
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
         } finally {
-            subscribers.remove(q)
+            val from = subscribers.remove(q)
+            if (from == "inspect" && !closed && subscribers.values.none { it == "inspect" }) runCatching { inspectorGone?.invoke() }
         }
     }
 
@@ -585,10 +795,23 @@ class Viewer(
         const val RATE_PER_SEC = 30
         const val INSPECT_RESOURCE = "/dev/fxloop/server/inspect/inspect.html"
         val POST_PATHS = setOf("/api/highlight", "/api/pick", "/api/scratch/set", "/api/scratch/clear", "/api/scratch/apply",
-            "/api/lock/release", "/api/prompt", "/api/prompt/cancel", "/api/sheet-map")
+            "/api/lock/release", "/api/prompt", "/api/prompt/cancel", "/api/sheet-map", "/api/states", "/api/props", "/api/props/clear",
+            "/api/fxml/apply")
 
         /** Endpoints that only exist while inspector editing is on. */
-        val EDIT_PREFIXES = listOf("/api/scratch", "/api/sheet-map")
+        val EDIT_PREFIXES = listOf("/api/scratch", "/api/sheet-map", "/api/props", "/api/fxml")
+
+        /** Endpoints answered here rather than by one FCP call. */
+        val V2_LOCAL = setOf("shot", "strip", "props", "props/clear", "fxml/apply", "evidence")
+        const val MAX_HANDLES = 50
+        const val MAX_STATES = 8
+        const val MAX_FIND = 200
+        const val MAX_PROPS = 200
+        const val MAX_SHOT_WIDTH = 320
+        const val EVIDENCE_KEPT = 4
+        const val EVIDENCE_SETTLE_MS = 200L
+        const val EVIDENCE_THRESHOLD = 0.06
+        val STATE_NAME = Regex("^[A-Za-z][A-Za-z0-9_-]{0,39}$")
         const val MAX_PATH_CHARS = 4096
         const val MAX_SCRATCH_BYTES = 64 * 1024
         const val MAX_SELECTOR_CHARS = 500
