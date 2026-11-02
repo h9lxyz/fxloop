@@ -11,7 +11,7 @@
 
   <name>FXLoop</name>
   <description>Agentic dev-loop for JavaFX (tooling written in Kotlin): MCP server + in-JVM agent giving coding agents eyes, ears and hands.</description>
-  <url>https://github.com/fxloop/fxloop</url>
+  <url>https://github.com/h9lxyz/fxloop</url>
 
   <licenses>
     <license>
@@ -28,8 +28,8 @@
   </developers>
 
   <scm>
-    <url>https://github.com/fxloop/fxloop</url>
-    <connection>scm:git:https://github.com/fxloop/fxloop.git</connection>
+    <url>https://github.com/h9lxyz/fxloop</url>
+    <connection>scm:git:https://github.com/h9lxyz/fxloop.git</connection>
   </scm>
 
   <modules>

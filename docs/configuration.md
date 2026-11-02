@@ -58,7 +58,7 @@ app through `target|build/fxloop/handshake.json` (written with its own owner-onl
 launching. Control starts out `shared`, so the agent uses synthetic events and never takes your mouse. Reloads work,
 and edits made after the app started are picked up even if you made them before the agent connected. Restart is not
 available (the build tool owns the JVM); re-run the goal. The same auto-connect applies to IDE launches that call
-`FxLoopDev.install()`. See the [Maven plugin](https://github.com/fxloop/fxloop/tree/main/fxloop-maven-plugin) and
+`FxLoopDev.install()`. See the [Maven plugin](https://github.com/h9lxyz/fxloop/tree/main/fxloop-maven-plugin) and
 Gradle plugin READMEs for the options (`fxloop.bar`, `fxloop.inspectorEdit`, app args).
 
 ## Build tool detection

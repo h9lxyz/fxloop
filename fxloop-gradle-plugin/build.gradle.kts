@@ -61,8 +61,8 @@ dependencies {
 }
 
 gradlePlugin {
-    website.set("https://github.com/fxloop/fxloop")
-    vcsUrl.set("https://github.com/fxloop/fxloop.git")
+    website.set("https://github.com/h9lxyz/fxloop")
+    vcsUrl.set("https://github.com/h9lxyz/fxloop.git")
     plugins {
         create("fxloop") {
             id = "dev.fxloop"

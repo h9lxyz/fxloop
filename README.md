@@ -86,7 +86,7 @@ You need JDK 17+, a JavaFX app built with Maven or Gradle, and an agent that spe
 yet, so build it once:
 
 ```sh
-git clone https://github.com/fxloop/fxloop.git && cd fxloop
+git clone https://github.com/h9lxyz/fxloop.git && cd fxloop
 ./mvnw install -DskipTests
 (cd fxloop-gradle-plugin && ./gradlew publishToMavenLocal)   # only if your app uses Gradle
 ```

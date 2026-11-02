@@ -1,6 +1,6 @@
 site_name: FXLoop
 site_description: Agentic dev-loop for JavaFX - MCP server + in-JVM agent
-repo_url: https://github.com/fxloop/fxloop
+repo_url: https://github.com/h9lxyz/fxloop
 theme:
   name: material
   features: [navigation.sections, content.code.copy]
