@@ -78,6 +78,11 @@ internal class Dispatcher(private val rt: AgentRuntime) {
             rt.human.testInput(p)
         }
         handlers[Method.HIGHLIGHT] = Overlay::highlight
+        handlers[Method.FORCE_STATES] = ForcedStates::force
+        handlers[Method.NODE_HANDLERS] = Handlers::describe
+        handlers[Method.CSS_LINT] = dev.fxloop.agent.css.CssLint::lint
+        handlers[Method.CSS_SHEETS] = dev.fxloop.agent.css.CssLint::sheets
+        handlers[Method.FXML_EDIT_PLAN] = FxmlEdit::plan
         handlers[Method.PICK_START] = { p ->
             if (p.path("cancel").asBoolean(false)) rt.pick.set(Json.obj().put("on", false))
             else rt.pick.set(Json.obj().put("on", true).also { o -> p.intOrNull("windowIndex")?.let { o.put("windowIndex", it) } })
@@ -100,6 +105,7 @@ internal class Dispatcher(private val rt: AgentRuntime) {
         o.setNode("mounts", rt.mounts.describe())
         o.setNode("human", rt.human.describe())
         o.put("pickActive", rt.pick.active)
+        ForcedStates.describe()?.let { o.setNode("forcedStates", it) }
         if (dev.fxloop.agent.css.Scratch.active) o.setNode("scratchCss", dev.fxloop.agent.css.Scratch.describe())
         o
     }

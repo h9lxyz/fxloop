@@ -85,6 +85,21 @@ object Fcp {
          */
         const val CSS_SCRATCH_PLAN = "cssScratchPlan"
 
+        /** Inspector v2 (PRD 09): holds pseudo-classes on one node until cleared (`states: []`). */
+        const val FORCE_STATES = "forceStates"
+
+        /** Dead, broken and misspelt rules of the author stylesheets in the open windows (`fx_lint_css`). */
+        const val CSS_LINT = "cssLint"
+
+        /** Window-level stylesheet list in effective order; with `sheet`, its rules and how many nodes each matches. */
+        const val CSS_SHEETS = "cssSheets"
+
+        /** Read-only plan for writing layout edits into FXML attributes (the server checks and writes the files). */
+        const val FXML_EDIT_PLAN = "fxmlEditPlan"
+
+        /** The `onXxx` event handler properties a node has set. */
+        const val NODE_HANDLERS = "nodeHandlers"
+
         /** Test-only: blocks the FX thread; only honoured with `-Dfxloop.test=true`. */
         const val BLOCK_FX_THREAD = "blockFxThread"
     }
