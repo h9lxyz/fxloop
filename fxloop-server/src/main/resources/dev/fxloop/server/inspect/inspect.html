@@ -56,10 +56,11 @@ button:disabled{opacity:.5;cursor:default}
 .mapf .sg:hover{text-decoration:underline}
 .mapf .bad{color:var(--warn);margin-top:4px}
 #main{flex:1;display:flex;min-height:0}
-#treePane{width:42%;min-width:160px;overflow:auto;background:var(--bg);outline:none;font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+#treeCol{width:42%;min-width:160px;display:flex;flex-direction:column;min-height:0}
+#treePane{flex:1;overflow:auto;background:var(--bg);outline:none;font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 #split{width:5px;cursor:col-resize;background:var(--border);flex:none}
 #split:hover{background:var(--accent)}
-#stylesPane{flex:1;min-width:200px;overflow:auto;background:var(--bg)}
+#stylesPane{flex:1;min-width:200px;overflow:auto;background:var(--bg);outline:none}
 .row{display:flex;align-items:center;white-space:nowrap;height:20px;cursor:default;padding-right:8px}
 .row:hover{background:var(--hover)}
 .row.sel{background:var(--sel)}
@@ -174,6 +175,67 @@ input.ed.bad{border-color:var(--bad);color:var(--bad)}
 #askForm{display:flex;gap:6px;padding:4px 10px 8px;align-items:flex-end}
 #askText{flex:1;resize:vertical;min-height:34px;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px 6px}
 .decl .p.askable{cursor:pointer}.decl .p.askable:hover{text-decoration:underline dotted}
+#tbar{display:flex;align-items:center;gap:4px;padding:4px 6px;border-bottom:1px solid var(--border);background:var(--panel)}
+#tsearch{flex:1;min-width:0}
+#tcount{color:var(--dim);font-size:11px;white-space:nowrap}
+#tbar label{display:flex;align-items:center;gap:2px;color:var(--dim);font-size:11px;white-space:nowrap}
+#tbar button{padding:0 6px}
+.hrow{display:flex;gap:10px;align-items:flex-start}
+.hinfo{flex:1;min-width:0}
+.thumb{max-width:160px;max-height:96px;border:1px solid var(--border);border-radius:3px;background:var(--bg);display:block}
+.hside{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.staterow{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;margin-top:6px;font-size:12px}
+.staterow label{display:flex;align-items:center;gap:2px;cursor:pointer}
+.staterow label.on{color:var(--warn);font-weight:600}
+.staterow input[type=text]{width:9em;padding:0 5px}
+.chip.forced{background:var(--warn);color:#1e1f22;font-weight:600}
+.chip.forced::after{content:" forced";font-weight:400;font-size:9px}
+.stnote{color:var(--dim);font-size:11px;margin-top:2px}
+.strip{margin-top:6px}
+.strip img{max-width:100%;border:1px solid var(--border);border-radius:3px;display:block}
+.hand{margin-top:6px;font-size:12px}
+.hand summary{cursor:pointer;color:var(--dim)}
+.hand .it{padding-left:12px}
+.hand .note{color:var(--dim);font-size:11px;padding-left:12px}
+.callout{margin:8px 10px;padding:6px 10px;border:1px solid var(--warn);border-left-width:4px;border-radius:4px;background:var(--panel)}
+.callout .cause{color:var(--dim);font-size:12px;margin-top:2px}
+.mb.m{background:var(--mb-margin)}
+.lay h4{margin:0;padding:6px 10px;background:var(--panel2);border-bottom:1px solid var(--border);font-size:12px}
+.lay td.num{font-family:ui-monospace,Menlo,Consolas,monospace}
+.lay .box{padding:10px}
+.lay .edsel{max-width:14em}
+.lay .kv{padding:3px 10px;color:var(--dim)}
+.lay .kv b{color:var(--fg);font-weight:500}
+.scratch .ev{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.scratch .ev img{max-height:56px;max-width:140px;border:1px solid var(--border);border-radius:3px}
+.scratch .ev .warn{color:var(--warn)}
+.scratch .ev .lab{font-size:10px;color:var(--dim);display:block}
+.lpop{position:fixed;z-index:30;min-width:260px;max-width:520px;max-height:60vh;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:4px;box-shadow:0 4px 16px rgba(0,0,0,.35);padding:4px 0;font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.lpop .st{padding:2px 8px;white-space:normal;overflow-wrap:anywhere}
+.lpop .st.go{cursor:pointer}.lpop .st.go:hover{background:var(--hover)}
+.lpop .where{color:var(--dim);font:11px system-ui,sans-serif;margin-left:6px}
+.lpop .fin{padding:3px 8px;border-top:1px solid var(--border);margin-top:3px}
+.lpop .unres{color:var(--bad)}
+.rule.flash{animation:rflash 1.4s ease-out}
+@keyframes rflash{0%{background:var(--sel)}100%{background:transparent}}
+.bindlink{color:var(--link);cursor:pointer;text-decoration:underline dotted}
+.bindtree{margin:2px 0 4px 18px;padding:4px 8px;border-left:2px solid var(--accent);background:var(--panel);font:11px ui-monospace,Menlo,Consolas,monospace;white-space:normal}
+.bindtree ul{margin:0;padding-left:14px;list-style:none}
+.bindtree .k{color:var(--dim)}
+.sheetrow{display:flex;gap:6px 10px;align-items:baseline;flex-wrap:wrap;padding:5px 10px;border-bottom:1px solid var(--border);cursor:pointer}
+.sheetrow:hover{background:var(--hover)}
+.sheetrow.sel{background:var(--sel)}
+.sheetrow .off{color:var(--dim)}
+.sheetrow .perr{color:var(--bad);flex-basis:100%;padding-left:12px;font-size:11px}
+.srule{display:flex;gap:4px 10px;align-items:baseline;flex-wrap:wrap;padding:3px 10px 3px 24px;border-bottom:1px solid var(--border)}
+.srule .sel-t{color:var(--cls);cursor:pointer;overflow-wrap:anywhere;flex:1 1 10em}
+.srule .sel-t:hover{text-decoration:underline}
+.srule.dead{opacity:.6}
+.srule .tag{font-size:10px;border:1px solid var(--warn);color:var(--warn);border-radius:9px;padding:0 6px}
+.srule .cnt{color:var(--dim);font-size:11px;white-space:nowrap}
+.lintsum{margin:8px 10px;padding:6px 10px;border:1px dashed var(--accent);border-radius:4px;background:var(--panel)}
+.lintsum .l{padding-left:12px}
+.dimnote{color:var(--dim);font-size:11px}
 #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--border);padding:6px 12px;border-radius:4px;display:none;z-index:9}
 </style>
 </head>
@@ -190,9 +252,18 @@ input.ed.bad{border-color:var(--bad);color:var(--bad)}
 <div id="banner"></div>
 <div id="lockbar" role="status"><span id="locktxt"></span><button id="takeover" title="Ends the agent's input lock so you can use the app and edit again">Take over</button></div>
 <div id="main">
-  <div id="treePane" tabindex="0" role="tree"></div>
+  <div id="treeCol">
+    <div id="tbar">
+      <input id="tsearch" type="search" placeholder="Find: #id .class Type text:Save type:Button" aria-label="Find nodes" autocomplete="off" spellcheck="false">
+      <span id="tcount"></span>
+      <button id="tprev" title="Previous match (Shift+Enter, ↑)" aria-label="Previous match" disabled>↑</button>
+      <button id="tnext" title="Next match (Enter, ↓)" aria-label="Next match" disabled>↓</button>
+      <label title="Search popups and every other window too"><input type="checkbox" id="tall"> all</label>
+    </div>
+    <div id="treePane" tabindex="0" role="tree"></div>
+  </div>
   <div id="split"></div>
-  <div id="stylesPane"></div>
+  <div id="stylesPane" tabindex="0"></div>
 </div>
 <div id="ask" aria-label="Ask agent">
   <div id="askLog" aria-live="polite"></div>
@@ -239,7 +310,20 @@ var state = {
   lock: null,                       // {reason?, remainingMs} while the agent holds the input lock (status event)
   activity: '',                     // what the agent is doing right now (status event)
   prompts: null,                    // {listening, items} of the Ask agent box (prompts event)
-  askAbout: null                    // {property, selector, file, line} the next prompt is about
+  askAbout: null,                   // {property, selector, file, line} the next prompt is about
+  forced: [],                       // pseudo-classes this page holds forced on the selected node (G1)
+  forcedNode: null,                 // {h, path} of the node holding them
+  forceNote: '',                    // "gave up on :armed" and the like, from the last /api/states answer
+  search: { q: '', items: [], total: 0, idx: -1, seq: 0 },   // tree search (G3)
+  props: { items: [] },             // scratch layout properties [{h, path, property, before, after}] (G2)
+  propsOk: false,                   // /api/props answered at least once
+  lplan: null,                      // Apply layout edits to file preview {files, code}
+  hist: { stack: [], pos: -1 },     // undo history of {css, props} snapshots (G8)
+  evidence: null,                   // {changedPct, seq} of the last committed change (G7)
+  thumbOk: false, stripOpen: false, stripErr: '',
+  handlers: null, handlersKey: null,  // {handlers, note} of the selected node (G9)
+  bind: Object.create(null),        // css property -> {open, loading, ok, err} binding trees (G9)
+  sheets: { list: null, err: null, window: null, open: null, detail: null, detailErr: null, lint: null, lintErr: null, busy: false }
 };
 
 var DEFAULTS_KEY = 'fxloop.inspect.showDefaults';
@@ -264,8 +348,11 @@ function asJson(r){
     return j;
   });
 }
-function postText(path, text){
-  return fetch(path + '?t=' + encodeURIComponent(TOKEN), {
+function postText(path, text, params){
+  var u = new URLSearchParams();
+  Object.keys(params || {}).forEach(function(k){ u.set(k, params[k]); });
+  u.set('t', TOKEN);
+  return fetch(path + '?' + u.toString(), {
     method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'text/css; charset=utf-8' }, body: text
   }).then(asJson);
 }
@@ -468,11 +555,15 @@ function onKey(ev){
 
 // ---------- selection / styles ----------
 function select(n){
+  var moved = state.forced.length && !same(n, state.forcedNode || state.sel);
   state.sel = { h: n.h, path: n.path || null };
   state.askAbout = null;
   state.suggest = Object.create(null);
+  state.bind = Object.create(null); state.evidence = null; state.stripOpen = false; state.lplan = null;
+  hideLookups();
   renderTree(); scrollSelIntoView();
-  loadStyles();
+  thumbImg.style.display = 'none';
+  (moved ? clearForced() : Promise.resolve()).then(function(){ loadStyles(); refreshThumb(); });
 }
 function loadStyles(){
   var pane = $('stylesPane');
@@ -487,11 +578,16 @@ function loadStyles(){
     if (res[0].err) { state.styles = null; paneError(pane, res[0].err); return; }
     showBanner(null);
     state.styles = res[0].ok; state.layout = res[1];
+    syncForced();
     renderStyles(); renderAsk();
+    loadHandlers();
+    if (state.tab === 'sheets' && !state.sheets.list && !state.sheets.busy) loadSheets();
+    if (state.styles.edit) loadProps();
     if (state.styles.edit && !state.scratch) return loadScratch().then(renderStyles);
   });
 }
 function reloadAll(){
+  resetSheets();
   return loadTree().then(loadStyles);
 }
 
@@ -559,6 +655,7 @@ function declEl(dc, r, d){
     overrideValue(vs, { cssProperty: dc.property, winner: (propOf(d, dc.property) || {}).winner || { origin: 'INLINE' } }, d, v);
   } else valueWithSwatches(vs, v, live ? function(i){ startEdit(vs, dc, r, d, v, imp, i); } : null);
   line.appendChild(vs);
+  if (dc.status === 'winner') attachLookups(vs, propOf(d, dc.property));
   if (live) {
     vs.classList.add('editable'); vs.title = 'Click to edit (applies as scratch CSS): ↑/↓ change numbers, Ctrl+Space suggests'; vs.tabIndex = 0;
     var start = function(){ startEdit(vs, dc, r, d, v, imp); };
@@ -577,6 +674,7 @@ function declEl(dc, r, d){
 }
 function ruleEl(r, d){
   var box = el('div', 'rule' + (r.scratch ? ' scratch-rule' : ''));
+  if (r.ruleId) box.setAttribute('data-rule', r.ruleId);
   var hd = el('div', 'hd');
   hd.appendChild(el('span', 'sel-t mono', r.selector));
   if (r.specificity) hd.appendChild(el('span', 'spec', r.specificity));
@@ -609,21 +707,41 @@ function renderStyles(){
   var pane = $('stylesPane'), top = pane.scrollTop, d = state.styles;
   clear(pane);
   if (!d) return;
+  hideLookups();
   var hd = el('div'); hd.id = 'stHead';
   var t = d.target || {};
-  hd.appendChild(el('div', 'sum mono', (t.type || '?') + (t.fxId ? '#' + t.fxId : '')));
-  if (t.path) hd.appendChild(el('div', 'inl mono', t.path));
+  var hrow = el('div', 'hrow'), info = el('div', 'hinfo'), side = el('div', 'hside');
+  info.appendChild(el('div', 'sum mono', (t.type || '?') + (t.fxId ? '#' + t.fxId : '')));
+  if (t.path) info.appendChild(el('div', 'inl mono', t.path));
   var chips = el('div', 'chips');
   String(d.styleClass || '').split(/\s+/).filter(Boolean).forEach(function(c){ chips.appendChild(el('span', 'chip', '.' + c)); });
-  (d.pseudoClasses || []).forEach(function(c){ chips.appendChild(el('span', 'chip ps', ':' + c)); });
-  if (chips.firstChild) hd.appendChild(chips);
-  if (d.inlineStyle) hd.appendChild(el('div', 'inl mono', 'style: ' + d.inlineStyle));
+  (d.pseudoClasses || []).forEach(function(c){
+    var chip = el('span', 'chip ps' + (pcForced(c) ? ' forced' : ''), ':' + pcName(c));
+    if (pcForced(c)) chip.title = 'forced by the inspector, not set by the app';
+    chips.appendChild(chip);
+  });
+  if (chips.firstChild) info.appendChild(chips);
+  if (d.inlineStyle) info.appendChild(el('div', 'inl mono', 'style: ' + d.inlineStyle));
+  side.appendChild(thumbImg);
+  var sb = el('button', 'linkb', state.stripOpen ? 'Hide states strip' : 'States strip');
+  sb.title = 'Render the node in each state (hover, focused, pressed, disabled)';
+  sb.addEventListener('click', toggleStrip);
+  side.appendChild(sb);
+  hrow.appendChild(info); hrow.appendChild(side); hd.appendChild(hrow);
+  hd.appendChild(stateRow());
+  if (state.forceNote) hd.appendChild(el('div', 'stnote', state.forceNote));
+  if (state.stripOpen) hd.appendChild(stripBox);
+  var he = handlersEl(); if (he) hd.appendChild(he);
   pane.appendChild(hd);
 
   var tabs = el('div'); tabs.id = 'tabs';
-  [['styles', 'Styles'], ['computed', 'Computed']].forEach(function(x){
+  [['styles', 'Styles'], ['computed', 'Computed'], ['layout', 'Layout'], ['sheets', 'Sheets']].forEach(function(x){
     var b = el('button', state.tab === x[0] ? 'on' : '', x[1]);
-    b.addEventListener('click', function(){ state.tab = x[0]; renderStyles(); });
+    b.addEventListener('click', function(){
+      state.tab = x[0];
+      if (x[0] === 'sheets' && !state.sheets.list && !state.sheets.busy) loadSheets();
+      renderStyles();
+    });
     tabs.appendChild(b);
   });
   var f = el('input'); f.type = 'search'; f.placeholder = 'Filter'; f.value = state.filter; f.id = 'filter';
@@ -635,8 +753,11 @@ function renderStyles(){
   tabs.appendChild(f);
   pane.appendChild(tabs);
 
-  if (state.tab === 'computed') renderComputed(pane, d); else renderRules(pane, d);
-  renderBox(pane);
+  if (state.tab === 'computed') renderComputed(pane, d);
+  else if (state.tab === 'layout') renderLayout(pane, d);
+  else if (state.tab === 'sheets') renderSheets(pane, d);
+  else renderRules(pane, d);
+  if (state.tab === 'styles' || state.tab === 'computed') renderBox(pane);
   pane.scrollTop = top;
 }
 
@@ -729,12 +850,17 @@ function codeEl(d){
     if (canEdit() && !bound) overrideValue(vs, p, d, v); else valueWithSwatches(vs, v, null);
     line.appendChild(vs);
     line.appendChild(document.createTextNode(';'));
-    if (bound) line.appendChild(el('span', 'why', '— bound in code: CSS cannot change it'));
+    if (bound) {
+      var why = el('span', 'why', '— ');
+      why.appendChild(bindingLink(p)); why.appendChild(document.createTextNode(': CSS cannot change it'));
+      line.appendChild(why);
+    }
     else if (!(p.winner && p.winner.ruleId === 'code')) {
       line.appendChild(el('span', 'why', '— shown now; ' + (p.winner && p.winner.selector ? p.winner.selector : 'a stylesheet rule') +
         ' takes over on the next CSS pass'));
     }
     box.appendChild(line);
+    var bb = bound ? bindBox(p) : null; if (bb) box.appendChild(bb);
   });
   return box;
 }
@@ -1238,7 +1364,12 @@ function nameInput(value, onInput, onEnter, onEscape){
  */
 function editSession(){
   var base = JSON.stringify(scratchItems()), dirty = false, busy = false, want = null;
-  state.editing = true;
+  state.editing = true; histEnsure();
+  function rawSend(items){
+    var e = !items.some(function(it){ return it.declarations.length; });
+    return (e ? postText('/api/scratch/clear', '') : postText('/api/scratch/set', scratchCssText(items)))
+      .then(function(j){ state.scratch = j; }, function(){});
+  }
   function pump(){
     var w = want; want = null; busy = true; dirty = true;
     var empty = !w.items.some(function(it){ return it.declarations.length; });
@@ -1252,7 +1383,9 @@ function editSession(){
     /** Ends the session with [items] (null = restore what was there before). */
     end: function(items, check){
       state.editing = false;
-      if (items) return applyScratch(items, check).then(function(ok){ if (!ok && dirty) return applyScratch(s.items()); });
+      // previews already moved the node: put the old state back first so the before/after evidence compares the real change
+      if (items) return (dirty ? rawSend(s.items()) : Promise.resolve()).then(function(){ return applyScratch(items, check); })
+        .then(function(ok){ if (!ok && dirty) return applyScratch(s.items()); });
       if (dirty) return applyScratch(s.items());
       renderStyles(); return Promise.resolve();
     }
@@ -1451,12 +1584,15 @@ function badValue(v){ return !v || /[;{}]/.test(v); }
  * Resolves to true when the app accepted it; a rejection (parse error) is toasted and resolves to false.
  */
 function applyScratch(items, check){
+  histEnsure();
   var empty = !items.some(function(it){ return it.declarations.length; });
-  var req = empty ? postText('/api/scratch/clear', '') : postText('/api/scratch/set', scratchCssText(items));
+  var req = empty ? postText('/api/scratch/clear', '') : postText('/api/scratch/set', scratchCssText(items), evParams());
   return req.then(function(j){
     state.scratch = j;
+    captureEvidence(empty ? null : j);
     if (!j.active) state.disabled = Object.create(null);
-    return loadStyles().then(function(){ if (check) checkWins(check); return true; });
+    histPush();
+    return loadStyles().then(function(){ if (check) checkWins(check); refreshThumb(); return true; });
   }, function(e){ toast(errText(e)); renderStyles(); return false; });
 }
 function checkWins(property){
@@ -1645,20 +1781,32 @@ function newRuleForm(d){
   setTimeout(function(){ (dr.prop ? val : prop).focus(); }, 0);
   return f;
 }
+// --- scratch bar: CSS + layout edits, undo/redo, evidence
+function propCount(){ return ((state.props && state.props.items) || []).length; }
 function renderScratchBar(pane, d){
-  var n = state.scratch && state.scratch.active ? state.scratch.rules : 0;
+  var n = state.scratch && state.scratch.active ? state.scratch.rules : 0, m = propCount();
   var box = el('div', 'scratch'), hd = el('div', 'hd');
-  hd.appendChild(el('strong', null, n ? 'Scratch CSS · ' + n + (n === 1 ? ' rule' : ' rules') : 'Try it live'));
+  var parts = [];
+  if (n) parts.push('Scratch CSS · ' + n + (n === 1 ? ' rule' : ' rules'));
+  if (m) parts.push(m + (m === 1 ? ' layout edit' : ' layout edits'));
+  hd.appendChild(el('strong', null, parts.length ? parts.join(' · ') : 'Try it live'));
   var paused = !!state.lock;
   hd.appendChild(el('span', 't-text', paused ? 'editing is paused while the agent drives the app'
-    : n ? 'applied in the app, not saved to your files until you apply them'
+    : (n || m) ? 'applied in the app, not saved to your files until you apply them'
     : 'click a value to edit it, untick a declaration, or add a rule. Nothing is written to your files.'));
   box.appendChild(hd);
   var bar = el('div', 'chips');
-  var add = el('button', null, '+ New rule');
-  add.disabled = paused;
-  add.addEventListener('click', function(){ state.newRule = !state.newRule; state.draft = null; renderStyles(); });
-  bar.appendChild(add);
+  var undo = el('button', null, 'Undo'); undo.title = 'Ctrl+Z in this pane'; undo.disabled = paused || !canUndo();
+  undo.addEventListener('click', function(){ histGo(-1); });
+  var redo = el('button', null, 'Redo'); redo.title = 'Ctrl+Shift+Z in this pane'; redo.disabled = paused || !canRedo();
+  redo.addEventListener('click', function(){ histGo(1); });
+  bar.appendChild(undo); bar.appendChild(redo);
+  if (state.tab === 'styles') {
+    var add = el('button', null, '+ New rule');
+    add.disabled = paused;
+    add.addEventListener('click', function(){ state.newRule = !state.newRule; state.draft = null; renderStyles(); });
+    bar.appendChild(add);
+  }
   if (n) {
     var css = state.scratch.css || '';
     var apply = el('button', null, 'Apply to file…');
@@ -1667,21 +1815,104 @@ function renderScratchBar(pane, d){
     apply.addEventListener('click', previewApply);
     var cp = el('button', null, 'Copy as CSS');
     cp.addEventListener('click', function(){ copy(css, 'Scratch CSS copied'); });
+    [apply, cp].forEach(function(b){ bar.appendChild(b); });
+  }
+  if (m) {
+    var la = el('button', null, 'Apply layout edits to file…');
+    la.title = 'Writes the layout edits into the FXML files that created the nodes (preview first)';
+    la.disabled = paused;
+    la.addEventListener('click', previewLayoutApply);
+    bar.appendChild(la);
+  }
+  if (n || m) {
     var ask = el('button', null, 'Ask agent to apply');
     ask.title = 'Copies a prompt for your coding agent';
     ask.addEventListener('click', function(){
-      copy('Apply these FXLoop scratch rules to the project\'s stylesheets, then call fx_reload with clearScratch=true:\n\n' + css,
-        'Prompt copied: paste it to your agent');
+      var txt = '';
+      if (n) txt += 'Apply these FXLoop scratch rules to the project\'s stylesheets, then call fx_reload with clearScratch=true:\n\n' + (state.scratch.css || '') + '\n';
+      if (m) txt += 'Apply these FXLoop layout edits (node path, property, value) to the FXML or the code that builds the nodes, ' +
+        'then call fx_reload with clearScratch=true:\n\n' + layoutEditLines(state.props.items) + '\n';
+      copy(txt, 'Prompt copied: paste it to your agent');
     });
     var clr = el('button', null, 'Clear');
     clr.disabled = paused;
-    clr.addEventListener('click', function(){ closePlan(); applyScratch([]); });
-    [apply, cp, ask, clr].forEach(function(b){ bar.appendChild(b); });
+    clr.addEventListener('click', clearAll);
+    bar.appendChild(ask); bar.appendChild(clr);
   }
   box.appendChild(bar);
-  if (state.newRule && !paused) box.appendChild(newRuleForm(d));
+  var ev = evidenceEl(); if (ev) box.appendChild(ev);
+  if (state.newRule && !paused && state.tab === 'styles') box.appendChild(newRuleForm(d));
   if (state.plan && n && !paused) box.appendChild(planEl(state.plan));
+  if (state.lplan && m && !paused) box.appendChild(layoutPlanEl(state.lplan));
   pane.appendChild(box);
+}
+function layoutEditLines(items){
+  return (items || []).map(function(i){ return (i.path || ('handle ' + i.h)) + '  ' + i.property + ' = ' + (i.after === '' || i.after == null ? '(unset)' : i.after); }).join('\n');
+}
+function clearAll(){
+  closePlan(); state.lplan = null;
+  var jobs = [];
+  function guard(pr){ return pr.then(null, function(e){ toast(errText(e)); }); }
+  if (state.scratch && state.scratch.active) jobs.push(guard(postText('/api/scratch/clear', '').then(function(j){ state.scratch = j; state.disabled = Object.create(null); })));
+  if (propCount()) jobs.push(guard(postJson('/api/props/clear', {}).then(function(){ state.props = { items: [] }; })));
+  return Promise.all(jobs).then(function(){ histReset(); state.evidence = null; return loadStyles(); }).then(refreshThumb);
+}
+function previewLayoutApply(){
+  postJson('/api/fxml/apply', {}, { dryRun: 1 }).then(function(j){
+    state.lplan = j; renderStyles();
+  }, function(e){ toast(errText(e)); });
+}
+function layoutPlanEl(plan){
+  var box = el('div', 'plan'), files = plan.files || [], code = plan.code || [];
+  if (files.length) box.appendChild(el('div', null, 'Write these attributes into your FXML files?'));
+  files.forEach(function(f){
+    box.appendChild(el('div', 'f mono', f.file));
+    (f.changes || []).forEach(function(c){
+      var line = el('div', 'c mono');
+      line.appendChild(el('span', 'k', c.line != null ? 'line ' + c.line : ''));
+      line.appendChild(document.createTextNode('<' + (c.element || '?') + '> ' + c.attribute + ': ' +
+        (c.from != null ? c.from : '(not set)') + ' → ' + (c.to != null ? c.to : '(removed)')));
+      box.appendChild(line);
+    });
+  });
+  if (code.length) {
+    box.appendChild(el('div', 'f', 'Set in code: hand to the agent'));
+    code.forEach(function(c){
+      var line = el('div', 'c mono');
+      line.appendChild(document.createTextNode((c.path || '?') + '  ' + c.property + ' = ' + (c.value == null || c.value === '' ? '(unset)' : c.value)));
+      box.appendChild(line);
+    });
+  }
+  if (!files.length && !code.length) box.appendChild(el('div', 'hint', 'Nothing to change.'));
+  var bar = el('div', 'chips');
+  var ok = el('button', null, 'Write to file' + (files.length === 1 ? '' : 's'));
+  ok.disabled = !files.length;
+  ok.addEventListener('click', function(){
+    ok.disabled = true;
+    postJson('/api/fxml/apply', {}).then(function(j){
+      state.lplan = null; histReset(); state.evidence = null;
+      toast('Applied to ' + ((j.files || files).map(function(f){ return f.file; }).join(', ') || 'files') +
+        (j.reload && j.reload.tier ? ' (' + j.reload.tier + ' reload)' : ''));
+      state.propsTried = false; loadProps();
+      return loadStyles();
+    }).then(null, function(e){ ok.disabled = false; toast(errText(e)); });
+  });
+  bar.appendChild(ok);
+  if (code.length) {
+    var ask = el('button', null, 'Ask agent');
+    ask.title = 'Copies a prompt for the edits no FXML document created';
+    ask.addEventListener('click', function(){
+      copy('Set these properties in the code that builds the nodes (node path, property, value), then call fx_reload with clearScratch=true:\n\n' +
+        code.map(function(c){ return (c.path || '?') + '  ' + c.property + ' = ' + (c.value == null || c.value === '' ? '(unset)' : c.value); }).join('\n'),
+        'Prompt copied: paste it to your agent');
+    });
+    bar.appendChild(ask);
+  }
+  var cancel = el('button', null, 'Cancel');
+  cancel.addEventListener('click', function(){ state.lplan = null; renderStyles(); });
+  bar.appendChild(cancel);
+  box.appendChild(bar);
+  return box;
 }
 function closePlan(){ state.plan = null; state.targets = Object.create(null); }
 /** Apply to file, step 1: asks where each scratch rule would go (honouring the stylesheets picked so far) and shows it. */
@@ -1761,7 +1992,7 @@ function planEl(plan){
   ok.addEventListener('click', function(){
     ok.disabled = true;
     postJson('/api/scratch/apply', { targets: state.targets }).then(function(j){
-      closePlan();
+      closePlan(); histReset(); state.evidence = null;
       state.scratch = j.scratch && j.scratch.active ? j.scratch : { active: false, rules: 0 };
       if (!state.scratch.active) state.disabled = Object.create(null);
       var kept = state.scratch.active ? '; ' + state.scratch.rules + ' rule' + (state.scratch.rules === 1 ? '' : 's') +
@@ -1810,6 +2041,7 @@ function renderComputed(pane, d){
     } else if (canEdit() && !isBound(p)) overrideValue(vs, p, d, v);
     else valueWithSwatches(vs, v, null);
     td.appendChild(vs);
+    attachLookups(vs, p);
     tr.appendChild(td);
     tr.appendChild(setByCell(p, d));
     tbl.appendChild(tr); n++;
@@ -1827,7 +2059,8 @@ function setByCell(p, d){
     if (what) td.appendChild(el('span', 't-text', what));
     td.title = p.note || '';
   } else if (w && w.ruleId === 'code') {
-    td.appendChild(el('span', 'org', isBound(p) ? 'bound in code' : 'set in code'));
+    if (isBound(p)) { td.appendChild(bindingLink(p)); var bb = bindBox(p); if (bb) td.appendChild(bb); }
+    else td.appendChild(el('span', 'org', 'set in code'));
   } else if (w) {
     td.appendChild(el('span', 'org', originLabel(w.origin)));
     td.appendChild(el('span', 'mono', w.ruleId === 'inline' ? 'style' : w.selector));
@@ -1856,8 +2089,469 @@ function parseInsets(s){
 function renderBox(pane){
   var L = state.layout;
   if (!L || !L.layoutBounds) return;
+  pane.appendChild(boxEl(false));
+}
+
+// ---------- v2 (PRD 09): states, search, thumbnail, history, layout, sheets, lookups, bindings ----------
+function qs(o){
+  var u = new URLSearchParams();
+  Object.keys(o).forEach(function(k){ if (o[k] !== null && o[k] !== undefined && o[k] !== '') u.set(k, o[k]); });
+  return u.toString();
+}
+function nodeParams(){ return state.sel ? { h: state.sel.h, path: state.sel.path } : {}; }
+function pcName(c){ return typeof c === 'string' ? c : (c && c.name) || ''; }
+function pcForced(c){ return !!(c && typeof c === 'object' && c.forced); }
+var PRESET_STATES = ['hover', 'focused', 'pressed', 'disabled', 'selected', 'showing', 'armed'];
+
+// --- G1 forced pseudo-classes
+function clearForced(){
+  if (!state.forced.length) return Promise.resolve();
+  var fn = state.forcedNode || state.sel || {};
+  state.forced = []; state.forcedNode = null; state.forceNote = '';
+  return api('/api/states', { h: fn.h, path: fn.path }, 'POST').then(function(){}, function(){});
+}
+function forceStates(list){
+  if (!state.sel) return Promise.resolve();
+  state.forced = list; state.forcedNode = list.length ? { h: state.sel.h, path: state.sel.path } : null; state.forceNote = '';
+  var p = nodeParams(); p.states = list.join(',');
+  return api('/api/states', p, 'POST').then(function(j){
+    if (j && Array.isArray(j.forced)) state.forced = j.forced;
+    if (j && j.gaveUp && j.gaveUp.length) state.forceNote = 'the control keeps resetting :' + j.gaveUp.join(', :') + ', so it is not held';
+  }, function(e){ toast(errText(e)); state.forced = []; state.forcedNode = null; })
+    .then(function(){ return loadStyles(); }).then(refreshThumb);
+}
+/** Cascade pseudoClasses (strings from an old server, {name, forced} from a new one) say what the app really holds forced. */
+function syncForced(){
+  var pcs = (state.styles && state.styles.pseudoClasses) || [];
+  if (pcs.some(function(c){ return c && typeof c === 'object'; })) {
+    state.forced = pcs.filter(pcForced).map(pcName);
+    state.forcedNode = state.forced.length ? { h: state.sel && state.sel.h, path: state.sel && state.sel.path } : null;
+  }
+}
+function stateRow(){
+  var row = el('div', 'staterow');
+  row.appendChild(el('span', 'inl', 'Force state:'));
+  function tick(name){
+    var on = state.forced.indexOf(name) >= 0;
+    var l = el('label', on ? 'on' : ''), cb = el('input'); cb.type = 'checkbox';
+    cb.checked = on;
+    cb.addEventListener('change', function(){
+      var list = state.forced.filter(function(x){ return x !== name; });
+      if (cb.checked) list.push(name);
+      forceStates(list);
+    });
+    l.appendChild(cb); l.appendChild(document.createTextNode(':' + name));
+    return l;
+  }
+  PRESET_STATES.forEach(function(n){ row.appendChild(tick(n)); });
+  state.forced.filter(function(n){ return PRESET_STATES.indexOf(n) < 0; }).forEach(function(n){ row.appendChild(tick(n)); });
+  var inp = el('input'); inp.type = 'text'; inp.placeholder = 'custom'; inp.setAttribute('aria-label', 'Custom pseudo-class');
+  inp.title = 'A pseudo-class the app defines, e.g. error, then Enter'; inp.spellcheck = false;
+  inp.addEventListener('keydown', function(ev){
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    var v = inp.value.trim().replace(/^:/, '');
+    if (!/^[\w-]+$/.test(v)) { if (v) toast('Enter a pseudo-class name such as error'); return; }
+    if (state.forced.indexOf(v) < 0) forceStates(state.forced.concat([v]));
+  });
+  row.appendChild(inp);
+  return row;
+}
+
+// --- G7 thumbnail and states strip
+var thumbImg = new Image(), thumbSeq = 0, thumbStale = false, thumbTimer;
+thumbImg.className = 'thumb'; thumbImg.alt = 'Node as it looks in the app'; thumbImg.style.display = 'none';
+thumbImg.addEventListener('load', function(){ thumbImg.style.display = ''; });
+thumbImg.addEventListener('error', function(){ thumbImg.style.display = 'none'; });
+function refreshThumb(){
+  clearTimeout(thumbTimer);
+  thumbTimer = setTimeout(function(){
+    if (!state.sel) { thumbImg.style.display = 'none'; return; }
+    if (document.hidden) { thumbStale = true; return; }
+    thumbStale = false;
+    var p = nodeParams(); p.w = 320; p.t = TOKEN; p._ = ++thumbSeq;
+    thumbImg.src = '/api/shot?' + qs(p);
+  }, 150);
+}
+document.addEventListener('visibilitychange', function(){ if (!document.hidden && thumbStale) refreshThumb(); });
+var stripBox = el('div', 'strip'), stripImg = new Image(), stripNote = el('div', 'stnote');
+stripImg.alt = 'The node in each state'; stripImg.style.display = 'none';
+stripImg.addEventListener('load', function(){ stripImg.style.display = ''; stripNote.textContent = ''; });
+stripImg.addEventListener('error', function(){ stripImg.style.display = 'none'; stripNote.textContent = 'No states strip available for this node.'; });
+stripBox.appendChild(stripNote); stripBox.appendChild(stripImg);
+function toggleStrip(){
+  state.stripOpen = !state.stripOpen;
+  if (state.stripOpen && state.sel) {
+    stripImg.style.display = 'none'; stripNote.textContent = 'Capturing the states…';
+    var p = nodeParams(); p.t = TOKEN; p._ = ++thumbSeq;
+    stripImg.src = '/api/strip?' + qs(p);
+  }
+  renderStyles();
+}
+
+// --- G9 handlers and binding trees
+function loadHandlers(){
+  if (!state.sel) return;
+  var key = (state.sel.h != null ? 'h' + state.sel.h : '') + '|' + (state.sel.path || '');
+  if (state.handlersKey === key) return;
+  state.handlersKey = key; state.handlers = null;
+  var want = state.sel;
+  api('/api/handlers', nodeParams()).then(function(j){
+    if (want !== state.sel) return;
+    state.handlers = j; renderStyles();
+  }, function(){ if (want === state.sel) state.handlers = null; });
+}
+function handlersEl(){
+  var j = state.handlers;
+  if (!j) return null;
+  var list = j.handlers || [];
+  var det = el('details', 'hand'), sm = el('summary', null, 'Handlers (' + list.length + ')');
+  det.appendChild(sm);
+  if (!list.length) det.appendChild(el('div', 'it dimnote', 'no onXxx handler properties are set'));
+  list.forEach(function(h){
+    var it = el('div', 'it mono');
+    it.appendChild(el('span', 'p', h.property));
+    it.appendChild(document.createTextNode(' → ' + (h.handler || h['class'] || '?')));
+    det.appendChild(it);
+  });
+  if (j.note) det.appendChild(el('div', 'note', j.note));
+  return det;
+}
+function javaName(css){
+  return String(css).replace(/^-fx-/, '').replace(/-([a-z0-9])/g, function(m, c){ return c.toUpperCase(); });
+}
+function bindingLink(p){
+  var a = el('span', 'bindlink', 'bound in code');
+  a.title = 'Show what ' + p.cssProperty + ' is bound to'; a.tabIndex = 0;
+  function go(){ toggleBind(p.cssProperty); }
+  a.addEventListener('click', go);
+  a.addEventListener('keydown', function(ev){ if (ev.key === 'Enter') { ev.preventDefault(); go(); } });
+  return a;
+}
+function toggleBind(css){
+  var b = state.bind[css] || (state.bind[css] = {});
+  b.open = !b.open;
+  if (b.open && !b.ok && !b.loading) {
+    b.loading = true; b.err = null;
+    var p = nodeParams(); p.name = javaName(css);
+    var want = state.sel;
+    api('/api/property', p).then(function(j){ b.ok = j; }, function(e){ b.err = errText(e); })
+      .then(function(){ b.loading = false; if (want === state.sel) renderStyles(); });
+  }
+  renderStyles();
+}
+function bindNode(n, depth){
+  var li = el('li');
+  if (n == null || typeof n !== 'object') { li.textContent = String(n); return li; }
+  if (n['class']) li.appendChild(el('span', 'k', String(n['class']).split('.').pop() + ' '));
+  if (n.owner) li.appendChild(el('span', 'k', String(n.owner) + ' '));
+  if (n.property) li.appendChild(el('strong', null, String(n.property)));
+  if (n.value != null) li.appendChild(document.createTextNode(' = ' + String(n.value)));
+  if (n.kind || n.type) li.appendChild(el('span', 'k', '  [' + (n.kind || n.type) + ']'));
+  var kids = n.dependencies || n.children || n.dependsOn || n.inputs || n.bindings || [];
+  if (kids.length && depth < 12) {
+    var ul = el('ul');
+    kids.forEach(function(k){ ul.appendChild(bindNode(k, depth + 1)); });
+    li.appendChild(ul);
+  }
+  return li;
+}
+/** The open binding tree of a bound property, or null. */
+function bindBox(p){
+  var b = state.bind[p.cssProperty];
+  if (!b || !b.open) return null;
+  var box = el('div', 'bindtree');
+  if (b.loading) box.textContent = 'Looking up what it is bound to…';
+  else if (b.err) box.textContent = 'No binding information: ' + b.err;
+  else if (b.ok) {
+    var root = b.ok.dependencyTree || b.ok.tree || b.ok;
+    var ul = el('ul'); ul.style.paddingLeft = '0';
+    (Array.isArray(root) ? root : [root]).forEach(function(n){ ul.appendChild(bindNode(n, 0)); });
+    box.appendChild(ul);
+  }
+  return box;
+}
+
+// --- G4 lookup chains
+var lpop = null, lpopTimer = null;
+function hideLookups(){ clearTimeout(lpopTimer); if (lpop) { lpop.remove(); lpop = null; } }
+function whereText(a){
+  if (!a) return '';
+  var s = a.selector || '';
+  if (a.file) s += (s ? '  ' : '') + shortPath(a.file) + (a.line != null ? ':' + a.line : '');
+  else if (a.origin) s += (s ? '  ' : '') + originLabel(a.origin);
+  return s;
+}
+function hasRule(id){
+  return !!id && ((state.styles && state.styles.rules) || []).some(function(r){ return r.ruleId === id; });
+}
+function jumpToRule(id){
+  hideLookups();
+  if (state.tab !== 'styles') { state.tab = 'styles'; renderStyles(); }
+  var hit = null;
+  Array.prototype.forEach.call(document.querySelectorAll('#stylesPane .rule'), function(r){ if (r.getAttribute('data-rule') === id) hit = r; });
+  if (!hit) { toast('That rule is not in this node\'s cascade'); return; }
+  hit.scrollIntoView({ block: 'center' });
+  hit.classList.remove('flash'); void hit.offsetWidth; hit.classList.add('flash');
+}
+function showLookups(anchor, p){
+  hideLookups();
+  var pop = el('div', 'lpop'); pop.setAttribute('role', 'tooltip');
+  (p.lookups || []).forEach(function(l){
+    var st = el('div', 'st'), a = l.definedAt || {};
+    st.style.paddingLeft = (8 + (l.depth || 0) * 14) + 'px';
+    st.appendChild(el('span', 'p', l.name || '?'));
+    st.appendChild(document.createTextNode(' → '));
+    if (l.resolved === false) st.appendChild(el('span', 'unres', 'not defined'));
+    else { var vs = el('span', 'v'); valueWithSwatches(vs, String(l.value == null ? '' : l.value), null); st.appendChild(vs); }
+    var wh = whereText(a);
+    if (l.resolved !== false && wh) st.appendChild(el('span', 'where', 'defined in ' + wh));
+    if (l.overriddenBy) st.appendChild(el('span', 'where', ' (overridden by ' + whereText(l.overriddenBy) + ')'));
+    if (hasRule(a.ruleId)) {
+      st.classList.add('go'); st.title = 'Jump to this rule';
+      st.addEventListener('click', function(){ jumpToRule(a.ruleId); });
+    }
+    pop.appendChild(st);
+  });
+  if (p.lookupValue) {
+    var fin = el('div', 'fin'), c = parseColor(p.lookupValue);
+    fin.appendChild(document.createTextNode('= '));
+    if (c) fin.appendChild(swatch(c.css));
+    fin.appendChild(document.createTextNode(p.lookupValue));
+    pop.appendChild(fin);
+  }
+  pop.addEventListener('mouseenter', function(){ clearTimeout(lpopTimer); });
+  pop.addEventListener('mouseleave', function(){ lpopTimer = setTimeout(hideLookups, 200); });
+  document.body.appendChild(pop);
+  var r = anchor.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = Math.max(4, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+  pop.style.top = (r.bottom + h + 6 > window.innerHeight && r.top > h + 6 ? r.top - h - 4 : r.bottom + 2) + 'px';
+  lpop = pop;
+}
+function attachLookups(node, p){
+  if (!p || !p.lookups || !p.lookups.length) return;
+  node.addEventListener('mouseenter', function(){
+    clearTimeout(lpopTimer);
+    lpopTimer = setTimeout(function(){ showLookups(node, p); }, 200);
+  });
+  node.addEventListener('mouseleave', function(){ clearTimeout(lpopTimer); lpopTimer = setTimeout(hideLookups, 250); });
+}
+
+// --- G3 tree search
+function searchScope(){ return $('tall').checked ? {} : { window: state.win }; }
+function setSearchUi(){
+  var S = state.search, n = S.items.length;
+  $('tcount').textContent = !S.q ? '' : S.err ? S.err : S.total + (S.total === 1 ? ' match' : ' matches') +
+    (n && S.idx >= 0 ? ' · ' + (S.idx + 1) + '/' + n : '') + (S.total > n ? ' (first ' + n + ')' : '');
+  $('tprev').disabled = $('tnext').disabled = n < 2;
+}
+function runSearch(){
+  var S = state.search, q = $('tsearch').value.trim(), my = ++S.seq;
+  S.q = q;
+  if (!q) { clearSearch(true); return Promise.resolve(); }
+  return api('/api/find', Object.assign({ q: q }, searchScope())).then(function(j){
+    if (my !== S.seq) return;
+    S.items = j.items || []; S.total = j.total != null ? j.total : S.items.length; S.idx = -1; S.err = null;
+    setSearchUi();
+    if (S.items.length) gotoMatch(0);
+    else clearHighlight();
+  }, function(e){
+    if (my !== S.seq) return;
+    S.items = []; S.total = 0; S.idx = -1; S.err = errText(e); setSearchUi();
+  });
+}
+function clearSearch(keepText){
+  var S = state.search; S.seq++; S.q = ''; S.items = []; S.total = 0; S.idx = -1; S.err = null;
+  if (!keepText) $('tsearch').value = '';
+  setSearchUi(); clearHighlight();
+}
+function cycleMatch(dir){
+  var S = state.search, n = S.items.length;
+  if (!n) return;
+  gotoMatch(S.idx < 0 ? (dir > 0 ? 0 : n - 1) : (S.idx + dir + n) % n);
+}
+/** Prefix expansion by path, for a match the loaded tree does not contain (truncated branches stay as they are). */
+function expandByPath(path){
+  if (!path || !state.root) return;
+  (function walk(n){
+    if (!n || n.truncated) return;
+    if (n.path && (path === n.path || path.indexOf(n.path + '/') === 0)) state.expanded[nkey(n)] = true;
+    (n.children || []).forEach(walk);
+  })(state.root);
+}
+function gotoMatch(i){
+  var S = state.search, m = S.items[i];
+  if (!m) return;
+  S.idx = i; setSearchUi();
+  var node = { h: m.h != null ? m.h : null, path: m.path || null };
+  var otherWin = m.window != null && m.window !== state.win;
+  if (otherWin) { state.win = m.window; $('win').value = String(m.window); resetSheets(); }
+  var pre = Promise.resolve();
+  if (otherWin || !state.root || !findPath(state.root, node, [])) {
+    state.sel = node;
+    pre = loadTree();
+  }
+  pre.then(function(){
+    if (S.idx !== i) return;
+    state.sel = node; expandToSel();
+    if (!findPath(state.root || {}, node, [])) expandByPath(node.path);
+    select({ h: state.sel.h, path: state.sel.path });
+    highlightMatches(i);
+  });
+}
+function highlightMatches(i){
+  var S = state.search, m = S.items[i];
+  if (!m) return;
+  if (S.items.length <= 20) {
+    var hs = S.items.filter(function(x){ return x.h != null && (x.window == null || x.window === m.window); }).map(function(x){ return x.h; });
+    api('/api/highlight', { handles: hs.join(','), labels: 1 }, 'POST').catch(function(){});
+  } else if (m.h != null) api('/api/highlight', { h: m.h }, 'POST').catch(function(){});
+}
+
+// --- G8 undo / redo over scratch CSS + scratch properties
+function propsItems(){
+  return ((state.props && state.props.items) || []).map(function(i){ return { h: i.h, path: i.path, property: i.property, value: i.after }; });
+}
+function histSnap(){ return JSON.stringify({ css: scratchItems(), props: propsItems() }); }
+function histEnsure(){ var H = state.hist; if (!H.stack.length) { H.stack = [histSnap()]; H.pos = 0; } }
+function histPush(){
+  var H = state.hist, s = histSnap();
+  if (H.stack[H.pos] === s) return;
+  H.stack = H.stack.slice(0, H.pos + 1); H.stack.push(s);
+  if (H.stack.length > 100) H.stack.shift();
+  H.pos = H.stack.length - 1;
+}
+function histReset(){ state.hist = { stack: [], pos: -1 }; }
+function canUndo(){ return state.hist.pos > 0; }
+function canRedo(){ return state.hist.pos >= 0 && state.hist.pos < state.hist.stack.length - 1; }
+function histGo(dir){
+  var H = state.hist, np = H.pos + dir;
+  if (np < 0 || np >= H.stack.length || state.lock || state.editing) return Promise.resolve();
+  H.pos = np;
+  var t = JSON.parse(H.stack[np]), jobs = [];
+  function guard(pr){ return pr.then(null, function(e){ toast(errText(e)); }); }
+  if (JSON.stringify(t.css) !== JSON.stringify(scratchItems())) {
+    var empty = !t.css.some(function(it){ return it.declarations.length; });
+    jobs.push(guard((empty ? postText('/api/scratch/clear', '') : postText('/api/scratch/set', scratchCssText(t.css)))
+      .then(function(j){ state.scratch = j; })));
+  }
+  if (state.propsOk && JSON.stringify(t.props) !== JSON.stringify(propsItems())) {
+    jobs.push(guard(postJson('/api/props', { items: t.props }).then(function(j){ state.props = { items: j.items || [] }; })));
+  }
+  state.disabled = Object.create(null); state.evidence = null;
+  return Promise.all(jobs).then(function(){ return loadStyles(); }).then(refreshThumb);
+}
+function evParams(){
+  var out = {};
+  if (!state.sel) return out;
+  var p = nodeParams();
+  Object.keys(p).forEach(function(k){ if (p[k] !== null && p[k] !== undefined && p[k] !== '') out[k] = p[k]; });
+  out.evidence = 1;
+  return out;
+}
+function captureEvidence(j){
+  state.evidence = j && j.evidence && j.evidence.seq != null ? j.evidence : null;
+}
+function evidenceEl(){
+  var e = state.evidence;
+  if (!e) return null;
+  var box = el('div', 'ev'), pct = Number(e.changedPct);
+  ['before', 'after'].forEach(function(which){
+    var w = el('span'), img = new Image();
+    img.alt = which; img.src = '/api/evidence?' + qs({ seq: e.seq, which: which, t: TOKEN });
+    img.addEventListener('error', function(){ w.style.display = 'none'; });
+    w.appendChild(el('span', 'lab', which)); w.appendChild(img); box.appendChild(w);
+  });
+  if (pct === 0) box.appendChild(el('span', 'warn', 'nothing changed: does your selector match?'));
+  else if (!isNaN(pct)) box.appendChild(el('span', null, (Math.round(pct * 10) / 10) + ' % changed'));
+  return box;
+}
+
+// --- G2 layout tab
+function sizeVal(v){
+  if (v == null) return '—';
+  var n = Number(v);
+  if (isNaN(n)) return String(v);
+  if (n === -1) return 'computed (−1)';
+  if (n === -Infinity) return 'USE_PREF_SIZE';
+  if (n === Infinity || n > 1e300) return 'MAX_VALUE';
+  return fmtNum(n);
+}
+function nodeRef(){
+  var t = (state.styles && state.styles.target) || {};
+  return { h: state.sel && state.sel.h, path: t.path || (state.sel && state.sel.path) || null };
+}
+function sameItem(it, node){ return it.path && node.path ? it.path === node.path : it.h === node.h; }
+function withProp(items, node, property, value){
+  var hit = items.filter(function(it){ return sameItem(it, node) && it.property === property; })[0];
+  if (hit) hit.value = value; else items.push({ h: node.h, path: node.path, property: property, value: value });
+  return items;
+}
+function commitProp(key, v){ return applyProps(withProp(propsItems(), nodeRef(), key, v)); }
+function applyProps(items){
+  histEnsure();
+  return postJson('/api/props', { items: items }, evParams()).then(function(j){
+    state.props = { items: j.items || [] }; state.propsOk = true; captureEvidence(j); histPush();
+    return loadStyles().then(function(){ refreshThumb(); return true; });
+  }, function(e){ toast(errText(e)); renderStyles(); return false; });
+}
+function loadProps(){
+  if (state.propsTried) return;
+  state.propsTried = true;
+  api('/api/props').then(function(j){ state.props = { items: j.items || [] }; state.propsOk = true; renderStyles(); },
+    function(){ state.propsOk = false; });
+}
+function startPropEdit(span, entry){
+  state.editing = true;
+  var initial = entry.value == null ? '' : String(entry.value);
+  var ed = valueEditor({
+    property: function(){ return entry.key; }, value: initial, commitOnBlur: true,
+    onCommit: function(v){ state.editing = false; if (v === initial) renderStyles(); else commitProp(entry.key, v); },
+    onCancel: function(){ state.editing = false; renderStyles(); }
+  });
+  span.replaceWith(ed.el);
+  ed.focus();
+}
+/** Editor for one `editable` entry: select for enums, click-to-edit text for numbers and insets. */
+function propEditor(entry, shown){
+  if (entry.kind === 'enum' && entry.choices) {
+    var s = el('select', 'edsel mono'); s.setAttribute('aria-label', entry.key);
+    var cur = entry.value == null ? '' : String(entry.value);
+    [''].concat(entry.choices).forEach(function(c){
+      var o = el('option', null, c === '' ? '(unset)' : c); o.value = c; if (c === cur) o.selected = true; s.appendChild(o);
+    });
+    if (cur !== '' && entry.choices.indexOf(cur) < 0) { var o2 = el('option', null, cur); o2.value = cur; o2.selected = true; s.appendChild(o2); }
+    s.addEventListener('change', function(){ commitProp(entry.key, s.value); });
+    return s;
+  }
+  var vs = el('span', 'v editable', shown != null ? shown : (entry.value == null ? '(unset)' : entry.value));
+  vs.tabIndex = 0; vs.title = 'Click to edit (applies live, not saved to your files): ↑/↓ change numbers';
+  vs.addEventListener('click', function(){ startPropEdit(vs, entry); });
+  vs.addEventListener('keydown', function(ev){ if (ev.key === 'Enter') { ev.preventDefault(); startPropEdit(vs, entry); } });
+  return vs;
+}
+function sourceEl(s, d){
+  var w = el('span');
+  if (!s) return w;
+  if (s.kind === 'fxml') {
+    w.appendChild(el('span', 'org', 'fxml'));
+    var l = locLink(s, d); if (l) { l.style.marginLeft = '6px'; w.appendChild(l); }
+  } else if (s.kind === 'css') {
+    w.appendChild(el('span', 'org', 'css'));
+    var b = el('button', 'linkb', s.cssProperty || 'Styles');
+    b.title = 'Show this property in Styles';
+    b.addEventListener('click', function(){
+      state.tab = 'styles'; state.filter = String(s.cssProperty || '').toLowerCase(); renderStyles();
+    });
+    w.appendChild(b);
+  } else if (s.kind === 'code') w.appendChild(el('span', 'org', 'set in code'));
+  else w.appendChild(el('span', 'org', 'computed'));
+  return w;
+}
+function boxEl(full){
+  var L = state.layout;
   var box = el('div'); box.id = 'box';
-  var pad = parseInsets(L.padding), ins = parseInsets(L.insets);
+  var pad = parseInsets(L.padding), ins = parseInsets(L.insets), bor = full ? parseInsets(L.border) : null, mar = full ? parseInsets(L.margin) : null;
   function layer(cls, name, vals, inner){
     var d = el('div', 'mb ' + cls);
     d.appendChild(el('span', 'lab', name));
@@ -1873,11 +2567,238 @@ function renderBox(pane){
   }
   var inner = el('div', 'mb c', L.layoutBounds.w + ' × ' + L.layoutBounds.h);
   if (pad) inner = layer('p', 'padding', pad, inner);
-  if (ins && (!pad || ins.join() !== pad.join())) inner = layer('b', 'insets', ins, inner);
+  if (bor) inner = layer('b', 'border', bor, inner);
+  else if (ins && (!pad || ins.join() !== pad.join())) inner = layer('b', 'insets', ins, inner);
+  if (mar) inner = layer('m', 'margin', mar, inner);
   box.appendChild(el('div', 'sect', 'Box model'));
   box.lastChild.style.margin = '-10px -10px 8px';
   box.appendChild(inner);
-  pane.appendChild(box);
+  return box;
+}
+function kv(k, v){ var d = el('div', 'kv'); d.appendChild(document.createTextNode(k + ' ')); d.appendChild(el('b', null, v)); return d; }
+function renderLayout(pane, d){
+  var L = state.layout;
+  if (!L || !L.layoutBounds) { pane.appendChild(el('div', 'empty', 'No layout information for this node.')); return; }
+  if (editOn()) renderScratchBar(pane, d);
+  var root = el('div', 'lay');
+  var codes = (L.hintCodes && L.hintCodes.length) ? L.hintCodes : (L.hints || []).map(function(t){ return { text: t }; });
+  codes.forEach(function(h){
+    var c = el('div', 'callout');
+    c.appendChild(el('div', null, h.text || h.code));
+    if (h.cause) c.appendChild(el('div', 'cause', h.cause));
+    if (h.section) {
+      var go = el('button', 'linkb', 'see ' + h.section);
+      go.title = 'Show the parent container section';
+      go.addEventListener('click', function(){ var t = document.getElementById('lay-parent'); if (t) t.scrollIntoView({ block: 'start' }); });
+      c.appendChild(go);
+    }
+    root.appendChild(c);
+  });
+  var lb = L.layoutBounds;
+  root.appendChild(kv('Layout bounds', lb.w + ' × ' + lb.h + ' at ' + lb.x + ', ' + lb.y +
+    (L.managed === false ? ' · unmanaged' : '') + (L.visible === false ? ' · not visible' : '')));
+  if (L.fxml && L.fxml.file) {
+    var fl = el('div', 'kv'); fl.appendChild(document.createTextNode('Created from FXML '));
+    var ll = locLink(L.fxml, d); if (ll) fl.appendChild(ll);
+    if (L.fxml.element) fl.appendChild(el('span', 't-text', '<' + L.fxml.element + (L.fxml.fxId ? ' fx:id="' + L.fxml.fxId + '"' : '') + '>'));
+    root.appendChild(fl);
+  }
+  var bx = boxEl(true); bx.className = 'box'; root.appendChild(bx);
+  var ed = canEdit() ? (L.editable || []) : [];
+  function entryFor(key){ return ed.filter(function(e){ return e.key === key; })[0]; }
+
+  var sz = L.sizes2;
+  if (sz) {
+    root.appendChild(el('h4', null, 'Size: min / pref / max'));
+    var tbl = el('table'), th = el('tr');
+    ['Property', 'Value', 'Computed', 'Source'].forEach(function(h){ th.appendChild(el('th', null, h)); });
+    tbl.appendChild(th);
+    ['minWidth', 'prefWidth', 'maxWidth', 'minHeight', 'prefHeight', 'maxHeight'].forEach(function(k){
+      var s = sz[k]; if (!s) return;
+      var tr = el('tr'), ent = entryFor(k);
+      tr.appendChild(el('td', 'mono', k));
+      var td = el('td', 'num');
+      if (ent) td.appendChild(propEditor(ent, sizeVal(s.value)));
+      else td.appendChild(document.createTextNode(sizeVal(s.value)));
+      tr.appendChild(td);
+      tr.appendChild(el('td', 'num', s.computed != null ? sizeVal(s.computed) : '—'));
+      var sc = el('td', 'src'); sc.appendChild(sourceEl(s.source, d)); tr.appendChild(sc);
+      tbl.appendChild(tr);
+    });
+    root.appendChild(tbl);
+  } else if (L.sizes) {
+    root.appendChild(el('h4', null, 'Size: min / pref / max'));
+    ['min', 'pref', 'max'].forEach(function(k){ root.appendChild(kv(k, String(L.sizes[k]))); });
+  }
+
+  var pk = L.parentKind || L.parentType;
+  var cons = L.constraints || {}, ckeys = Object.keys(cons);
+  var ced = ed.filter(function(e){ return String(e.key).indexOf('.') > 0; });
+  if (pk || ckeys.length || ced.length) {
+    var h4 = el('h4', null, 'Parent' + (pk ? ': ' + pk : '')); h4.id = 'lay-parent';
+    root.appendChild(h4);
+    var ct = el('table'), seen = Object.create(null);
+    var norm = function(k){ return String(k).split('.').pop().replace(/Index$|Anchor$/, '').toLowerCase(); };
+    ced.forEach(function(e){
+      var tr = el('tr');
+      tr.appendChild(el('td', 'mono', e.key));
+      var td = el('td', 'num'); td.appendChild(propEditor(e)); tr.appendChild(td);
+      var sc = el('td', 'src'); sc.appendChild(sourceEl(e.source, d)); tr.appendChild(sc);
+      ct.appendChild(tr); seen[norm(e.key)] = true;
+    });
+    ckeys.forEach(function(k){
+      if (seen[norm(k)] && ced.length) return;
+      var tr = el('tr');
+      tr.appendChild(el('td', 'mono', (pk && pk !== 'other' ? pk + '.' : '') + k));
+      tr.appendChild(el('td', 'num', String(cons[k])));
+      tr.appendChild(el('td', 'src'));
+      ct.appendChild(tr);
+    });
+    if (ct.firstChild) root.appendChild(ct);
+    else root.appendChild(el('div', 'kv', 'no constraints set on this node'));
+  }
+
+  if (L.boundsDiffer) {
+    root.appendChild(el('h4', null, 'Layout bounds differ from bounds in parent'));
+    var bp = L.boundsInParent;
+    if (bp) root.appendChild(kv('bounds in parent', bp.w + ' × ' + bp.h + ' at ' + bp.x + ', ' + bp.y));
+    var tf = L.transforms || {};
+    var tt = el('table');
+    Object.keys(tf).forEach(function(k){
+      var tr = el('tr'); tr.appendChild(el('td', 'mono', k)); tr.appendChild(el('td', 'num', String(tf[k]))); tt.appendChild(tr);
+    });
+    if (tt.firstChild) root.appendChild(tt);
+  }
+  pane.appendChild(root);
+}
+
+// --- G5 / G6 sheets tab, lint
+function resetSheets(){
+  var S = state.sheets;
+  S.list = null; S.err = null; S.open = null; S.detail = null; S.detailErr = null; S.lint = null; S.lintErr = null;
+}
+function loadSheets(){
+  var S = state.sheets;
+  if (S.busy) return;
+  S.busy = true; S.err = null;
+  var win = state.win;
+  api('/api/sheets', { window: win }).then(function(j){ S.list = j.sheets || []; S.window = win; },
+    function(e){ S.err = e; S.list = null; })
+    .then(function(){ S.busy = false; if (state.tab === 'sheets') renderStyles(); });
+}
+function openSheet(url){
+  var S = state.sheets;
+  if (S.open === url) { S.open = null; S.detail = null; renderStyles(); return; }
+  S.open = url; S.detail = null; S.detailErr = null; renderStyles();
+  api('/api/sheets', { window: state.win, sheet: url }).then(function(j){ if (S.open === url) S.detail = j; },
+    function(e){ if (S.open === url) S.detailErr = e; }).then(function(){ renderStyles(); });
+}
+function runLint(){
+  var S = state.sheets;
+  S.lint = null; S.lintErr = null; S.checking = true; renderStyles();
+  api('/api/lint', {}).then(function(j){ S.lint = j; }, function(e){ S.lintErr = e; })
+    .then(function(){ S.checking = false; renderStyles(); });
+}
+function lintMarks(file){
+  var out = { unused: Object.create(null), typo: Object.create(null) }, L = state.sheets.lint;
+  if (!L) return out;
+  function key(x){ return x.line != null ? 'L' + x.line : 'S' + x.selector; }
+  (L.unused || []).forEach(function(x){ if (x.file === file) out.unused[key(x)] = x; });
+  (L.unknownSelectors || []).forEach(function(x){ if (x.file === file) out.typo[key(x)] = x; });
+  return out;
+}
+function highlightHandles(handles){
+  if (!handles || !handles.length) { toast('No node in this window matches that rule'); return; }
+  api('/api/highlight', { handles: handles.join(',') }, 'POST').catch(function(e){ toast(errText(e)); });
+}
+function lintSummaryEl(d){
+  var S = state.sheets, L = S.lint, box = el('div', 'lintsum');
+  if (S.checking) { box.textContent = 'Checking every rule against every node…'; return box; }
+  if (S.lintErr) { box.appendChild(el('span', 'dimnote', 'Check failed: ' + errText(S.lintErr))); return box; }
+  if (!L) return null;
+  var perr = (L.sheets || []).reduce(function(n, s){ return n + (s.errors || []).length; }, 0);
+  var unused = L.unused || [], typo = L.unknownSelectors || [];
+  box.appendChild(el('strong', null, (L.sheets || []).length + ' stylesheets · ' + unused.length + ' unused · ' + typo.length +
+    ' probably typos · ' + perr + ' parse errors'));
+  box.appendChild(el('div', 'dimnote', (L.note || 'unused = matches no node in the open windows') +
+    '. Rules for views that are not open right now look unused: open those views and check again.'));
+  function list(title, arr, extra){
+    if (!arr.length) return;
+    box.appendChild(el('div', null, title));
+    arr.forEach(function(x){
+      var l = el('div', 'l mono');
+      l.appendChild(document.createTextNode(x.selector + '  '));
+      var ll = locLink(x, d); if (ll) l.appendChild(ll);
+      if (extra) l.appendChild(el('span', 't-text', extra(x)));
+      box.appendChild(l);
+    });
+  }
+  list('Unused rules', unused);
+  list('Probably a typo', typo, function(x){ return (x.unknown || []).join(', '); });
+  return box;
+}
+function renderSheets(pane, d){
+  var S = state.sheets;
+  var bar = el('div', 'cbar');
+  var chk = el('button', null, 'Check'); chk.title = 'Find rules that match nothing and selectors that look misspelt (rules × nodes: not automatic)';
+  chk.disabled = !!S.checking;
+  chk.addEventListener('click', runLint);
+  var rf = el('button', null, 'Reload'); rf.addEventListener('click', function(){ S.list = null; S.detail = null; loadSheets(); renderStyles(); });
+  bar.appendChild(chk); bar.appendChild(rf);
+  bar.appendChild(el('span', null, 'Stylesheets of window ' + state.win + ', in effective order'));
+  pane.appendChild(bar);
+  var sum = lintSummaryEl(d); if (sum) pane.appendChild(sum);
+  if (S.err) { pane.appendChild(el('div', 'empty', 'Stylesheets are not available: ' + errText(S.err))); return; }
+  if (!S.list) { pane.appendChild(el('div', 'empty', 'Loading stylesheets…')); return; }
+  var shown = 0;
+  S.list.forEach(function(s){
+    var name = s.file || s.url || '?';
+    if (state.filter && !matches(name) && !matches(s.origin)) return;
+    shown++;
+    var row = el('div', 'sheetrow' + (S.open === s.url ? ' sel' : ''));
+    row.appendChild(el('span', 'org', originLabel(s.origin)));
+    row.appendChild(el('span', 'mono', s.file ? shortPath(s.file) : String(s.url).split('/').pop()));
+    if (s.on) row.appendChild(el('span', 'spec', 'on ' + s.on));
+    row.appendChild(el('span', 'cnt', (s.rules != null ? s.rules + ' rules' : '') + (s.declarations != null ? ' · ' + s.declarations + ' declarations' : '')));
+    if (s.mapped && s.mapped.file) row.appendChild(el('span', 'ext mapped', '→ ' + shortPath(s.mapped.file)));
+    else if (s.external) row.appendChild(el('span', 'ext', 'outside app'));
+    row.title = s.url || '';
+    (s.errors || []).forEach(function(e){
+      var pe = el('div', 'perr');
+      pe.appendChild(document.createTextNode((e.line != null ? 'line ' + e.line + ': ' : '') + (e.message || 'parse error') + '  '));
+      var ll = s.file ? locLink({ file: s.file, line: e.line }, d) : null; if (ll) pe.appendChild(ll);
+      row.appendChild(pe);
+    });
+    row.addEventListener('click', function(ev){ if (ev.target.closest && ev.target.closest('.loc,.ide')) return; openSheet(s.url); });
+    pane.appendChild(row);
+    if (S.open === s.url) pane.appendChild(sheetDetailEl(s, d));
+  });
+  if (!shown) pane.appendChild(el('div', 'empty', state.filter ? 'No matching stylesheets.' : 'No stylesheets in this window.'));
+}
+function sheetDetailEl(s, d){
+  var S = state.sheets, box = el('div');
+  if (S.detailErr) { box.appendChild(el('div', 'empty', 'Rules are not available: ' + errText(S.detailErr))); return box; }
+  if (!S.detail) { box.appendChild(el('div', 'empty', 'Loading rules…')); return box; }
+  var marks = lintMarks(s.file);
+  (S.detail.ruleList || []).forEach(function(r){
+    if (state.filter && !matches(r.selector)) return;
+    var k = r.line != null ? 'L' + r.line : 'S' + r.selector;
+    var un = marks.unused[k] || marks.unused['S' + r.selector], ty = marks.typo[k] || marks.typo['S' + r.selector];
+    var row = el('div', 'srule' + (un ? ' dead' : ''));
+    var sel = el('span', 'sel-t mono', r.selector);
+    sel.title = 'Outline the ' + (r.matches != null ? r.matches : '') + ' matching node(s) in the app';
+    sel.addEventListener('click', function(){ highlightHandles(r.handles); });
+    row.appendChild(sel);
+    row.appendChild(el('span', 'cnt', r.matches != null ? r.matches + (r.matches === 1 ? ' match' : ' matches') : ''));
+    row.appendChild(el('span', 'cnt', r.declarations != null ? r.declarations + ' decl.' : ''));
+    if (un) { var t1 = el('span', 'tag', 'unused'); t1.title = 'Matches no node in the open windows'; row.appendChild(t1); }
+    if (ty) { var t2 = el('span', 'tag', 'probably a typo'); t2.title = 'No node has: ' + (ty.unknown || []).join(', '); row.appendChild(t2); }
+    var ll = s.file && r.line != null ? locLink({ file: s.file, line: r.line }, d) : null;
+    if (ll) row.appendChild(ll);
+    box.appendChild(row);
+  });
+  if (!box.firstChild) box.appendChild(el('div', 'empty', 'No rules.'));
+  return box;
 }
 
 // ---------- SSE ----------
@@ -1898,7 +2819,7 @@ function connect(){
     state.lock = s.lock || null;
     state.activity = s.activity || '';
     renderLock();
-    if (was !== !!state.lock) { closePlan(); renderStyles(); }
+    if (was !== !!state.lock) { closePlan(); state.lplan = null; renderStyles(); }
   });
   es.addEventListener('status', retryApp);
   es.addEventListener('sheetMap', function(){ if (!state.editing) loadStyles(); });
@@ -1907,7 +2828,13 @@ function connect(){
     var was = state.scratch && state.scratch.css, now = j && j.css;
     state.scratch = j;
     if (!j.active) state.disabled = Object.create(null);
-    if (was !== now) loadStyles();
+    if (was !== now) { loadStyles(); refreshThumb(); }
+  });
+  es.addEventListener('props', function(ev){
+    var j; try { j = JSON.parse(ev.data); } catch(e){ return; }
+    var was = JSON.stringify(propsItems());
+    state.props = { items: (j && j.items) || [] }; state.propsOk = true;
+    if (JSON.stringify(propsItems()) !== was && !state.editing) { loadStyles(); refreshThumb(); }
   });
   es.addEventListener('moved', function(ev){
     var j; try { j = JSON.parse(ev.data); } catch(e){ return; }
@@ -1929,7 +2856,7 @@ function connect(){
     state.sel = { h: j.h != null ? j.h : null, path: j.path || null };
     state.askAbout = null;
     state.suggest = Object.create(null);
-    loadTree().then(loadStyles);
+    clearForced().then(function(){ loadTree().then(loadStyles); refreshThumb(); });
   });
 }
 function renderLock(){
@@ -2031,11 +2958,51 @@ $('takeover').addEventListener('click', function(){
 });
 $('skin').addEventListener('change', function(){ state.skin = this.checked; loadTree(); });
 $('win').addEventListener('change', function(){
-  state.win = parseInt(this.value, 10) || 0; state.sel = null; state.styles = null;
-  loadTree().then(loadStyles);
+  var v = parseInt(this.value, 10) || 0;
+  clearForced().then(function(){
+    state.win = v; state.sel = null; state.styles = null; state.handlersKey = null;
+    resetSheets(); clearSearch(false); thumbImg.style.display = 'none';
+    loadTree().then(loadStyles);
+  });
 });
 $('treePane').addEventListener('keydown', onKey);
 $('treePane').addEventListener('mouseleave', clearHighlight);
+
+(function(){
+  var t = $('tsearch'), timer;
+  t.addEventListener('input', function(){ clearTimeout(timer); timer = setTimeout(runSearch, 350); });
+  t.addEventListener('keydown', function(ev){
+    var S = state.search;
+    if (ev.key === 'Enter') {
+      ev.preventDefault(); clearTimeout(timer);
+      if (S.q === t.value.trim() && S.items.length) cycleMatch(ev.shiftKey ? -1 : 1); else runSearch();
+    } else if (ev.key === 'ArrowDown') { ev.preventDefault(); cycleMatch(1); }
+    else if (ev.key === 'ArrowUp') { ev.preventDefault(); cycleMatch(-1); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); clearTimeout(timer); clearSearch(false); }
+  });
+  $('tnext').addEventListener('click', function(){ cycleMatch(1); });
+  $('tprev').addEventListener('click', function(){ cycleMatch(-1); });
+  $('tall').addEventListener('change', function(){ if (t.value.trim()) runSearch(); });
+})();
+
+// Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y in the styles pane (not while typing in a field)
+$('stylesPane').addEventListener('keydown', function(ev){
+  var tg = ev.target && ev.target.tagName;
+  if (tg === 'INPUT' || tg === 'TEXTAREA' || tg === 'SELECT' || (ev.target && ev.target.isContentEditable)) return;
+  if (!(ev.ctrlKey || ev.metaKey) || ev.altKey) return;
+  var k = String(ev.key).toLowerCase();
+  if (k === 'z' && !ev.shiftKey) { ev.preventDefault(); histGo(-1); }
+  else if ((k === 'z' && ev.shiftKey) || k === 'y') { ev.preventDefault(); histGo(1); }
+});
+
+// forced states never outlive the page (the server also clears them when the last inspector connection drops)
+window.addEventListener('pagehide', function(){
+  if (!state.forced.length) return;
+  var fn = state.forcedNode || state.sel || {};
+  var u = '/api/states?' + qs({ h: fn.h, path: fn.path, t: TOKEN });
+  try { if (navigator.sendBeacon && navigator.sendBeacon(u)) return; } catch(e){}
+  try { fetch(u, { method: 'POST', keepalive: true }); } catch(e){}
+});
 
 (function(){
   var sp = $('split'), dragging = false;
@@ -2044,7 +3011,7 @@ $('treePane').addEventListener('mouseleave', clearHighlight);
   window.addEventListener('mousemove', function(ev){
     if (!dragging) return;
     var w = Math.max(160, Math.min(ev.clientX, window.innerWidth - 220));
-    $('treePane').style.width = w + 'px';
+    $('treeCol').style.width = w + 'px';
   });
 })();
 
