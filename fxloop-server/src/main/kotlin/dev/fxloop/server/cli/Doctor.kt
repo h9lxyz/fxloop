@@ -15,7 +15,12 @@ import java.nio.file.Path
 import javax.tools.ToolProvider
 
 /** Verdict of one check. Serialized lower-case in `--json`. */
-enum class DoctorStatus(val icon: String) { ok("✅"), warn("⚠️"), fail("❌") }
+enum class DoctorStatus(val icon: String) {
+    ok("✅"), warn("⚠️"), fail("❌");
+
+    /** The symbol on a UTF-8 terminal, else `OK` / `WARN` / `FAIL` (a POSIX locale over SSH prints the symbols as `?`). */
+    fun marker(utf8: Boolean): String = if (utf8) icon else name.uppercase()
+}
 
 /** One `doctor` line: stable `id`, a one-line [summary], an optional one-line [fix], optional machine [data]. */
 data class DoctorCheck(
@@ -334,7 +339,7 @@ object Doctor {
         }
         val snippets = snippetFor.map { cl -> mapOf("client" to cl.id, "file" to cl.file, "content" to McpClients.snippet(cl, jar, dir)) }
         val data = mapOf(
-            "clients" to states.map { mapOf("client" to it.client.id, "file" to it.file?.toString(), "hasFxloop" to it.hasFxloop, "missingPaths" to it.missingPaths) },
+            "clients" to states.map { mapOf("client" to it.client.id, "file" to it.file?.toString(), "hasFxloop" to it.hasFxloop, "missingPaths" to it.missingPaths, "scope" to it.scope) },
             "snippets" to snippets,
         )
         if (clientArg != null && explicit.isEmpty()) return DoctorCheck("mcp-client", DoctorStatus.warn,
@@ -346,7 +351,7 @@ object Doctor {
                 "fix the path in ${b.client.file} to the real jar (this one: $jar)", data)
         }
         if (configured.isNotEmpty()) return DoctorCheck("mcp-client", DoctorStatus.ok,
-            "fxloop is registered for " + configured.joinToString(", ") { "${it.client.label} (${it.client.file})" }, data = data)
+            "fxloop is registered for " + configured.joinToString(", ") { "${it.client.label} (${it.where})" }, data = data)
         val existing = states.filter { it.file != null }
         return DoctorCheck("mcp-client", DoctorStatus.warn,
             if (existing.isEmpty()) "no MCP client config in the workspace (looked for ${McpClient.entries.joinToString(", ") { it.file }})"
@@ -364,11 +369,17 @@ object Doctor {
             }
         })
 
-    fun render(config: Config, checks: List<DoctorCheck>): String = buildString {
+    /** Whether stdout can show the status symbols (JDK 19+ `stdout.encoding`, older `sun.stdout.encoding` / `file.encoding`). */
+    fun stdoutUtf8(): Boolean {
+        val enc = System.getProperty("stdout.encoding") ?: System.getProperty("sun.stdout.encoding") ?: System.getProperty("file.encoding") ?: return true
+        return enc.equals("UTF-8", true) || enc.equals("UTF8", true)
+    }
+
+    fun render(config: Config, checks: List<DoctorCheck>, utf8: Boolean = stdoutUtf8()): String = buildString {
         appendLine("FXLoop doctor: ${config.projectDir}")
         val titles = listOf("JDK", "Build tool", "JavaFX", "Main class", "FXLoop build plugin", "Display", "Agent (MCP client)")
         checks.forEachIndexed { i, c ->
-            appendLine("${c.status.icon} ${i + 1} ${titles.getOrElse(i) { c.id }}: ${c.summary}")
+            appendLine("${c.status.marker(utf8)} ${i + 1} ${titles.getOrElse(i) { c.id }}: ${c.summary}")
             c.fix?.let { appendLine("   → $it") }
         }
         val snippets = checks.lastOrNull { it.id == "mcp-client" }?.data?.get("snippets") as? List<*>
@@ -382,7 +393,7 @@ object Doctor {
         val fails = checks.count { it.status == DoctorStatus.fail }
         val warns = checks.count { it.status == DoctorStatus.warn }
         append(if (fails + warns == 0) "All good." else "$fails problem(s), $warns warning(s).")
-    }
+    }.let { if (utf8) it else it.replace("→", "->") }
 
     private fun gradleFacts(dir: Path): GradleFacts? =
         listOf("build.gradle.kts", "build.gradle").map { dir.resolve(it) }.firstOrNull(Files::isRegularFile)

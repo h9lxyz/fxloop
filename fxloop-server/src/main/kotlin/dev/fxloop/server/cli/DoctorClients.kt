@@ -18,35 +18,63 @@ internal enum class McpClient(val id: String, val label: String, val file: Strin
     }
 }
 
-/** What was found for one client in the workspace. [file] is null when there is no config file. */
+/**
+ * What was found for one client. [file] is null when there is no config file. [scope] is set when the entry comes from
+ * Claude Code's user file `~/.claude.json` (`claude mcp add` without `-s project`): `local` (this directory) or `user`.
+ */
 internal data class ClientState(
     val client: McpClient,
     val file: Path?,
     val hasFxloop: Boolean,
     /** Jar / bootstrap paths named by the fxloop entry that do not exist (after expanding the common variables). */
     val missingPaths: List<String>,
-)
+    val scope: String? = null,
+) {
+    /** Where the entry lives, for the summary line. */
+    val where: String get() = if (scope == null) client.file else "~/.claude.json, $scope scope"
+}
 
 internal object McpClients {
     private val mapper = ObjectMapper()
 
     fun scan(workspaces: List<Path>, home: Path): List<ClientState> = McpClient.entries.map { c ->
         val dir = workspaces.firstOrNull { Files.isRegularFile(it.resolve(c.file)) }
-        if (dir == null) ClientState(c, null, false, emptyList())
-        else inspect(c, dir.resolve(c.file), dir, home)
+        val state = if (dir == null) ClientState(c, null, false, emptyList()) else inspect(c, dir.resolve(c.file), dir, home)
+        if (c == McpClient.CLAUDE_CODE && !state.hasFxloop) claudeUserConfig(workspaces, home) ?: state else state
     }
 
     private fun inspect(c: McpClient, file: Path, workspace: Path, home: Path): ClientState {
         val text = runCatching { Files.readString(file) }.getOrDefault("")
         val args: List<String>? = if (c.toml) tomlArgs(text) else jsonArgs(c, text)
         if (args == null) return ClientState(c, file, false, emptyList())
-        val missing = args.mapNotNull { a ->
-            val x = expand(a, workspace, home)
-            // an unexpanded ${...} we do not know is not evidence of a problem
-            if ("\${" in x || !(x.endsWith(".jar") || x.endsWith("FxloopBootstrap.java"))) null
-            else if (Files.exists(Path.of(x))) null else x
+        return ClientState(c, file, true, missingPaths(args, workspace, home))
+    }
+
+    /**
+     * `claude mcp add` writes `~/.claude.json`: `projects.<absolute workspace>.mcpServers` for the default local scope,
+     * top-level `mcpServers` for `-s user`. Neither is in the workspace, so the README's own register line would
+     * otherwise look undone.
+     */
+    private fun claudeUserConfig(workspaces: List<Path>, home: Path): ClientState? {
+        val file = home.resolve(".claude.json")
+        if (!Files.isRegularFile(file)) return null
+        val node = runCatching { mapper.readTree(Files.readString(file)) }.getOrNull() ?: return null
+        for (ws in workspaces) {
+            val entry = node.path("projects").path(ws.toAbsolutePath().normalize().toString()).path("mcpServers").path("fxloop")
+            if (entry.isObject) return ClientState(McpClient.CLAUDE_CODE, file, true, missingPaths(entryArgs(entry), ws, home), "local")
         }
-        return ClientState(c, file, true, missing)
+        val user = node.path("mcpServers").path("fxloop")
+        if (user.isObject) return ClientState(McpClient.CLAUDE_CODE, file, true, missingPaths(entryArgs(user), workspaces.first(), home), "user")
+        return null
+    }
+
+    private fun entryArgs(entry: JsonNode): List<String> = entry.path("args").takeIf { it.isArray }?.map { it.asText() }.orEmpty()
+
+    private fun missingPaths(args: List<String>, workspace: Path, home: Path): List<String> = args.mapNotNull { a ->
+        val x = expand(a, workspace, home)
+        // an unexpanded ${...} we do not know is not evidence of a problem
+        if ("\${" in x || !(x.endsWith(".jar") || x.endsWith("FxloopBootstrap.java"))) null
+        else if (Files.exists(Path.of(x))) null else x
     }
 
     /** The fxloop entry's `args`, or null when there is no fxloop entry. Empty list for an entry without args. */
@@ -90,17 +118,18 @@ internal object McpClients {
                 args = ["-jar", ${q(jar)}]
                 env = { FXLOOP_PROJECT_DIR = ${q(ws)} }
             """.trimIndent()
-            else -> """
-                {
-                  "${c.serversKey}": {
-                    "fxloop": {${if (c == McpClient.VSCODE) "\n      \"type\": \"stdio\"," else ""}
-                      "command": "java",
-                      "args": ["-jar", ${q(jar)}],
-                      "env": { "FXLOOP_PROJECT_DIR": ${q(ws)} }
-                    }
-                  }
-                }
-            """.trimIndent()
+            else -> buildString {
+                appendLine("{")
+                appendLine("  \"${c.serversKey}\": {")
+                appendLine("    \"fxloop\": {")
+                if (c == McpClient.VSCODE) appendLine("      \"type\": \"stdio\",")
+                appendLine("      \"command\": \"java\",")
+                appendLine("      \"args\": [\"-jar\", ${q(jar)}],")
+                appendLine("      \"env\": { \"FXLOOP_PROJECT_DIR\": ${q(ws)} }")
+                appendLine("    }")
+                appendLine("  }")
+                append("}")
+            }
         }
     }
 }

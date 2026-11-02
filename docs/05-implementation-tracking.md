@@ -1,6 +1,6 @@
 # FXLoop — Implementation Tracking (Document 5)
 
-Feature/task mapping for PRDs 00–04 and 06–08, 11 with live status. One row per deliverable; IDs reference the PRD section that specifies it.
+Feature/task mapping for PRDs 00–04, 06–08, 10 and 11 with live status. One row per deliverable; IDs reference the PRD section that specifies it.
 
 Statuses last reconciled against the code on 2026-10-31. The implementation language is Kotlin rather than Java; see [decisions/kotlin.md](decisions/kotlin.md).
 
@@ -170,15 +170,22 @@ Baseline: Java 17 bytecode (`--release 17`), compiled against JavaFX 21. CI buil
 
 | ID | Feature / task | PRD ref | Module | Status | Notes |
 |---|---|---|---|---|---|
-| O1 | Jar-only install: README quickstart, `fxloop-connect` step 0 without the bootstrap (`FxloopBootstrap.java` deleted), `java -jar` MCP configs, skills zip install, PowerShell variants | 11 §3, §4.1, §5, §7 | docs, skills | 🟨 | Needs PRD 10's `edge` build for the asset URLs. Docs and skill text done; not yet run end to end (A-O2) |
+| O1 | Jar-only install: README quickstart, `fxloop-connect` step 0 without the bootstrap (`FxloopBootstrap.java` deleted), `java -jar` MCP configs, skills zip install, PowerShell variants | 11 §3, §4.1, §5, §7 | docs, skills | 🟨 | Asset URLs served by the `edge` build (R-E1). README quickstart has two paths: copy-paste blocks, or one line that points the agent at `INSTALL.md` (raw URL), the complete agent-executable setup; `InstallGuideTest` keeps INSTALL.md in step with the server version, the connect skill's snippets and client configs, and the edge assets. Path A walked through end to end on the Maven showcase and the plugin-less Gradle Kotlin sample (headless, no `dev.fxloop` in `~/.m2`, `prepare: server`); A-O2 (skills) and the OS matrix (O8) still manual |
 | O2 | `fxloop-launch` shared module (`MainClassResolver`, `JavaFxModules`, launch-mode rules) | 11 §4.2, §9 | launch, maven-plugin, gradle-plugin | ✅ | Extracted without behaviour change; both plugins delegate, `MainClassException` carries the candidates |
 | O3 | Plugin-free prepare, Maven (main class, launch mode, release, processors; `prepare: "server"`) | 11 §4.2 | server | ✅ | One Maven invocation (compile + cached effective POM + build-classpath). A-O5: same launch.json as the plugin on sample, gauntlet and showcase apps |
 | O4 | Plugin-free prepare, Gradle (bundled plugin jar via generated init script) | 11 §4.2 | server | ✅ | A-O4: byte-identical launch.json vs the applied plugin on the Kotlin sample, configuration cache reused. `PluginFreePrepareTest` |
 | O5 | `doctor [--json] [--client=…]` | 11 §6 | server | ⚠️ | A-O3 covered by `DoctorTest`. Main class is read from the raw pom.xml (with property substitution), not the effective POM. Not yet in `fx_get_app_status` (§9) |
-| O6 | `--version` with JDK check; `--seed-local-repo` (temporary, until Central) | 11 §3, §4.4 | server | ✅ | Seeds parent, protocol, launch, agent, maven-plugin. A-O6 checks layout and metadata; a full `mvn fxloop:run` on a fresh repo still needs Central for third-party deps |
+| O6 | `--version` with JDK check; `--seed-local-repo` (temporary, until Central) | 11 §3, §4.4 | server | ✅ | Seeds parent, protocol, launch, agent, maven-plugin, the server jar itself (`fxloop-server:all`, which `fxloop:run` / `fxloopRun` start as the inspector helper) and, when the server was built after `publishToMavenLocal` of the Gradle plugin, the Gradle plugin with its module metadata and marker POM, so `id("dev.fxloop")` resolves from `mavenLocal()`. A-O6 checks layout and metadata; third-party deps still come from Central |
 | O7 | `OnboardingTest`: local HTTP server serves the jar at the release path, install lines run, `fx_get_app_status` on a plugin-less sample | 11 §8 | acceptance | ✅ | Runs the README install line against a local server, then `fx_get_app_status` + screenshot with `prepare: server` |
 | O8 | OS matrix on Windows 11, macOS, Ubuntu against a release candidate | 11 §8 | manual | ⬜ | A-O1–A-O7, manual checklist |
 | O9 | Claude Code marketplace manifest (`.claude-plugin/`) | 11 §5.1, §13 Q2 | skills | ⏭️ | Deferred until after 1.0.0 |
+
+## Stage R — Releases (PRD 10)
+
+| ID | Feature / task | PRD ref | Module | Status | Notes |
+|---|---|---|---|---|---|
+| R-E1 | Edge build: `edge.yml` on every push to `main` builds the Maven modules, publishes the Gradle plugin to mavenLocal, rebuilds the server so it bundles the plugin, runs `release/assemble-assets.sh` and replaces the assets of the rolling `edge` pre-release (tag moved to the commit, never "latest") | 10 §2.4, §2.5 | ci | 🟨 | Assets: `fxloop-server-<v>-all.jar` + `fxloop-server-all.jar`, `fxloop-skills-<v>.zip` + `fxloop-skills.zip`, `SHA256SUMS`. The script is exercised locally (`InstallGuideTest` checks the names the docs download); the workflow has not run on GitHub yet (A-R3) |
+| R-E2 | Release workflow rewrite (dispatch, version script, gated stages, attestation) | 10 §2.1–2.3, §3 | ci | ⬜ | `release.yml` unchanged; it should call `release/assemble-assets.sh` for the same asset names |
 
 ## Items requiring external resources (cannot be completed in this local session)
 

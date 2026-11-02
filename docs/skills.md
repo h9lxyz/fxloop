@@ -24,7 +24,9 @@ Expand-Archive -Force "$env:TEMP\fxloop-skills.zip" "$HOME\.claude\skills\"
 ```
 
 Then, in your app's project: **"connect FXLoop to this project and show me the app"**. The skill downloads the server
-jar itself. Install details and the layout for contributors are in the [skills README](../fxloop-skills/README.md).
+jar itself. Without the skills, the same setup is [INSTALL.md](https://github.com/h9lxyz/fxloop/blob/main/INSTALL.md),
+which any agent can follow from its raw URL. Install details and the layout for contributors are in the
+[skills README](../fxloop-skills/README.md).
 
 ## At a glance
 

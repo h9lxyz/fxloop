@@ -236,6 +236,21 @@
                 <copy file="${settings.localRepository}/dev/fxloop/fxloop-gradle-plugin/${project.version}/fxloop-gradle-plugin-${project.version}.jar"
                       tofile="${project.build.outputDirectory}/dev/fxloop/server/gradle/fxloop-gradle-plugin.jar"
                       failonerror="false" overwrite="true"/>
+                <!-- TEMPORARY (PRD 10 A-R5): the same plugin for the seed-local-repo command, so `id("dev.fxloop")` resolves
+                     from mavenLocal before the Plugin Portal: jar, POM, Gradle module metadata and the plugin marker POM. -->
+                <mkdir dir="${project.build.outputDirectory}/dev/fxloop/server/seed"/>
+                <copy file="${settings.localRepository}/dev/fxloop/fxloop-gradle-plugin/${project.version}/fxloop-gradle-plugin-${project.version}.jar"
+                      tofile="${project.build.outputDirectory}/dev/fxloop/server/seed/fxloop-gradle-plugin.jar"
+                      failonerror="false" overwrite="true"/>
+                <copy file="${settings.localRepository}/dev/fxloop/fxloop-gradle-plugin/${project.version}/fxloop-gradle-plugin-${project.version}.pom"
+                      tofile="${project.build.outputDirectory}/dev/fxloop/server/seed/fxloop-gradle-plugin.pom"
+                      failonerror="false" overwrite="true"/>
+                <copy file="${settings.localRepository}/dev/fxloop/fxloop-gradle-plugin/${project.version}/fxloop-gradle-plugin-${project.version}.module"
+                      tofile="${project.build.outputDirectory}/dev/fxloop/server/seed/fxloop-gradle-plugin.module"
+                      failonerror="false" overwrite="true"/>
+                <copy file="${settings.localRepository}/dev/fxloop/dev.fxloop.gradle.plugin/${project.version}/dev.fxloop.gradle.plugin-${project.version}.pom"
+                      tofile="${project.build.outputDirectory}/dev/fxloop/server/seed/dev.fxloop.gradle.plugin.pom"
+                      failonerror="false" overwrite="true"/>
               </target>
             </configuration>
           </execution>

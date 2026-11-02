@@ -1,0 +1,61 @@
+name: Edge build
+
+# Rolling pre-release `edge` (PRD 10 §2.5): the current server jar and skills zip, downloadable without a clone or a
+# build, under the version-free names the README and INSTALL.md use until the first numbered release exists
+# (`releases/download/edge/fxloop-server-all.jar`, `.../fxloop-skills.zip`). On every push to main the assets are
+# replaced and the `edge` tag is moved to the commit. The release stays a pre-release and is never marked "latest".
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: edge
+  cancel-in-progress: true
+
+jobs:
+  edge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - uses: gradle/actions/setup-gradle@v6
+
+      # Same order as CI: the Maven modules, the Gradle plugin into mavenLocal, then the server once more so the jar
+      # bundles the plugin (plugin-free Gradle prepare, PRD 11 §4.2).
+      - run: ./mvnw -B install -DskipTests
+      - run: ./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin publishToMavenLocal
+      - run: ./mvnw -B -q install -DskipTests -pl fxloop-server
+
+      - run: release/assemble-assets.sh dist
+
+      - name: Move the edge tag to this commit
+        run: |
+          git tag -f edge "$GITHUB_SHA"
+          git push -f origin edge
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: edge
+          name: edge (rolling build of main)
+          prerelease: true
+          make_latest: false
+          body: |
+            Rolling build of `main` at ${{ github.sha }}, not a numbered release. Assets are replaced on every push.
+
+            ```sh
+            mkdir -p ~/.fxloop && curl -fsSL -o ~/.fxloop/fxloop-server.jar \
+              https://github.com/${{ github.repository }}/releases/download/edge/fxloop-server-all.jar
+            java -jar ~/.fxloop/fxloop-server.jar --version
+            ```
+
+            Install guide: https://github.com/${{ github.repository }}/blob/main/INSTALL.md
+          files: dist/*

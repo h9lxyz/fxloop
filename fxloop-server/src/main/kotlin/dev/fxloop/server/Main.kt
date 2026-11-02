@@ -112,7 +112,8 @@ fun main(args: Array<String>) {
         .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
         .tools(reg.toMcp())
         .build()
-    log.info("fxloop {} ready: project {} ({} tools)", Versions.SERVER, config.projectDir, reg.all().size)
+    log.info("fxloop {} ready: project {} ({} tools, headless={}, prepare-route={})", Versions.SERVER, config.projectDir, reg.all().size,
+        config.headless ?: "no", config.prepareRoute)
     Runtime.getRuntime().addShutdownHook(Thread {
         ctx.shutdown()
         runCatching { server.close() }
