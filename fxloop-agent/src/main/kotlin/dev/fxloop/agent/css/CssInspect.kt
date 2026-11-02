@@ -39,7 +39,8 @@ internal object CssInspect {
             if (v.shorthand != null) o.put("of", v.shorthand)
             NodeInfo.putValue(o, "value", valueOf(node, v))
             o.put("origin", v.property.styleOrigin?.name ?: "NONE(default/code)")
-            ex.annotate(o, v, full = only != null)
+            val r = ex.annotate(o, v, full = only != null)
+            if (only != null && isDefault(v, r)) o.put("default", true).put("note", defaultNote(v))
             items.add(o)
         }
         val out = Paging.page(items, p.path("offset").asInt(0), minOf(200, p.path("limit").asInt(80)))
@@ -68,16 +69,18 @@ internal object CssInspect {
         val results = HashMap<String, Pair<PropertyView, Explainer.Result>>()
         for (v in PropertyView.all(node)) {
             val r = ex.resolve(v)
-            if (r.winner == null && r.inheritedFrom == null && (v.property.styleOrigin == null || v.shorthand != null)) continue
             val o = Json.obj()
             o.put("cssProperty", v.cssProperty)
             if (v.shorthand != null) o.put("of", v.shorthand)
             NodeInfo.putValue(o, "value", valueOf(node, v))
+            CssTypes.live(node, v)?.let { o.put("css", it) }
             o.put("origin", v.property.styleOrigin?.name ?: "NONE")
-            ex.annotate(o, v, full = true)
+            val default = isDefault(v, r)
+            if (default) o.put("default", true).put("note", defaultNote(v))
+            ex.annotate(o, v, full = true, nearMisses = !default)
             props.add(o)
             r.winner?.decl?.let { winners[it] = true }
-            results[v.cssProperty.lowercase()] = v to r
+            if (!default) results[v.cssProperty.lowercase()] = v to r
         }
         val rules = out.putArray("rules")
         val ordered = ex.cascade.rules.sortedWith(
@@ -107,7 +110,28 @@ internal object CssInspect {
         ex.cascade.sheets.forEach { sheets.add(Sheets.describe(it, engine.roots)) }
         out.setNode("blockers", sheetBlockers(ex))
         out.setNode("types", CssTypes.of(node, allViews))
+        out.setNode("scopes", Scopes.of(node))
         out
+    }
+
+    /** `cssSelector`: how many nodes of the target's scene a typed selector matches, and whether the target is one. */
+    fun selectorMatches(p: ObjectNode): ObjectNode = Fx.call {
+        val node = Targets.resolve(p)
+        Scopes.describe(p.path("selector").asText(""), node).setNode("target", Targets.summary(node))
+    }
+
+    /** No rule, ancestor or code sets it: the live value is the property's initial value (a font sub-property: the default font's). */
+    private fun isDefault(v: PropertyView, r: Explainer.Result): Boolean =
+        r.winner == null && r.inheritedFrom == null && (v.property.styleOrigin == null || v.shorthand != null)
+
+    private fun defaultNote(v: PropertyView): String {
+        if (v.cssProperty == "-fx-font" || v.shorthand == "-fx-font") {
+            val f = Font.getDefault()
+            return "no stylesheet or code sets it: JavaFX uses the system default font (Font.getDefault(): " +
+                "${CssTypes.format(f.size)}px \"${f.family}\")"
+        }
+        if (v.shorthand != null && v.property.styleOrigin != null) return "no rule sets it: initial value (${v.shorthand} is set without it)"
+        return if (v.inherits) "no rule on this node or an ancestor sets it: initial value" else "no rule or code sets it: initial value"
     }
 
     /** `cssSuggest`: the smallest change that would win, verified against the engine (PRD 08 §3.5). */
@@ -174,7 +198,10 @@ internal object CssInspect {
         else -> "beats ${engine.location(w)} (${hyp.matched?.spec} > ${w.matched?.spec})"
     }
 
-    /** Reuse the winner's selector + one own class, then `#fxId`; for non-author winners the node's own class/id. */
+    /**
+     * Reuse the winner's selector + one own class, then `#fxId`, then the narrowest selector for this node (scoped by
+     * its ancestors, so a Label without an id does not get every `.label`), then the node's own classes.
+     */
     private fun strategies(node: Node, w: Candidate?): List<String> {
         val out = ArrayList<String>()
         val classes = node.styleClass.reversed()
@@ -186,6 +213,7 @@ internal object CssInspect {
             node.id?.takeIf { it.isNotEmpty() }?.let { out += "$base#$it" }
         }
         node.id?.takeIf { it.isNotEmpty() }?.let { out += "#$it" }
+        Scopes.narrowest(node)?.let { out += it }
         classes.forEach { out += ".$it" }
         if (classes.size > 1) out += classes.reversed().joinToString("") { ".$it" }
         return out.distinct()

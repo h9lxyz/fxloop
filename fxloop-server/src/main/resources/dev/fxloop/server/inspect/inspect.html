@@ -115,6 +115,18 @@ tr.mismatch td{background:rgba(229,83,75,.18);color:var(--bad)}
 .newrule{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .newrule input{min-width:0;flex:1 1 110px}
 .rule.scratch-rule{border-left:3px solid var(--accent)}
+.rule.code-rule{border-left:3px solid var(--warn)}
+.rule .note{margin:2px 0 4px 18px;color:var(--dim);font-size:11px}
+.newrule .scope{align-self:center;font-size:11px;color:var(--dim);white-space:nowrap}
+.newrule .scope.one{color:var(--ok)}.newrule .scope.warn{color:var(--warn)}
+.newrule .selw{flex:1 1 140px;display:flex}.newrule .selw input{flex:1}
+.cbar{display:flex;align-items:center;gap:6px;padding:6px 10px;color:var(--dim);font-size:12px;border-bottom:1px solid var(--border)}
+td .v{color:var(--val)}
+tr.dflt td,tr.dflt td .v{color:var(--dim)}
+td.src .org{margin-right:6px}
+td .editable,.decl .v.editable{cursor:text;border-bottom:1px dotted transparent}
+td .editable:hover{border-bottom-color:var(--val)}
+.moredef{margin:8px 10px;color:var(--dim);font-size:12px}
 .decl{position:relative}
 .decl .editable{cursor:text;border-bottom:1px dotted transparent}
 .decl .editable:hover{border-bottom-color:var(--val)}
@@ -211,6 +223,7 @@ var state = {
   sel: (Q.get('h') || Q.get('path')) ? { h: Q.get('h') ? parseInt(Q.get('h'),10) : null, path: Q.get('path') || null } : null,
   styles: null, layout: null,
   tab: 'styles', filter: '',
+  showDefaults: true,               // Computed lists properties no rule or code sets (dimmed); remembered per browser
   suggest: Object.create(null),
   rows: [],
   picking: false,
@@ -228,6 +241,9 @@ var state = {
   prompts: null,                    // {listening, items} of the Ask agent box (prompts event)
   askAbout: null                    // {property, selector, file, line} the next prompt is about
 };
+
+var DEFAULTS_KEY = 'fxloop.inspect.showDefaults';
+try { state.showDefaults = localStorage.getItem(DEFAULTS_KEY) !== '0'; } catch(e){}
 
 // ---------- API ----------
 function api(path, params, method){
@@ -539,7 +555,9 @@ function declEl(dc, r, d){
   if (/\s*!important\s*$/i.test(v)) { v = v.replace(/\s*!important\s*$/i, ''); imp = true; }
   var vs = el('span', 'v');
   var live = canEdit() && editable(r);
-  valueWithSwatches(vs, v, live ? function(i){ startEdit(vs, dc, r, d, v, imp, i); } : null);
+  if (!live && canEdit() && r.ruleId === 'inline') {
+    overrideValue(vs, { cssProperty: dc.property, winner: (propOf(d, dc.property) || {}).winner || { origin: 'INLINE' } }, d, v);
+  } else valueWithSwatches(vs, v, live ? function(i){ startEdit(vs, dc, r, d, v, imp, i); } : null);
   line.appendChild(vs);
   if (live) {
     vs.classList.add('editable'); vs.title = 'Click to edit (applies as scratch CSS): ↑/↓ change numbers, Ctrl+Space suggests'; vs.tabIndex = 0;
@@ -571,6 +589,10 @@ function ruleEl(r, d){
     hd.appendChild(add);
   }
   box.appendChild(hd);
+  if (r.ruleId === 'inline') {
+    box.appendChild(el('div', 'note', 'setStyle(…) in code or style="…" in FXML: beats every stylesheet rule unless the rule is !important.' +
+      (canEdit() ? ' Click a value to try an !important override for ' + scopeSelector(d) + '.' : '')));
+  }
   if (state.mapping && state.mapping.anchor === 'rule:' + r.ruleId && canEdit()) box.appendChild(mapForm());
   var shown = 0;
   (r.declarations || []).forEach(function(dc){
@@ -621,8 +643,11 @@ function renderStyles(){
 function renderRules(pane, d){
   if (editOn()) renderScratchBar(pane, d);
   var shown = 0;
+  var code = codeEl(d); if (code) { pane.appendChild(code); shown++; }
   (d.rules || []).forEach(function(r){ var e = ruleEl(r, d); if (e) { pane.appendChild(e); shown++; } });
-  if (!shown) pane.appendChild(el('div', 'empty', state.filter ? 'No matching declarations.' : 'No matching rules.'));
+  var defaults = (d.properties || []).filter(function(p){ return p.default; });
+  var defHits = state.filter ? defaults.filter(function(p){ return matches(p.cssProperty); }) : [];
+  if (!shown && !defHits.length) pane.appendChild(el('div', 'empty', state.filter ? 'No matching declarations.' : 'No matching rules.'));
   var groups = Object.create(null), order = [];
   (d.properties || []).forEach(function(p){
     var inh = p.inheritedFrom; if (!inh) return;
@@ -649,7 +674,69 @@ function renderRules(pane, d){
     });
     pane.appendChild(box);
   });
+  if (defHits.length) {
+    pane.appendChild(el('div', 'sect', 'Default values (no stylesheet or code sets them)'));
+    var db = el('div', 'rule');
+    defHits.forEach(function(p){
+      var line = el('div', 'decl'), v = liveCss(p), vs = el('span', 'v');
+      line.appendChild(el('span', 'p', p.cssProperty));
+      line.appendChild(document.createTextNode(': '));
+      if (canEdit() && !isBound(p)) overrideValue(vs, p, d, v); else valueWithSwatches(vs, v, null);
+      line.appendChild(vs);
+      line.appendChild(document.createTextNode(';'));
+      if (p.note) line.appendChild(el('span', 'why', '— ' + String(p.note).split(': ').slice(1).join(': ')));
+      line.title = p.note || '';
+      db.appendChild(line);
+    });
+    pane.appendChild(db);
+  } else if (!state.filter && defaults.length) {
+    var more = el('div', 'moredef', defaults.length + ' more properties keep their default value (no stylesheet or code sets them): ');
+    var go = el('button', 'linkb', 'show in Computed');
+    go.addEventListener('click', function(){ state.tab = 'computed'; renderStyles(); });
+    more.appendChild(go);
+    pane.appendChild(more);
+  }
   renderBlockers(pane);
+}
+
+/**
+ * Values set from Java code (setters, bindings), like DevTools' element.style: they are not CSS, so no rule lists
+ * them. A matching stylesheet rule overrides a setter's value on the next CSS pass; a bound property cannot be styled.
+ */
+function codeEl(d){
+  var list = (d.properties || []).filter(function(p){
+    if (p.cssProperty === '-fx-skin') return false;  // every control sets its skin in code
+    return (p.winner && p.winner.ruleId === 'code') || isBound(p) ||
+      (p.overridden || []).some(function(o){ return o.ruleId === 'code'; });
+  });
+  // a composite set in code (setFont) is listed by its parts, so -fx-font-size can be overridden on its own; parts
+  // without a CSS spelling (the insets of a setBackground) are left out, the composite stays when none is left
+  list = list.filter(function(p){ return !p.of || liveCss(p) !== ''; });
+  list = list.filter(function(p){ return !list.some(function(q){ return q.of === p.cssProperty; }); });
+  list = list.filter(function(p){ return matches(p.cssProperty) || matches(liveCss(p)); });
+  if (!list.length) return null;
+  var box = el('div', 'rule code-rule'), hd = el('div', 'hd');
+  hd.appendChild(el('span', 'sel-t', 'Set in code'));
+  hd.appendChild(el('span', 'org', 'code'));
+  box.appendChild(hd);
+  box.appendChild(el('div', 'note', 'Setters such as setFont() or setTextFill(), not CSS. Any stylesheet rule that matches this node ' +
+    'overrides them, no !important needed; only a bound property cannot be styled.' +
+    (canEdit() ? ' Click a value to try an override for ' + scopeSelector(d) + '.' : '')));
+  list.forEach(function(p){
+    var line = el('div', 'decl'), v = liveCss(p), vs = el('span', 'v'), bound = isBound(p);
+    line.appendChild(el('span', 'p', p.cssProperty));
+    line.appendChild(document.createTextNode(': '));
+    if (canEdit() && !bound) overrideValue(vs, p, d, v); else valueWithSwatches(vs, v, null);
+    line.appendChild(vs);
+    line.appendChild(document.createTextNode(';'));
+    if (bound) line.appendChild(el('span', 'why', '— bound in code: CSS cannot change it'));
+    else if (!(p.winner && p.winner.ruleId === 'code')) {
+      line.appendChild(el('span', 'why', '— shown now; ' + (p.winner && p.winner.selector ? p.winner.selector : 'a stylesheet rule') +
+        ' takes over on the next CSS pass'));
+    }
+    box.appendChild(line);
+  });
+  return box;
 }
 
 function renderBlockers(pane){
@@ -1180,6 +1267,40 @@ function editOn(){ return !!(state.styles && state.styles.edit); }
 /** Editing pauses while the agent drives the app with the input lock held. */
 function canEdit(){ return editOn() && !state.lock; }
 function editable(r){ return r && r.ruleId !== 'inline' && r.ruleId !== 'code' && r.origin !== 'INLINE' && !!r.selector; }
+/** Selector a new rule or an override starts with: the narrowest the app found for this node (cascade `scopes`). */
+function scopeSelector(d){
+  var s = (d.scopes || [])[0];
+  return s ? s.selector : defaultSelector(d);
+}
+function scopeText(n){ return n == null ? '' : n === 1 ? 'only this node' : n + ' nodes'; }
+/** A property's live value as CSS text (cascade `css`), else its winning declaration's value, else the raw value. */
+function liveCss(p){
+  if (p.css != null) return String(p.css);
+  if (p.winner && p.winner.text && p.winner.ruleId !== 'code') return declValue(p.winner.text);
+  return p.value != null ? String(p.value) : '';
+}
+function isBound(p){ return (p.blockers || []).some(function(b){ return b.kind === 'bound'; }); }
+function propOf(d, name){
+  var lc = String(name).toLowerCase();
+  return (d.properties || []).filter(function(p){ return String(p.cssProperty).toLowerCase() === lc; })[0] || null;
+}
+/**
+ * Makes [vs] (a value no project rule owns: set in code, inline, a default) click-to-edit; the edit becomes a scratch
+ * rule for the node's narrowest selector. Any stylesheet rule beats a value set in code, so only an inline style or an
+ * !important winner needs !important.
+ */
+function overrideValue(vs, p, d, value){
+  var w = p.winner || {};
+  var imp = w.origin === 'INLINE' || !!w.important;
+  var r = { selector: scopeSelector(d), origin: 'AUTHOR' };
+  var start = function(ci){ startEdit(vs, { property: p.cssProperty }, r, d, value, imp, ci); };
+  valueWithSwatches(vs, value, start);
+  vs.classList.add('editable'); vs.tabIndex = 0;
+  vs.title = 'Click to override in scratch CSS: ' + r.selector + ' { ' + p.cssProperty + ': …' + (imp ? ' !important' : '') + ' }' +
+    (imp ? '\n!important because an inline style (setStyle or FXML style=) beats every stylesheet rule otherwise' : '');
+  vs.addEventListener('click', function(){ start(); });
+  vs.addEventListener('keydown', function(ev){ if (ev.key === 'Enter') { ev.preventDefault(); start(); } });
+}
 function loadScratch(){
   return api('/api/scratch').then(function(j){ state.scratch = j; }, function(){ state.scratch = { active: false, rules: 0 }; });
 }
@@ -1441,10 +1562,63 @@ function defaultSelector(d){
   var c = String(d.styleClass || '').split(/\s+/).filter(Boolean)[0];
   return c ? '.' + c : (t.type || '*');
 }
+/**
+ * Selector field of *New rule*: starts at the narrowest selector for the node, suggests broader ones (`.label` for
+ * every label) with how many nodes each matches, and counts any selector typed in.
+ */
+function selectorInput(d, dr, onEnter){
+  var wrap = el('span', 'vedit selw');
+  var sel = el('input', 'mono'); sel.value = dr.sel; sel.setAttribute('aria-label', 'Selector'); sel.spellcheck = false;
+  sel.autocomplete = 'off';
+  wrap.appendChild(sel);
+  var count = el('span', 'scope'), seq = 0, timer = null;
+  function show(j){
+    count.className = 'scope' + (!j.valid || !j.matchesTarget ? ' warn' : j.matches === 1 ? ' one' : '');
+    count.textContent = !j.valid ? 'not a selector' : !j.matchesTarget ? 'does not match this node' : scopeText(j.matches);
+    count.title = j.valid ? j.matches + (j.matches === 1 ? ' node' : ' nodes') + ' in this window match ' + j.selector : (j.error || '');
+  }
+  function recount(){
+    clearTimeout(timer);
+    var v = sel.value.trim(), my = ++seq;
+    var known = (d.scopes || []).filter(function(x){ return x.selector === v; })[0];
+    if (known) { show({ valid: true, matchesTarget: true, matches: known.matches, selector: v }); return; }
+    if (!v) { count.textContent = ''; return; }
+    timer = setTimeout(function(){
+      api('/api/selector', { h: state.sel && state.sel.h, path: state.sel && state.sel.path, selector: v }).then(function(j){
+        if (my === seq) show(j);
+      }, function(){ if (my === seq) count.textContent = ''; });
+    }, 200);
+  }
+  var pop = combo(sel, wrap, {
+    items: function(){ return (d.scopes || []).map(function(x){ return { v: x.selector, tag: scopeText(x.matches) }; }); },
+    foot: function(){ return 'narrowest first · type any selector'; },
+    pick: function(it){ sel.value = it.v; pop.close(); dr.sel = it.v; recount(); onEnter(); }
+  });
+  sel.addEventListener('focus', function(){ pop.open(''); });
+  sel.addEventListener('blur', function(){ pop.close(); });
+  sel.addEventListener('input', function(){ dr.sel = sel.value; pop.open(sel.value); recount(); });
+  sel.addEventListener('keydown', function(ev){
+    var k = ev.key;
+    if (k === 'ArrowDown' || k === 'ArrowUp') {
+      if (!pop.isOpen()) pop.open('');
+      pop.move(k === 'ArrowDown' ? 1 : -1); ev.preventDefault(); return;
+    }
+    if (k === 'Enter') {
+      ev.preventDefault();
+      var it = pop.isOpen() ? pop.current() : null;
+      if (it) { sel.value = it.v; dr.sel = it.v; recount(); }
+      pop.close(); onEnter(); return;
+    }
+    if (k === 'Escape' && pop.isOpen()) { ev.preventDefault(); ev.stopPropagation(); pop.close(); }
+  });
+  recount();
+  return { el: wrap, input: sel, count: count };
+}
 function newRuleForm(d){
   var f = el('form', 'newrule');
-  var dr = state.draft || (state.draft = { sel: defaultSelector(d), prop: '', val: '' });
-  var sel = el('input', 'mono'); sel.value = dr.sel; sel.setAttribute('aria-label', 'Selector');
+  var dr = state.draft || (state.draft = { sel: scopeSelector(d), prop: '', val: '' });
+  var si = selectorInput(d, dr, function(){ prop.focus(); });
+  var sel = si.input;
   var name = nameInput(dr.prop, function(v){ dr.prop = v; ved.refresh(); }, function(){ val.focus(); val.select(); });
   var prop = name.input;
   var ved = valueEditor({
@@ -1454,7 +1628,6 @@ function newRuleForm(d){
     onCancel: function(){ state.newRule = false; state.draft = null; renderStyles(); }
   });
   var val = ved.input; val.placeholder = 'value';
-  sel.addEventListener('input', function(){ dr.sel = sel.value; });
   var ok = el('button', null, 'Add'); ok.type = 'submit';
   var cancel = el('button', null, 'Cancel'); cancel.type = 'button';
   cancel.addEventListener('click', function(){ state.newRule = false; state.draft = null; renderStyles(); });
@@ -1468,7 +1641,7 @@ function newRuleForm(d){
       if (done) { state.newRule = false; state.draft = null; renderStyles(); }
     });
   });
-  [sel, name.el, ved.el, ok, cancel].forEach(function(x){ f.appendChild(x); });
+  [si.el, si.count, name.el, ved.el, ok, cancel].forEach(function(x){ f.appendChild(x); });
   setTimeout(function(){ (dr.prop ? val : prop).focus(); }, 0);
   return f;
 }
@@ -1605,26 +1778,72 @@ function planEl(plan){
 }
 
 function renderComputed(pane, d){
+  var all = d.properties || [];
+  var nd = all.filter(function(p){ return p.default; }).length;
+  if (nd) {
+    var bar = el('label', 'cbar'), cb = el('input');
+    cb.type = 'checkbox'; cb.checked = state.showDefaults;
+    cb.addEventListener('change', function(){
+      state.showDefaults = cb.checked;
+      try { localStorage.setItem(DEFAULTS_KEY, cb.checked ? '1' : '0'); } catch(e){}
+      renderStyles();
+    });
+    bar.appendChild(cb);
+    bar.appendChild(document.createTextNode('Show defaults: ' + nd + (nd === 1 ? ' property' : ' properties') + ' no stylesheet or code sets'));
+    pane.appendChild(bar);
+  }
   var tbl = el('table'), thead = el('tr');
-  ['Property', 'Value', 'Origin', 'Simulation'].forEach(function(h){ thead.appendChild(el('th', null, h)); });
+  ['Property', 'Value', 'Set by'].forEach(function(h){ thead.appendChild(el('th', null, h)); });
   tbl.appendChild(thead);
   var n = 0;
-  (d.properties || []).forEach(function(p){
-    if (!matches(p.cssProperty) && !matches(p.value)) return;
-    var tr = el('tr', p.simulation === 'mismatch' ? 'mismatch' : '');
+  all.forEach(function(p){
+    if (p.default && !state.showDefaults) return;
+    var v = liveCss(p);
+    if (!matches(p.cssProperty) && !matches(v)) return;
+    var tr = el('tr', (p.simulation === 'mismatch' ? 'mismatch' : '') + (p.default ? ' dflt' : ''));
     tr.appendChild(el('td', 'mono', p.cssProperty));
-    var td = el('td', 'mono', p.value);
+    var td = el('td', 'mono'), vs = el('span', 'v');
     if (p.simulation === 'mismatch') {
-      var sim = p.simulatedValue != null ? p.simulatedValue : (p.simulated != null ? p.simulated : null);
-      if (sim != null) td.textContent = 'actual ' + p.value + '  ≠  simulated ' + sim;
-    }
+      var sim = p.simulatedValue != null ? p.simulatedValue : (p.simulated && p.simulated.value != null ? p.simulated.value : null);
+      vs.textContent = sim != null ? 'actual ' + v + '  ≠  simulated ' + sim : v;
+      tr.title = (p.simulated && p.simulated.note) || 'the reconstructed cascade disagrees with the live value';
+    } else if (canEdit() && !isBound(p)) overrideValue(vs, p, d, v);
+    else valueWithSwatches(vs, v, null);
+    td.appendChild(vs);
     tr.appendChild(td);
-    tr.appendChild(el('td', null, originLabel(p.origin)));
-    tr.appendChild(el('td', null, p.simulation || ''));
+    tr.appendChild(setByCell(p, d));
     tbl.appendChild(tr); n++;
   });
   if (!n) pane.appendChild(el('div', 'empty', 'No matching properties.'));
   else pane.appendChild(tbl);
+}
+/** Where a computed value comes from: the winning rule, code, an ancestor, or nothing (the initial value). */
+function setByCell(p, d){
+  var td = el('td', 'src'), w = p.winner;
+  if (p.default) {
+    td.appendChild(el('span', 'org', 'default'));
+    // notes read "why: what", e.g. "no stylesheet or code sets it: JavaFX uses the system default font (…)"
+    var what = String(p.note || '').split(': ').slice(1).join(': ');
+    if (what) td.appendChild(el('span', 't-text', what));
+    td.title = p.note || '';
+  } else if (w && w.ruleId === 'code') {
+    td.appendChild(el('span', 'org', isBound(p) ? 'bound in code' : 'set in code'));
+  } else if (w) {
+    td.appendChild(el('span', 'org', originLabel(w.origin)));
+    td.appendChild(el('span', 'mono', w.ruleId === 'inline' ? 'style' : w.selector));
+    var l = locLink(w, d); if (l) { l.style.marginLeft = '8px'; td.appendChild(l); }
+  } else if (p.inheritedFrom) {
+    var iw = p.inheritedFrom.winner || {};
+    td.appendChild(el('span', 'org', 'inherited'));
+    td.appendChild(el('span', 'mono', String(p.inheritedFrom.path || '').split('/').pop() + (iw.selector ? ' ' + iw.selector : '')));
+    td.title = 'inherited from ' + (p.inheritedFrom.path || '?');
+  } else {
+    td.appendChild(el('span', 'org', originLabel(p.origin)));
+    // a composite (-fx-font) no rule sets as a whole takes its origin from the parts that are set
+    var parts = (d.properties || []).filter(function(q){ return q.of === p.cssProperty && q.winner; }).map(function(q){ return q.cssProperty; });
+    if (parts.length) td.appendChild(el('span', 't-text', 'through ' + parts.join(', ')));
+  }
+  return td;
 }
 
 // box model

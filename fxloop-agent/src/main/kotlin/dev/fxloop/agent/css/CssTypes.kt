@@ -7,7 +7,9 @@ import javafx.css.CssMetaData
 import javafx.css.Styleable
 import javafx.geometry.Insets
 import javafx.scene.Node
+import javafx.scene.layout.Region
 import javafx.scene.paint.Color
+import javafx.scene.text.Font
 import javafx.util.Duration
 
 /**
@@ -94,6 +96,50 @@ internal object CssTypes {
         is Duration -> if (v.isIndefinite || v.isUnknown) null else num(v.toMillis()) + "ms"
         is String -> v.ifEmpty { null }
         else -> null
+    }
+
+    /**
+     * The live value of [v] as CSS text (`22px`, `"System"`, `bold`, `#ff0000`), to show and to prefill an override;
+     * null when it has no short spelling (gradients, effects, images, background parts other than the color).
+     */
+    fun live(node: Node, v: PropertyView): String? {
+        val value = v.property.value ?: return null
+        if (value is Font) {
+            val italic = value.style.contains("italic", ignoreCase = true) || value.style.contains("oblique", ignoreCase = true)
+            return when (v.cssProperty) {
+                "-fx-font-size" -> num(value.size) + "px"
+                "-fx-font-family" -> "\"${value.family}\""
+                "-fx-font-weight" -> weight(value)
+                "-fx-font-style" -> if (italic) "italic" else "normal"
+                else -> listOfNotNull("italic".takeIf { italic }, weight(value).takeIf { it != "normal" }, num(value.size) + "px", "\"${value.family}\"")
+                    .joinToString(" ")
+            }
+        }
+        if (v.shorthand != null) {
+            val paints = when {
+                node is Region && v.cssProperty == "-fx-background-color" -> node.background?.fills?.map { it.fill }
+                node is Region && v.cssProperty == "-fx-border-color" -> node.border?.strokes?.map { it.topStroke }
+                else -> null
+            }
+            return paints?.takeIf { it.isNotEmpty() }?.map { format(it) ?: return null }?.joinToString(", ")
+        }
+        return format(value)
+    }
+
+    /** CSS `font-weight` of a font, read from its style name (`Bold Italic` → `bold`, `SemiBold` → `600`). */
+    private fun weight(f: Font): String {
+        val s = f.style.lowercase(Locale.ROOT).replace(" ", "").replace("-", "")
+        return when {
+            "extrabold" in s || "ultrabold" in s -> "800"
+            "semibold" in s || "demibold" in s -> "600"
+            "black" in s || "heavy" in s -> "900"
+            "bold" in s -> "bold"
+            "extralight" in s || "ultralight" in s -> "200"
+            "thin" in s || "hairline" in s -> "100"
+            "light" in s -> "300"
+            "medium" in s -> "500"
+            else -> "normal"
+        }
     }
 
     private fun num(d: Double): String = if (d == Math.rint(d) && !d.isInfinite()) d.toLong().toString() else "%.3f".format(Locale.ROOT, d).trimEnd('0').trimEnd('.')

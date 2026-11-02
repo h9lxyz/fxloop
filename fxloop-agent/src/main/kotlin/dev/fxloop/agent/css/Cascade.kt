@@ -279,8 +279,12 @@ internal class Explainer(val node: Node, val engine: Engine) {
         return Result(null, emptyList(), null)
     }
 
-    /** Adds `winner`, `overridden[]`/`overriddenCount`, `inheritedFrom`, `simulation`, `blockers` to [o]. */
-    fun annotate(o: ObjectNode, v: PropertyView, full: Boolean): Result {
+    /**
+     * Adds `winner`, `overridden[]`/`overriddenCount`, `inheritedFrom`, `simulation`, `blockers` to [o]. [nearMisses]
+     * (default: [full]) adds rules for this property that do not match; the cascade leaves them out for properties
+     * nothing sets, where every label would otherwise list every `.label` rule meant for some other context.
+     */
+    fun annotate(o: ObjectNode, v: PropertyView, full: Boolean, nearMisses: Boolean = full): Result {
         val r = resolve(v)
         val w = r.winner
         if (w != null) o.set<ObjectNode>("winner", engine.decl(w, v.cssProperty))
@@ -301,7 +305,7 @@ internal class Explainer(val node: Node, val engine: Engine) {
             val arr = o.putArray("lookups")
             lookups.forEach { arr.add(it.second) }
         }
-        val blockers = blockers(v, r, full, lookups)
+        val blockers = blockers(v, r, nearMisses, lookups)
         if (blockers.size() > 0 || full) o.set<ArrayNode>("blockers", blockers)
         return r
     }
@@ -396,7 +400,7 @@ internal class Explainer(val node: Node, val engine: Engine) {
         return out
     }
 
-    private fun blockers(v: PropertyView, r: Result, full: Boolean, lookups: List<Pair<String, ObjectNode>>): ArrayNode {
+    private fun blockers(v: PropertyView, r: Result, nearMisses: Boolean, lookups: List<Pair<String, ObjectNode>>): ArrayNode {
         val arr = Json.array()
         fun add(kind: String, cause: String, next: String) = arr.addObject().put("kind", kind).put("cause", cause).put("next", next)
         val p = v.property
@@ -426,7 +430,7 @@ internal class Explainer(val node: Node, val engine: Engine) {
                     "define it on .root or an ancestor, e.g. .root { $name: #3b82f6; }")
             }
         }
-        if (full) nearMisses(v.cssProperty).forEach { arr.add(it) }
+        if (nearMisses) nearMisses(v.cssProperty).forEach { arr.add(it) }
         return arr
     }
 

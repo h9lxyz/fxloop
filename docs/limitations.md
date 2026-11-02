@@ -67,6 +67,8 @@ Existing instances keep their state; code in constructors or static initialisers
   * Preprocessed CSS (SCSS, generated sheets) points at the generated `.css`.
   * A library stylesheet mapped to its source in the inspector gets its line numbers from the copy the app loaded; once the source has been edited since the library was built, lines may be off (the cascade's `mapped.match` says so). Saving to a library the app loads from a jar has no effect on the running app until the library is rebuilt and the app restarted.
   * The value check covers simple types only (paints, numbers, insets, booleans, enums, strings).
+  * The inspector's *New rule* scope is built from ids and classes on the node and its ancestors. JavaFX CSS has no `:nth-child`, so for a node without an id among identical siblings the narrowest selector still matches them all (the inspector shows the count); give the node an id or a style class to style it alone.
+  * A stylesheet rule overrides a value set in code on the next CSS pass of that node. If the code sets the value again later (a listener, a timer), it shows until the next pass; a bound property cannot be styled at all.
 * **`fx_explain_property`:** shows the binding dependency tree of a property; for bidirectional bindings the peer property is unknown.
 * **Logs:** app logs are captured through `java.util.logging`; SLF4J is captured only via a JUL bridge (`slf4j-jdk14`/`jul-to-slf4j` setups); other frameworks appear only if they write to the process stdout/stderr (`fx_get_logs source=process`, optionally `stream=stdout|stderr`).
 

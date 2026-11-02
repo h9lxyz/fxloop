@@ -15,6 +15,7 @@ import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 import javafx.scene.paint.Color
 import javafx.scene.paint.Paint
+import javafx.scene.text.Font
 import javafx.stage.Stage
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeAll
@@ -52,7 +53,9 @@ class CascadeTest {
         val child = Label("child").apply { id = "child" }
         val big = VBox(child).apply { id = "big"; style = "-fx-font-size: 18px;" }
         val unresolved = Label("u").apply { id = "unresolved"; styleClass += "unresolved" }
-        val root = VBox(panel, inlined, important, bound, miss, fonted, big, unresolved)
+        val box = VBox(Label("no id")).apply { id = "box" }
+        val coded = Label("coded").apply { id = "coded"; font = Font.font(22.0) }
+        val root = VBox(panel, inlined, important, bound, miss, fonted, big, unresolved, box, coded)
         stage.scene = Scene(root, 400.0, 500.0).apply {
             stylesheets += CascadeTest::class.java.getResource("cascade.css")!!.toExternalForm()
         }
@@ -174,6 +177,49 @@ class CascadeTest {
         val r = call(Introspect::explainStyle, "#save", "rules" to "false")
         assertThat(r.has("note")).isTrue()
         assertThat(r["items"].none { it.has("winner") }).isTrue()
+    }
+
+    @Test
+    fun `cascade lists properties nothing sets as defaults, the font with the system default`() {
+        val props = call(CssInspect::cascade, "#box .label")["properties"].associateBy { it["cssProperty"].asText() }
+        val size = props["-fx-font-size"]!!
+        assertThat(size["default"].asBoolean()).isTrue()
+        assertThat(size["css"].asText()).isEqualTo("${Font.getDefault().size.toInt()}px")
+        assertThat(size["note"].asText()).contains("Font.getDefault()")
+        assertThat(props["-fx-wrap-text"]!!["css"].asText()).isEqualTo("false")
+        // a rule from modena is not a default
+        assertThat(props["-fx-text-fill"]!!.has("default")).isFalse()
+    }
+
+    @Test
+    fun `a value set in code is the code candidate with its CSS text`() {
+        val props = call(CssInspect::cascade, "#coded")["properties"].associateBy { it["cssProperty"].asText() }
+        val size = props["-fx-font-size"]!!
+        assertThat(size["winner"]["ruleId"].asText()).isEqualTo("code")
+        assertThat(size["css"].asText()).isEqualTo("22px")
+        assertThat(props["-fx-font"]!!["css"].asText()).isEqualTo("22px \"${Font.getDefault().family}\"")
+    }
+
+    @Test
+    fun `new rule scopes start at the narrowest selector for the node`() {
+        val scopes = call(CssInspect::cascade, "#box .label")["scopes"].toList()
+        assertThat(scopes[0]["selector"].asText()).isEqualTo("#box .label")
+        assertThat(scopes[0]["matches"].asInt()).isEqualTo(1)
+        val all = scopes.first { it["selector"].asText() == ".label" }
+        assertThat(all["matches"].asInt()).isGreaterThan(5)
+        assertThat(call(CssInspect::cascade, "#save")["scopes"][0]["selector"].asText()).isEqualTo("#save")
+
+        val typed = call(CssInspect::selectorMatches, "#box .label", "selector" to ".panel .label")
+        assertThat(typed["valid"].asBoolean()).isTrue()
+        assertThat(typed["matchesTarget"].asBoolean()).isFalse()
+        assertThat(call(CssInspect::selectorMatches, "#box .label", "selector" to "{")["valid"].asBoolean()).isFalse()
+    }
+
+    @Test
+    fun `suggest scopes an override for a node without an id to its ancestors`() {
+        val s = call(CssInspect::suggest, "#box .label", "property" to "-fx-text-fill", "value" to "red")
+        assertThat(s["selector"].asText()).isEqualTo("#box .label")
+        assertThat(s["needsImportant"].asBoolean()).isFalse()
     }
 
     @Test

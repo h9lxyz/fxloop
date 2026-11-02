@@ -56,6 +56,7 @@ internal class Dispatcher(private val rt: AgentRuntime) {
         handlers[Method.EXPLAIN_STYLE] = Introspect::explainStyle
         handlers[Method.CSS_CASCADE] = CssInspect::cascade
         handlers[Method.CSS_SUGGEST] = CssInspect::suggest
+        handlers[Method.CSS_SELECTOR] = CssInspect::selectorMatches
         handlers[Method.CSS_SCRATCH_SET] = dev.fxloop.agent.css.Scratch::set
         handlers[Method.CSS_SCRATCH_CLEAR] = dev.fxloop.agent.css.Scratch::clear
         handlers[Method.CSS_SCRATCH_PLAN] = dev.fxloop.agent.css.ScratchApply::plan

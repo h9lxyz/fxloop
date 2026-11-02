@@ -96,7 +96,7 @@ Input: target, `property`, optional `value`, optional `file`. Output: the smalle
  "why":"beats theme.css:212 (0,4,0 > 0,3,0)","blockers":[]}
 ```
 
-Selector strategy, in order: reuse the winner's selector + one of the target's own classes; else `#fxId`-qualified; `!important` only when the winner is inline or itself `!important`. The default `file` is the author stylesheet closest to the node that the project owns (inside a resource root), never Modena or a dependency jar. Blockers that no selector can fix (bound property) return `selector: null` and the blocker.
+Selector strategy, in order: reuse the winner's selector + one of the target's own classes; else `#fxId`-qualified; else the narrowest selector for the node (its classes scoped by ancestor ids and classes, so a Label without an id does not get every `.label`); `!important` only when the winner is inline or itself `!important`. The default `file` is the author stylesheet closest to the node that the project owns (inside a resource root), never Modena or a dependency jar. Blockers that no selector can fix (bound property) return `selector: null` and the blocker.
 
 ## 4. Step 2 — Browser inspector
 
@@ -121,6 +121,8 @@ A page at `/inspect` on the existing viewer server (`FXLOOP_VIEWER`, loopback, t
 
 With `FXLOOP_INSPECTOR_EDIT=true`, the Styles pane lets the developer toggle a declaration, edit a value, or add a declaration to a new rule, the way DevTools does.
 
+- **Scope:** *New rule* starts with the narrowest selector for the picked node (its `#id`, else its classes scoped by ancestor ids and classes, e.g. `#form .label`) and shows how many nodes it matches; the selector field suggests broader scopes (`.label`: every label) with their counts and counts any selector typed in. A value no project rule owns (set in code, an inline style, a default shown under *Computed*) is click-to-edit too: the edit becomes a scratch rule for that narrowest selector.
+- **Values set in code:** the Styles pane lists them first, like DevTools' `element.style`, as *Set in code* (setters such as `setFont`; bound properties marked as not styleable). JavaFX ranks them below author stylesheets, so any matching rule overrides a setter's value without `!important`; only an inline style (`setStyle`, FXML `style=`) needs `!important`, which overrides add on their own.
 - **Value editors:** every value field (editing a value, *+* on a rule, *New rule*) accepts any text and suggests values for the property's type: the app reports each styleable property's kind (paint, size, insets, enum, boolean, font weight, duration, effect, cursor, …), its enum constants and its initial value from the `CssMetaData` converters (cascade `types`); the page adds keyword lists, modena's looked-up colors and color functions. ↑/↓ step the number at the caret (Shift ×10, Alt 0.1, Ctrl/Cmd every number, PageUp/PageDown, mouse wheel, ▲▼ buttons), color literals get a swatch and a color picker with an opacity slider, and property names autocomplete from the node's own properties. Changes preview live while typing or stepping; Enter or leaving the field keeps them, Esc restores what was there before.
 - **Mechanism:** edits go into one **scratch stylesheet**, installed as the last scene stylesheet through a `data:` URL (supported since JavaFX 17), or a temp file in `target/fxloop/` on older runtimes. Disabling a declaration is simulated by a scratch rule with the same selector and the next-lower winning candidate's value. The cascade then shows the scratch rule like any other, as `scratch:<n>`.
 - **Ephemeral and visible:** nothing is written to source until the developer applies it. The dev bar (PRD 07) shows `Scratch CSS active · 3 rules [Clear]`. `fx_get_app_status` reports `scratchCss`, and CSS-tier `visualDiff` results note it, so neither side mistakes a scratch change for a source change. Clearing removes the sheet. Scratch rules survive CSS reloads and are dropped on restart.
@@ -137,8 +139,8 @@ With `FXLOOP_INSPECTOR_EDIT=true`, the Styles pane lets the developer toggle a d
 | `fx_suggest_override` | **new**, read-only |
 | `fx_get_scene_graph` | param `skin` (include skin nodes), shared with the inspector tree |
 | `fx_get_app_status` | gains `scratchCss` |
-| FCP | methods `CSS_CASCADE`, `CSS_SUGGEST`, `HIGHLIGHT`, `CSS_SCRATCH_SET`, `CSS_SCRATCH_CLEAR` |
-| Viewer | `/inspect`, `/api/*`, SSE `pick` and `reload` events |
+| FCP | methods `CSS_CASCADE`, `CSS_SUGGEST`, `CSS_SELECTOR`, `HIGHLIGHT`, `CSS_SCRATCH_SET`, `CSS_SCRATCH_CLEAR` |
+| Viewer | `/inspect`, `/api/*` (incl. `/api/selector` for *New rule* scope counts), SSE `pick` and `reload` events |
 | Config | `FXLOOP_INSPECTOR_EDIT`, `FXLOOP_EDITOR_URL` |
 
 ## 7. Acceptance

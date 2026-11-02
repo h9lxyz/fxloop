@@ -10,6 +10,7 @@ Shared shapes between the agent (`fxloop-agent`), the server (`fxloop-server`) a
 | `EXPLAIN_STYLE` | `explainStyle` | target (`handle`/`path`/`query`), `property?`, `rules` (default true), `limit`, `offset` | today's fields **plus** per item `winner`, `overriddenCount` (no `property`) or `overridden[]` (with `property`), `simulation`, `inheritedFrom?`, `blockers[]` |
 | `CSS_CASCADE` | `cssCascade` | target | the full cascade for the inspector, see *Cascade JSON* |
 | `CSS_SUGGEST` | `cssSuggest` | target, `property`, `value?`, `file?` | `{selector, file, needsImportant, snippet, why, blockers[]}` (PRD 08 §3.5) |
+| `CSS_SELECTOR` | `cssSelector` | target, `selector` (≤ 500 chars) | `{selector, valid, matches?, matchesTarget?, error?, target}`: how many nodes of the target's scene the selector (list) applies to, ignoring pseudo-class state, and whether the target is one of them |
 | `HIGHLIGHT` | `highlight` | target, or `{clear:true}` | `{shown:bool, bounds?:{x,y,w,h}}` — screen coordinates |
 | `PICK_START` | `pickStart` | `windowIndex?`, `cancel?` | `{armed:bool}`; the next primary click on that window is consumed and emitted as `humanPick` |
 | `SET_BAR_STATE` | `setBarState` | `{text?}` | `{bars:int}` — number of bar popups showing |
@@ -45,11 +46,13 @@ Every agent-owned popup (dev bar, highlight, pick outline) sets `window.properti
   "pseudoClasses": ["hover"],
   "inlineStyle": "-fx-padding: 4",
   "properties": [
-    {"cssProperty":"-fx-background-color","value":"#e8e8e8","origin":"AUTHOR","simulation":"ok",
+    {"cssProperty":"-fx-background-color","value":"#e8e8e8","css":"#e8e8e8","origin":"AUTHOR","simulation":"ok",
      "winner": {DECL},
      "overridden": [{DECL, "reason":"lower specificity (0,1,0 < 0,3,0)"}],
      "inheritedFrom": {"path":"…","winner":{DECL}},
-     "blockers": [{"kind":"inline-wins","cause":"…","next":"…"}]}
+     "blockers": [{"kind":"inline-wins","cause":"…","next":"…"}]},
+    {"cssProperty":"-fx-font-size","of":"-fx-font","value":13.0,"css":"13px","origin":"NONE","default":true,
+     "note":"no stylesheet or code sets it: JavaFX uses the system default font (Font.getDefault(): 13px \"System\")", …}
   ],
   "rules": [
     {"ruleId":"s2:r14","selector":".panel .button","specificity":"0,2,0","origin":"AUTHOR",
@@ -65,9 +68,19 @@ Every agent-owned popup (dev bar, highlight, pick outline) sets `window.properti
               "sourceMap":"ok","parseErrors":[]}],
   "editorUrl": "idea://open?file={file}&line={line}",
   "types": {"-fx-alignment": {"kind":"enum","choices":["top-left","…"],"initial":"top-left"},
-            "-fx-background-color": {"kind":"paint","list":true}, "-fx-wrap-text": {"kind":"boolean","initial":"false"}}
+            "-fx-background-color": {"kind":"paint","list":true}, "-fx-wrap-text": {"kind":"boolean","initial":"false"}},
+  "scopes": [{"selector":"#form .label","matches":3}, {"selector":".label","matches":37}]
 }
 ```
+
+`properties` lists every styleable property of the node, sub-properties included. One that no rule, ancestor or code
+sets carries `default:true` and a `note` saying where its value comes from (for the font: the system default,
+`Font.getDefault()`; Modena sizes some controls in `em` but sets no font on `.root` or `.label`). `css` is the live value
+as CSS text (`22px`, `"System"`, `bold`, `#ff0000`, `4 8 4 8`) when it has a short spelling; the inspector shows it and
+prefills overrides with it. `scopes` are selectors a new rule for this node can use, narrowest first, with how many nodes
+of the scene each applies to: the node's id, else its classes scoped by ancestor ids/classes (`#form .label`,
+`.row > .label`), then its own id and classes alone. JavaFX CSS has no `:nth-child`, so the narrowest may still match
+siblings (`matches` > 1).
 
 `types` covers every styleable property of the node (sub-properties such as `-fx-font-size` included), for the value
 editors. `kind` comes from the `CssMetaData` converter: `paint`, `color`, `size`, `insets`, `boolean`, `enum`, `font`,
@@ -131,6 +144,7 @@ Editing is on with `FXLOOP_INSPECTOR_EDIT`, or while the server is connected to 
 | `/api/styles?h=&path=` | `cssCascade` | `h` preferred, `path` fallback; adds `edit:true` with `FXLOOP_INSPECTOR_EDIT` |
 | `/api/layout?h=&path=` | `explainLayout` | |
 | `/api/suggest?h=&path=&property=` | `cssSuggest` | |
+| `/api/selector?h=&path=&selector=` | `cssSelector` | *New rule* counts a typed selector's matches |
 | `POST /api/highlight?h=&path=` / `?clear=1` | `highlight` | visual only |
 | `POST /api/pick?window=` | `pickStart` | |
 | `GET /api/scratch` | `status` → `scratchCss` | only with `FXLOOP_INSPECTOR_EDIT` (else 404); `{active:false,rules:0}` when none |

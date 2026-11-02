@@ -62,6 +62,9 @@ object Fcp {
         const val CSS_CASCADE = "cssCascade"
         const val CSS_SUGGEST = "cssSuggest"
 
+        /** How many nodes of the target's scene a selector matches (the inspector's *New rule* scope). */
+        const val CSS_SELECTOR = "cssSelector"
+
         /** Visual-only overlay: draws or clears a node highlight (agent-owned popup, invisible to tools). */
         const val HIGHLIGHT = "highlight"
 

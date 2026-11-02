@@ -333,6 +333,11 @@ class Viewer(
             }
             "styles" -> { method = Fcp.Method.CSS_CASCADE; target() }
             "layout" -> { method = Fcp.Method.EXPLAIN_LAYOUT; target() }
+            "selector" -> {
+                method = Fcp.Method.CSS_SELECTOR
+                target()
+                params.put("selector", p("selector").orEmpty().take(MAX_SELECTOR_CHARS))
+            }
             "suggest" -> {
                 method = Fcp.Method.CSS_SUGGEST
                 target()
@@ -586,6 +591,7 @@ class Viewer(
         val EDIT_PREFIXES = listOf("/api/scratch", "/api/sheet-map")
         const val MAX_PATH_CHARS = 4096
         const val MAX_SCRATCH_BYTES = 64 * 1024
+        const val MAX_SELECTOR_CHARS = 500
         const val MAX_PROMPT_BYTES = 16 * 1024
         const val MAX_PROMPT_CHARS = 4000
         const val MAX_CONTEXT_CHARS = 512
