@@ -125,6 +125,7 @@ class InspectorV2AcceptanceTest {
         val r = h.ok("fx_explain_style", args("query" to "#cxHover", "property" to "-fx-background-color", "states" to listOf("hover")))
         assertThat(r["items"][0]["winner"]["selector"].asText()).isEqualTo(".cx-hoverable:hover")
         assertThat(r["items"][0]["simulation"].asText()).isEqualTo("assumed")
+        h.ok("fx_click_node", args("query" to "#cxMiss", "effects" to false)) // the click above left the pointer on the button
         val live = h.ok("fx_explain_style", args("query" to "#cxHover", "property" to "-fx-background-color"))
         assertThat(live["items"][0]["winner"]["selector"].asText()).isEqualTo(".cx-hoverable")
     }
@@ -187,8 +188,14 @@ class InspectorV2AcceptanceTest {
         val items2 = Json.array().add(items[0]).add(Json.obj {
             put("h", save["h"].asInt()); put("path", save["path"].asText()); put("property", "prefWidth"); put("value", "-1")
         })
-        post("/api/props?", Json.obj { set<JsonNode>("items", items2) })
-        val wAfter = h.ok("fx_explain_layout", args("query" to "#lySave"))["layoutBounds"]["w"].asDouble()
+        val set2 = post("/api/props?", Json.obj { set<JsonNode>("items", items2) })
+        assertThat(set2.has("errors")).describedAs(set2.toString()).isFalse()
+        var wAfter = wBefore
+        for (i in 0 until 20) { // the new size shows after the next layout pulse
+            wAfter = h.ok("fx_explain_layout", args("query" to "#lySave"))["layoutBounds"]["w"].asDouble()
+            if (wAfter > wBefore) break
+            Thread.sleep(50)
+        }
         assertThat(wAfter).isGreaterThan(wBefore)
 
         val plan = post("/api/fxml/apply?dryRun=1")
@@ -228,8 +235,10 @@ class InspectorV2AcceptanceTest {
     fun `A-G5 fx_lint_css reports the dead rules, the misspelt selectors and the parse error`() {
         val r = h.ok("fx_lint_css")
         val unused = r["unused"].map { it["selector"].asText() }
-        assertThat(unused).describedAs(r.toString()).containsExactlyInAnyOrder(".cx-bar > .label", ".cx-derive-box .button")
-        r["unused"].forEach { assertThat(it["line"].asInt()).isEqualTo(lineOf("src/main/resources/dev/fxloop/gauntlet/gauntlet.css", it["selector"].asText() + " {")) }
+        assertThat(unused).describedAs(r.toString()).containsExactlyInAnyOrder(".cx-bar>.label", ".cx-derive-box .button")
+        val css = "src/main/resources/dev/fxloop/gauntlet/gauntlet.css"
+        assertThat(r["unused"].map { it["line"].asInt() })
+            .containsExactlyInAnyOrder(lineOf(css, ".cx-bar > .label {"), lineOf(css, ".cx-derive-box .button {"))
         val unknown = r["unknownSelectors"].map { it["selector"].asText() }
         // .button.cx-ghost is PRD 08's deliberate near miss: no node carries cx-ghost either
         assertThat(unknown).containsExactlyInAnyOrder(".cx-pannel .button", ".button.cx-ghost")

@@ -221,6 +221,12 @@ internal object Introspect {
         if (node.layoutBounds.width <= 0 || node.layoutBounds.height <= 0) hints.add("zero-size layout bounds")
         if (node is Region && node.width < node.prefWidth(-1.0) - 0.5) {
             hints.add("width below preferred width — content may be truncated")
+        } else if (node is Region) {
+            contentWidth(node)?.let { content ->
+                if (node.width < content - 0.5) {
+                    hints.add("width below content width (${fmt(node.width)} < ${fmt(content)}): prefWidth=${fmt(node.prefWidth)} caps it — content may be truncated")
+                }
+            }
         }
         try {
             layoutExtras(node, out, hints, SourceRoots.from(p))
@@ -338,10 +344,31 @@ internal object Introspect {
                 t.startsWith("unmanaged") -> code("unmanaged", t, "managed=false: set by a binding, a setManaged call or a visibility toggle that keeps the node's slot empty.")
                 t.startsWith("translate") -> code("translated", t, "translateX/Y moves the node after layout; usually an animation or a leftover offset.")
                 t.startsWith("zero-size") -> code("zero-size", t, "Empty content, a maxWidth/maxHeight of 0, or a parent that gave the node no room.")
+                t.startsWith("width below content") -> code("below-pref", t, "An explicit prefWidth (FXML, code or -fx-pref-width) is smaller than the content needs; reset it to USE_COMPUTED_SIZE (-1).")
                 t.startsWith("width below") -> code("below-pref", t, "The parent offers less than the preferred width: a fixed-size parent, a missing hgrow or a maxWidth cap.")
             }
         }
     }
+
+    /**
+     * The width the content asks for when an explicit prefWidth is set: measured with prefWidth reset for a moment and
+     * restored with its style origin, so a CSS-set value stays a CSS value. Null without an explicit, unbound prefWidth.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun contentWidth(r: Region): Double? {
+        val prop = r.prefWidthProperty()
+        val set = r.prefWidth
+        if (set < 0 || prop.isBound) return null
+        val origin = (prop as javafx.css.StyleableProperty<Number>).styleOrigin
+        r.prefWidth = Region.USE_COMPUTED_SIZE
+        return try {
+            r.prefWidth(-1.0)
+        } finally {
+            if (origin != null && origin != javafx.css.StyleOrigin.USER) prop.applyStyle(origin, set) else r.prefWidth = set
+        }
+    }
+
+    private fun fmt(d: Double): String = if (d == Math.rint(d)) d.toLong().toString() else "%.1f".format(d)
 
     private fun putStr(o: ObjectNode, k: String, v: Any?) {
         if (v != null) o.put(k, v.toString())
