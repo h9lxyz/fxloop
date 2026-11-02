@@ -48,6 +48,9 @@ internal object Snapshots {
             val window: Window
             if ("node" == target) {
                 node = Targets.resolve(p)
+                if (p.path("requireShown").asBoolean(false)) {
+                    NodeInfo.notShownReason(node)?.let { throw FcpException(Fcp.Error.UNSUPPORTED_TARGET, "not rendered: $it") }
+                }
                 val b = node.localToScreen(node.boundsInLocal)
                     ?: throw FcpException(Fcp.Error.UNSUPPORTED_TARGET, "node is not showing; cannot snapshot")
                 originX = b.minX
@@ -78,6 +81,7 @@ internal object Snapshots {
             f
         }
         val png = encode(frame)
+        Fx.call { ForcedStates.describe() }?.let { meta.setNode("forcedStates", it) }
         meta.put("w", frame.w)
         meta.put("h", frame.h)
         meta.put("pngB64", Base64.getEncoder().encodeToString(png))
@@ -154,7 +158,7 @@ internal object Snapshots {
         val out = Json.obj()
         val frames = out.putArray("frames")
         val rendered = ArrayList<Frame>()
-        Fx.run {
+        Fx.run { ForcedStates.suspended {
             val node = Targets.resolve(p)
             out.setNode("target", Targets.summary(node))
             val wasDisabled = node.isDisable
@@ -170,7 +174,7 @@ internal object Snapshots {
                 resetState(node, original, wasDisabled)
                 node.applyCss()
             }
-        }
+        } }
         for (i in states.indices) {
             val f = rendered[i]
             val fr = frames.addObject()

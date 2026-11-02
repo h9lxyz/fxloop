@@ -1,0 +1,6 @@
+.live { -fx-opacity: 1; }
+HBox.live { -fx-opacity: 0.5; }
+.sibling .live { -fx-opacity: 0.4; }
+.livv { -fx-opacity: 0.3; }
+.oops { -fx-text-fill: ; }
+.sibling { -fx-opacity: 1; }

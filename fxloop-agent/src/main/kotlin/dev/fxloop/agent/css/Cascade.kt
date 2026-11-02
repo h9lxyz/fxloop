@@ -63,7 +63,7 @@ internal class Cascade(val node: Node, private val engine: Engine) {
 
     private fun match(): List<MatchedRule> {
         val out = ArrayList<MatchedRule>()
-        val states = node.pseudoClassStates
+        val states: Set<PseudoClass> = if (node === engine.simNode && engine.simStates.isNotEmpty()) node.pseudoClassStates + engine.simStates else node.pseudoClassStates
         for (ref in sheets) {
             val sheet = ref.parsed.stylesheet ?: continue
             sheet.rules.forEachIndexed { i, rule ->
@@ -132,7 +132,7 @@ internal class Cascade(val node: Node, private val engine: Engine) {
 }
 
 /** Per-request cache of node cascades, plus the source roots for `file` mapping. */
-internal class Engine(val roots: SourceRoots) {
+internal class Engine(val roots: SourceRoots, val simNode: Node? = null, val simStates: Set<PseudoClass> = emptySet()) {
     private val cache = IdentityHashMap<Node, Cascade>()
 
     fun cascade(n: Node): Cascade = cache.getOrPut(n) { Cascade(n, this) }
@@ -305,6 +305,7 @@ internal class Explainer(val node: Node, val engine: Engine) {
             val arr = o.putArray("lookups")
             lookups.forEach { arr.add(it.second) }
         }
+        effective?.let { lookupValue(it, r.inheritedFrom?.first ?: node) }?.let { o.put("lookupValue", it) }
         val blockers = blockers(v, r, nearMisses, lookups)
         if (blockers.size() > 0 || full) o.set<ArrayNode>("blockers", blockers)
         return r
@@ -375,29 +376,113 @@ internal class Explainer(val node: Node, val engine: Engine) {
         else -> a == b
     }
 
-    /** Looked-up values used by [c] and where each is defined (`-accent` on `.root`). */
+    /** The value part of a declaration's source text (`-fx-base: #333 !important;` gives `#333`). */
+    private fun valueText(c: Candidate): String? {
+        val m = c.matched ?: return null
+        val text = engine.textOf(c, m)
+        if (!text.contains(':')) return null
+        return text.substringAfter(':').trim().removeSuffix(";").trim().removeSuffix("!important").trim()
+    }
+
+    /**
+     * Looked-up values used by [c] and where each is defined (`-accent` on `.root`), as a flattened depth-first chain
+     * through the definitions' own lookups (depth 0 = names in the declaration; max [MAX_DEPTH]; cycles stop, flagged `cycle`).
+     */
     fun lookups(c: Candidate, from: Node): List<Pair<String, ObjectNode>> {
         val decl = c.decl ?: return emptyList()
         if (!decl.parsedValue.isContainsLookups) return emptyList()
-        val text = c.matched?.let { engine.textOf(c, it) } ?: return emptyList()
-        val value = text.substringAfter(':').removeSuffix(";")
-        val out = ArrayList<Pair<String, ObjectNode>>()
+        val value = valueText(c) ?: return emptyList()
+        val out = LinkedHashMap<String, ObjectNode>()
+        walk(value, from, 0, ArrayList(), out)
+        return out.map { it.key to it.value }
+    }
+
+    private fun walk(value: String, from: Node, depth: Int, stack: MutableList<String>, out: MutableMap<String, ObjectNode>) {
         for (name in LOOKUP.findAll(value).map { it.groupValues[1] }.distinct()) {
-            val o = Json.obj().put("name", name)
-            var cur: Node? = from
-            var found = false
-            while (cur != null && !found) {
-                val def = engine.cascade(cur).candidates(name).firstOrNull()
-                if (def != null) {
-                    o.put("definedOn", NodePath.of(cur)).set<ObjectNode>("definedAt", engine.decl(def))
-                    found = true
-                }
-                cur = cur.parent
+            if (name in stack) {
+                out[name]?.put("cycle", true)
+                continue
             }
-            o.put("resolved", found)
-            out += name to o
+            if (name in out) continue
+            val o = Json.obj().put("name", name)
+            out[name] = o
+            o.put("depth", depth)
+            val (cur, def) = define(name, from)
+            if (cur != null && def != null) {
+                o.put("definedOn", NodePath.of(cur)).set<ObjectNode>("definedAt", engine.decl(def))
+                val v = valueText(def)
+                if (v != null) o.put("value", v)
+            }
+            o.put("resolved", def != null)
+            if (def != null && depth < MAX_DEPTH) {
+                valueText(def)?.let { v ->
+                    stack += name
+                    walk(v, cur!!, depth + 1, stack, out)
+                    stack.removeAt(stack.size - 1)
+                }
+            }
         }
-        return out
+    }
+
+    /** The nearest definition of looked-up [name], searching [from] and its ancestors. */
+    private fun define(name: String, from: Node): Pair<Node?, Candidate?> {
+        var cur: Node? = from
+        while (cur != null) {
+            val def = engine.cascade(cur).candidates(name).firstOrNull()
+            if (def != null) return cur to def
+            cur = cur.parent
+        }
+        return null to null
+    }
+
+    /** The final color of a lookup/`derive`/`ladder` value (`#rrggbb[aa]`), or null when it is not a plain computable color. */
+    fun lookupValue(c: Candidate, from: Node): String? {
+        val v = valueText(c) ?: return null
+        if (!v.contains("derive(") && !v.contains("ladder(") && LOOKUP.find(v) == null) return null
+        return eval(v, from, 0, ArrayList())?.let { ColorMath.hex(it) }
+    }
+
+    private fun eval(expr: String, from: Node, depth: Int, stack: MutableList<String>): Color? {
+        val e = expr.trim()
+        if (depth > MAX_DEPTH * 2) return null
+        if (LOOKUP.matchEntire(e) != null) {
+            if (e in stack) return null
+            val (cur, def) = define(e, from)
+            val v = def?.let { valueText(it) } ?: return null
+            stack += e
+            try {
+                return eval(v, cur!!, depth + 1, stack)
+            } finally {
+                stack.removeAt(stack.size - 1)
+            }
+        }
+        val open = e.indexOf('(')
+        if (open > 0 && e.endsWith(")")) {
+            val fn = e.substring(0, open).trim().lowercase()
+            val args = ColorMath.split(e.substring(open + 1, e.length - 1), ',')
+            when (fn) {
+                "derive" -> if (args.size == 2) {
+                    val c = eval(args[0], from, depth + 1, stack) ?: return null
+                    val pct = args[1].trim().removeSuffix("%").toDoubleOrNull() ?: return null
+                    return ColorMath.derive(c, pct / 100.0)
+                }
+                "ladder" -> if (args.size >= 2) {
+                    val c = eval(args[0], from, depth + 1, stack) ?: return null
+                    val stops = args.drop(1).map { s ->
+                        val cut = ColorMath.split(s.trim(), ' ').filter { it.isNotBlank() }
+                        if (cut.size < 2) return null
+                        val col = eval(cut.dropLast(1).joinToString(" "), from, depth + 1, stack) ?: return null
+                        col to (cut.last().removeSuffix("%").toDoubleOrNull() ?: return null) / 100.0
+                    }
+                    return ColorMath.ladder(c, stops)
+                }
+            }
+        }
+        return try {
+            Color.web(e)
+        } catch (ex: RuntimeException) {
+            null
+        }
     }
 
     private fun blockers(v: PropertyView, r: Result, nearMisses: Boolean, lookups: List<Pair<String, ObjectNode>>): ArrayNode {
@@ -461,6 +546,8 @@ internal class Explainer(val node: Node, val engine: Engine) {
 
     companion object {
         /** `-accent`, `-fx-base` inside a value; not numbers like `-1px`, not functions like `derive(`. */
+        const val MAX_DEPTH = 8
+
         val LOOKUP = Regex("(?<![\\w-])(-[a-zA-Z][\\w-]*)(?![\\w(-])")
 
         fun fontOf(n: Node): Font = when (n) {
@@ -529,4 +616,76 @@ internal object Selectors {
     fun describe(n: Node): String =
         n.typeSelector + (n.id?.let { "#$it" } ?: "") + n.styleClass.joinToString("") { ".$it" }
 
+}
+
+/** JavaFX/Modena color math on [Color] (`derive`, `ladder`), after `com.sun.javafx.util.Utils`. */
+internal object ColorMath {
+    /** Splits [s] at top-level [sep] (outside parentheses). */
+    fun split(s: String, sep: Char): List<String> {
+        val out = ArrayList<String>()
+        var depth = 0
+        var start = 0
+        for ((i, ch) in s.withIndex()) {
+            when {
+                ch == '(' -> depth++
+                ch == ')' -> depth--
+                ch == sep && depth == 0 -> {
+                    out += s.substring(start, i)
+                    start = i + 1
+                }
+            }
+        }
+        out += s.substring(start)
+        return out
+    }
+
+    fun brightness(c: Color): Double = 0.3 * c.red + 0.59 * c.green + 0.11 * c.blue
+
+    /** `derive(c, brightness)` with brightness in -1..1 (the percentage / 100). */
+    fun derive(c: Color, brightness: Double): Color {
+        val base = brightness(c)
+        var b = brightness
+        // the "fine adjustments" of com.sun.javafx.util.Utils.deriveColor
+        if (b > 0) {
+            b *= when {
+                base > 0.85 -> 1.6
+                base > 0.6 -> 1.0
+                base > 0.5 -> 0.9
+                base > 0.4 -> 0.8
+                base > 0.3 -> 0.7
+                else -> 0.6
+            }
+        } else if (base < 0.2) {
+            b *= 0.6
+        }
+        b = b.coerceIn(-1.0, 1.0)
+        var s = c.saturation
+        var v = c.brightness
+        if (b > 0) {
+            s *= 1 - b
+            v += (1 - v) * b
+        } else if (b < 0) {
+            v *= 1 + b
+        }
+        return Color.hsb(c.hue.toInt().toDouble(),s.coerceIn(0.0, 1.0), v.coerceIn(0.0, 1.0), c.opacity)
+    }
+
+    /** `ladder(c, stops)`: interpolates the stops by the brightness of [c] (best effort). */
+    fun ladder(c: Color, stops: List<Pair<Color, Double>>): Color {
+        val sorted = stops.sortedBy { it.second }
+        val b = brightness(c)
+        if (b <= sorted.first().second) return sorted.first().first
+        if (b >= sorted.last().second) return sorted.last().first
+        for (i in 0 until sorted.size - 1) {
+            val (c0, p0) = sorted[i]
+            val (c1, p1) = sorted[i + 1]
+            if (b in p0..p1) return c0.interpolate(c1, if (p1 == p0) 0.0 else (b - p0) / (p1 - p0))
+        }
+        return sorted.last().first
+    }
+
+    fun hex(c: Color): String {
+        fun h(d: Double) = "%02x".format(Math.round(d * 255).toInt().coerceIn(0, 255))
+        return "#" + h(c.red) + h(c.green) + h(c.blue) + if (c.opacity < 1.0) h(c.opacity) else ""
+    }
 }

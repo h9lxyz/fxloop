@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import dev.fxloop.protocol.Json
 import javafx.scene.Node
 import javafx.scene.control.Label
+import javafx.scene.layout.Pane
 import javafx.scene.layout.Region
 import javafx.stage.Popup
 import javafx.stage.Window
@@ -18,8 +19,10 @@ internal object Overlay {
 
     private var box: Popup? = null
     private var tag: Popup? = null
+    private const val MAX_HANDLES = 50
+    private val multi = LinkedHashMap<Window, Popup>()
 
-    internal fun isShown(): Boolean = box?.isShowing == true
+    internal fun isShown(): Boolean = box?.isShowing == true || multi.values.any { it.isShowing }
 
     /** FCP `highlight`. */
     fun highlight(p: ObjectNode): ObjectNode = Fx.call {
@@ -27,7 +30,62 @@ internal object Overlay {
             clearHighlight()
             return@call Json.obj().put("shown", false)
         }
+        val handles = p.path("handles")
+        if (handles.isArray) return@call showMany(handles, p.path("labels").asBoolean(false))
         show(Targets.resolve(p))
+    }
+
+    /** One popup per window draws every outline; stale or unrendered handles count as not shown. */
+    private fun showMany(handles: com.fasterxml.jackson.databind.JsonNode, labels: Boolean): ObjectNode {
+        clearHighlight()
+        val out = Json.obj()
+        val items = ArrayList<Pair<Int, Node>>()
+        var notShown = 0
+        var index = 0
+        for (h in handles) {
+            if (index >= MAX_HANDLES) {
+                out.put("truncated", true)
+                break
+            }
+            index++
+            val n = AgentRuntime.current().handles.resolve(h.asInt())
+            if (n == null || n.scene?.window?.isShowing != true || NodeInfo.notShownReason(n) != null || n.localToScreen(n.boundsInLocal) == null) {
+                notShown++
+            } else {
+                items.add(index to n)
+            }
+        }
+        val byWindow = LinkedHashMap<Window, MutableList<Pair<Int, Node>>>()
+        for (item in items) byWindow.getOrPut(item.second.scene.window) { ArrayList() }.add(item)
+        for ((win, list) in byWindow) {
+            val popup = newPopup(Pane().apply { isMouseTransparent = true })
+            val pane = popup.content[0] as Pane
+            pane.setPrefSize(Math.max(win.width, 1.0), Math.max(win.height, 1.0))
+            for ((i, n) in list) {
+                val b = n.localToScreen(n.boundsInLocal)
+                val r = Region().apply {
+                    isMouseTransparent = true
+                    setPrefSize(Math.max(b.width, 1.0), Math.max(b.height, 1.0))
+                    setMinSize(prefWidth, prefHeight)
+                    setMaxSize(prefWidth, prefHeight)
+                    style = "-fx-border-color: $COLOR; -fx-border-width: 2; -fx-background-color: rgba(59,130,246,0.2);"
+                    layoutX = b.minX - win.x
+                    layoutY = b.minY - win.y
+                }
+                pane.children.add(r)
+                if (labels) {
+                    pane.children.add(Label(i.toString()).apply {
+                        isMouseTransparent = true
+                        style = "-fx-background-color: $COLOR; -fx-text-fill: white; -fx-font-size: 11px; -fx-padding: 0 4 0 4;"
+                        layoutX = b.minX - win.x
+                        layoutY = b.minY - win.y
+                    })
+                }
+            }
+            popup.show(win, win.x, win.y)
+            multi[win] = popup
+        }
+        return out.put("shown", items.size).put("notShown", notShown)
     }
 
     /** The nearest ancestor-or-self whose path resolves back to itself; skin internals fall back to the node itself. */
@@ -58,6 +116,8 @@ internal object Overlay {
     }
 
     private fun show(n: Node): ObjectNode {
+        multi.values.forEach { it.hide() }
+        multi.clear()
         // an unrendered node's bounds are stale and usually overlap the visible page: drawing them misleads
         NodeInfo.notShownReason(n)?.let {
             clearHighlight()
@@ -101,6 +161,8 @@ internal object Overlay {
     private fun clearHighlight() {
         box?.hide()
         tag?.hide()
+        multi.values.forEach { it.hide() }
+        multi.clear()
     }
 
     private fun newPopup(content: Node): Popup = Popup().apply {

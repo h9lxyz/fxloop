@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.VBox?>
+
+<!-- Inspector Layout tab (PRD 09 §12). Each node poses one layout question; do not "fix" them. -->
+<VBox xmlns:fx="http://javafx.com/fxml" fx:id="lyRoot" spacing="10">
+    <padding><Insets top="12" right="12" bottom="12" left="12"/></padding>
+    <HBox fx:id="lyRow" spacing="6" prefWidth="320" maxWidth="320">
+        <Button fx:id="lySave" text="Save the contact" prefWidth="60"/>
+        <Button fx:id="lyCancel" text="Cancel"/>
+    </HBox>
+    <GridPane fx:id="lyGrid" hgap="4" vgap="4">
+        <Label fx:id="lySpan" text="spans two columns" GridPane.columnIndex="0" GridPane.rowIndex="0" GridPane.columnSpan="2" GridPane.halignment="CENTER"/>
+        <Label fx:id="lyCell" text="cell 1,1" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+    </GridPane>
+    <AnchorPane fx:id="lyAnchor" prefHeight="60">
+        <Button fx:id="lyAnchored" text="anchored" AnchorPane.rightAnchor="10" AnchorPane.bottomAnchor="8"/>
+    </AnchorPane>
+    <Pane fx:id="lyFree" prefHeight="40">
+        <Label fx:id="lyUnmanaged" text="unmanaged" managed="false" layoutX="20" layoutY="10"/>
+        <Label fx:id="lyTranslated" text="translated" translateX="140" translateY="6"/>
+    </Pane>
+</VBox>

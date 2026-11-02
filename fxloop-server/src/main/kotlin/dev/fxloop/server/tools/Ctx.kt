@@ -19,8 +19,10 @@ import dev.fxloop.server.mcp.ToolResult
 import dev.fxloop.server.see.CssMappings
 import dev.fxloop.server.see.Inspector
 import dev.fxloop.server.see.Prompts
+import dev.fxloop.server.see.ScratchProps
 import dev.fxloop.server.see.ScreenStore
 import dev.fxloop.server.see.Viewer
+import dev.fxloop.server.see.ViewerShots
 import dev.fxloop.server.see.Visuals
 import org.slf4j.LoggerFactory
 import java.util.concurrent.atomic.AtomicBoolean
@@ -57,12 +59,40 @@ class Ctx(val config: Config) {
     /** Developer prompts from the inspector's Ask agent box ([PromptTools]); every change is pushed to the page. */
     val prompts = Prompts().also { q -> q.onChange = { viewer?.publish("prompts", it) } }
 
+    /**
+     * Layout and property edits the developer tries live in the inspector (PRD 09): each remembers the value it replaced,
+     * so Clear, `fx_reload{clearScratch}` and removing an edit revert it. Empty again whenever the app (re)connects.
+     */
+    val scratchProps = ScratchProps { h, path, property, value ->
+        fun write(target: ObjectNode): JsonNode {
+            target.put("name", property)
+            if (value == null) target.putNull("value") else target.put("value", value)
+            return session.call(Fcp.Method.SET_PROPERTY, target, 15_000)
+        }
+        val r = try {
+            write(Json.obj { if (h != null) put("handle", h) else put("path", path) })
+        } catch (e: FcpException) {
+            if (h == null || path == null) throw e
+            write(Json.obj { put("path", path) }) // the handle died with a reload; the path may still find the node
+        }
+        r.path("valueBefore").takeIf { !it.isNull && !it.isMissingNode }?.asText()
+    }
+
+    private val shots = object : ViewerShots {
+        override fun nodePng(h: Int?, path: String?, maxWidth: Int) = visuals.nodePng(target(h, path), maxWidth)
+
+        override fun statesStrip(h: Int?, path: String?) = visuals.statesStrip(target(h, path))
+
+        private fun target(h: Int?, path: String?) = Json.obj { if (h != null) put("handle", h) else put("path", path) }
+    }
+
     /** Builds the viewer with the inspector API wired to [session] and starts it (port 0 = ephemeral). */
     @Synchronized
     fun ensureViewer(port: Int = 0): Viewer = viewer ?: Viewer(port, Tokens.generate(), visuals.store,
         api = { m, p, t -> session.call(m, if (m in CSS_METHODS) withCssRoots(p) else p, t) }, connected = { session.connected }, editorUrl = config.editorUrl,
         editEnabled = { config.inspectorEdit || session.appInspectorEdit }, lockText = { live.lockText() },
-        releaseLock = { live.unlock("developer") }, scratchApply = ::applyScratch, prompts = prompts, sheetMap = cssMappings).also {
+        releaseLock = { live.unlock("developer") }, scratchApply = ::applyScratch, prompts = prompts, sheetMap = cssMappings,
+        shots = shots, props = scratchProps, fxmlApply = ::applyFxmlProps, inspectorGone = ::releaseForcedStates).also {
         it.start()
         viewer = it
         log.info("live viewer: {}", it.url())
@@ -159,6 +189,68 @@ class Ctx(val config: Config) {
         }
     }
 
+    /**
+     * Inspector *Apply to file* for the scratch property set (PRD 09): asks the agent which FXML attributes the edits map
+     * to ([Fcp.Method.FXML_EDIT_PLAN]); a dry run returns that plan. Otherwise checks every file (an `.fxml` of the
+     * project's resource roots, unchanged since the agent read it), writes them, swaps the documents live and drops the
+     * applied edits from the set; edits on nodes no FXML document created stay (`code`). Returns
+     * `{dryRun, applied, files:[{file, changes}], code:[{path, property, value}], reload?}`.
+     */
+    fun applyFxmlProps(dryRun: Boolean): ObjectNode {
+        val d = session.descriptor
+        if (d == null || session.mode == AppSession.Mode.ATTACHED) {
+            throw dev.fxloop.server.mcp.ToolException("RELOAD_UNAVAILABLE",
+                "Apply to file needs a session with the project's source layout (not attach mode)", null)
+        }
+        val items = scratchProps.list()
+        if (items.isEmpty()) throw dev.fxloop.server.mcp.ToolException("BAD_REQUEST", "no scratch properties to apply", null)
+        val params = withCssRoots(Json.obj())
+        val edits = params.putArray("edits")
+        items.forEach { i ->
+            edits.addObject().apply {
+                i.h?.let { put("handle", it) }
+                i.path?.let { put("path", it) }
+                put("property", i.property)
+                if (i.after == null) putNull("value") else put("value", i.after)
+            }
+        }
+        val plan = session.call(Fcp.Method.FXML_EDIT_PLAN, params, 15_000) as ObjectNode
+        val files = plan.path("files").toList()
+        val summary = Json.obj {
+            put("dryRun", dryRun)
+            val arr = putArray("files")
+            files.forEach { f -> arr.addObject().put("file", f.path("file").asText()).set<JsonNode>("changes", f.path("changes")) }
+            set<JsonNode>("code", plan.path("code").takeIf { it.isArray } ?: Json.array())
+        }
+        if (dryRun || files.isEmpty()) return summary.put("applied", false)
+        val wd = java.nio.file.Path.of(d.workingDir)
+        val roots = d.resourceRoots.map { wd.resolve(it).toAbsolutePath().normalize() } + config.projectDir.toAbsolutePath().normalize()
+        val output = wd.resolve(d.outputDir).toAbsolutePath().normalize()
+        val writes = files.map { f ->
+            val path = java.nio.file.Path.of(f.path("absFile").asText()).toAbsolutePath().normalize()
+            val ok = path.fileName.toString().lowercase().endsWith(".fxml") && java.nio.file.Files.isRegularFile(path) &&
+                roots.any { path.startsWith(it) } && !path.startsWith(output)
+            if (!ok) throw dev.fxloop.server.mcp.ToolException("NOT_A_PROJECT_FXML", "${f.path("file").asText()} is not an FXML file of this project", null)
+            if (sha256(java.nio.file.Files.readString(path)) != f.path("sha256").asText()) {
+                throw dev.fxloop.server.mcp.ToolException("FILE_CHANGED", "${f.path("file").asText()} changed while applying; try again", null)
+            }
+            path to f.path("text").asText()
+        }
+        writes.forEach { (path, text) -> java.nio.file.Files.writeString(path, text) }
+        val r = reloader.reload(Reloader.Options(files = writes.map { it.first.toString() }, allowRestart = false, replay = false,
+            visualDiff = false, javaTier = false, consume = false)) { _, _ -> Json.obj() }
+        val kept = plan.path("code").map { ScratchProps.key(it.path("path").asText(null), null, it.path("property").asText()) }.toSet()
+        scratchProps.drop(items.filter { it.key !in kept })
+        live.reloaded("inspector: FXML applied to " + files.joinToString(", ") { it.path("file").asText().substringAfterLast('/') },
+            true, live.actionItems())
+        return summary.put("applied", true).also { it.set<JsonNode>("reload", r) }
+    }
+
+    /** The inspector page is gone: the node it held in forced pseudo-classes goes back to normal. */
+    private fun releaseForcedStates() {
+        if (session.connected) session.call(Fcp.Method.FORCE_STATES, Json.obj { putArray("states") }, 5_000)
+    }
+
     /** [dev.fxloop.server.mcp.ToolRegistry.observer]: the dev bar shows what the agent is doing while a tool runs. */
     fun toolActivity(tool: String, args: ObjectNode, done: Boolean) {
         if (tool in QUIET_TOOLS || tool.startsWith("fx_test_")) return
@@ -185,18 +277,34 @@ class Ctx(val config: Config) {
         }
 
         session.onLaunched {
+            forgetScratchProps()
             reloader.checkpoint()
             dev.fxloop.server.loop.InProcessCompiler.warmUpAsync()
             applyWatchMode(watch.mode.takeIf { it != "off" } ?: config.watchMode)
             live.push()
         }
         session.onConnected {
+            forgetScratchProps()
             reloader.checkpoint(session.startedAt.takeIf { session.mode == AppSession.Mode.EMBEDDED })
             if (session.mode == AppSession.Mode.EMBEDDED) live.developerOwnsApp()
             live.push()
             advertiseInspector()
         }
         session.onAgentEvent(::onAgentEvent)
+    }
+
+    /** The app (re)started: its nodes and their scratch edits are gone. */
+    private fun forgetScratchProps() {
+        if (scratchProps.isEmpty()) return
+        scratchProps.reset()
+        publish("props", ScratchProps.envelope(emptyList()))
+    }
+
+    /** Reverts every scratch property edit and tells the inspector page. */
+    fun clearScratchProps() {
+        if (scratchProps.isEmpty()) return
+        scratchProps.clear()
+        publish("props", ScratchProps.envelope(emptyList()))
     }
 
     private fun onAgentEvent(event: String, payload: JsonNode) {
@@ -419,6 +527,7 @@ class Ctx(val config: Config) {
                 "fx_stop_app" -> "stopping the app"
                 "fx_get_logs", "fx_get_ui_errors" -> "reading logs"
                 "fx_lint_fxml", "fx_lint_visual" -> "checking the UI for problems"
+                "fx_lint_css" -> "checking the stylesheets for dead rules"
                 "fx_capture_states" -> "capturing UI states"
                 "fx_eval_js" -> "running a script in the app"
                 "fx_open_inspector" -> "opening the CSS inspector"
@@ -440,7 +549,8 @@ class Ctx(val config: Config) {
                     c.path("code").asText()).joinToString("+")
             }
         }
-        val CSS_METHODS = setOf(Fcp.Method.EXPLAIN_STYLE, Fcp.Method.CSS_CASCADE, Fcp.Method.CSS_SUGGEST)
+        val CSS_METHODS = setOf(Fcp.Method.EXPLAIN_STYLE, Fcp.Method.CSS_CASCADE, Fcp.Method.CSS_SUGGEST, Fcp.Method.CSS_LINT,
+            Fcp.Method.CSS_SHEETS, Fcp.Method.FXML_EDIT_PLAN, Fcp.Method.EXPLAIN_LAYOUT)
 
         val METHODS = mapOf(
             "fx_click_node" to Fcp.Method.CLICK,

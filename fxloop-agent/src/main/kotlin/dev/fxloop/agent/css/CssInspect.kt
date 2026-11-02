@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import dev.fxloop.agent.AgentRuntime
 import dev.fxloop.agent.Fx
+import dev.fxloop.agent.ForcedStates
 import dev.fxloop.agent.NodeInfo
 import dev.fxloop.agent.NodePath
 import dev.fxloop.agent.Targets
@@ -16,6 +17,7 @@ import dev.fxloop.protocol.Paging
 import java.util.IdentityHashMap
 import javafx.css.CssParser
 import javafx.css.Declaration
+import javafx.css.PseudoClass
 import javafx.css.StyleOrigin
 import javafx.scene.Node
 import javafx.scene.Parent
@@ -28,7 +30,8 @@ internal object CssInspect {
     fun explainStyle(p: ObjectNode, legacy: (Node, ObjectNode) -> Unit): ObjectNode = Fx.call {
         val node = Targets.resolve(p)
         val only = if (p.hasNonNull("property")) p.get("property").asText() else null
-        val ex = Explainer(node, Engine(SourceRoots.from(p)))
+        val sim = p.path("states").map { PseudoClass.getPseudoClass(it.asText().removePrefix(":")) }.toSet()
+        val ex = Explainer(node, Engine(SourceRoots.from(p), node, sim))
         val items = ArrayList<JsonNode>()
         val views = PropertyView.all(node)
         for (v in views) {
@@ -40,11 +43,13 @@ internal object CssInspect {
             NodeInfo.putValue(o, "value", valueOf(node, v))
             o.put("origin", v.property.styleOrigin?.name ?: "NONE(default/code)")
             val r = ex.annotate(o, v, full = only != null)
+            if (sim.isNotEmpty()) o.put("simulation", "assumed").remove("simulated")
             if (only != null && isDefault(v, r)) o.put("default", true).put("note", defaultNote(v))
             items.add(o)
         }
         val out = Paging.page(items, p.path("offset").asInt(0), minOf(200, p.path("limit").asInt(80)))
         legacy(node, out)
+        if (sim.isNotEmpty()) out.setNode("simulatedStates", Json.strings(sim.map { it.pseudoClassName }))
         val blockers = sheetBlockers(ex)
         if (only != null && views.none { it.cssProperty == only }) skinHint(node, only)?.let { blockers.add(it) }
         if (only != null && items.isEmpty() && blockers.size() == 0) {
@@ -62,7 +67,9 @@ internal object CssInspect {
         val out = Json.obj()
         out.setNode("target", Targets.summary(node))
         out.put("styleClass", node.styleClass.joinToString(" "))
-        out.setNode("pseudoClasses", Json.strings(node.pseudoClassStates.map { it.pseudoClassName }))
+        val forced = ForcedStates.forcedNames(node)
+        val pcs = out.putArray("pseudoClasses")
+        node.pseudoClassStates.forEach { pcs.addObject().put("name", it.pseudoClassName).put("forced", it.pseudoClassName in forced) }
         if (!node.style.isNullOrBlank()) out.put("inlineStyle", node.style)
         val props = out.putArray("properties")
         val winners = IdentityHashMap<Declaration, Boolean>()

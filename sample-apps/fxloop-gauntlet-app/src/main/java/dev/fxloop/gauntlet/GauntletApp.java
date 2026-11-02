@@ -45,7 +45,7 @@ import javafx.scene.text.Text;
 import dev.fxloop.dev.FxLoopDev;
 import javafx.scene.control.OverrunStyle;
 
-/** Robustness/perf gauntlet target. Pure Java, no FXML. */
+/** Robustness/perf gauntlet target. Pure Java except the "Layout" tab, which is loaded from layout.fxml. */
 public class GauntletApp extends Application {
 
     private static final int BIG_ROWS = 100_000;
@@ -72,7 +72,8 @@ public class GauntletApp extends Application {
                 tab("Web", FxLoopDev.view("web", this::web)),
                 tab("Big", FxLoopDev.view("big", this::big)),
                 tab("RTL", FxLoopDev.view("rtl", () -> rtl(tabs))),
-                tab("Cascade", FxLoopDev.view("cascade", this::cascade)));
+                tab("Cascade", FxLoopDev.view("cascade", this::cascade)),
+                tab("Layout", FxLoopDev.view("layout", this::layout)));
         for (Tab t : tabs.getTabs()) {
             t.setClosable(false);
         }
@@ -359,7 +360,13 @@ public class GauntletApp extends Application {
         Label fonted = label("cxFont", "font shorthand");
         fonted.getStyleClass().add("cx-fonted");
         Label child = label("cxChild", "inherits font size");
-        VBox big = new VBox(child);
+        Button hover = button("cxHover", "hover rule");
+        hover.getStyleClass().add("cx-hoverable");
+        Label derived = label("cxDerived", "derived color");
+        VBox deriveBox = new VBox(derived);
+        deriveBox.getStyleClass().add("cx-derive-box");
+        VBox big = new VBox(child, hover, deriveBox);
+        big.getStyleClass().add("cx-oops");
         big.setId("cxBigBox");
         big.setStyle("-fx-font-size: 18px;");
 
@@ -368,5 +375,15 @@ public class GauntletApp extends Application {
         panel.getStyleClass().add("cx-panel");
         panel.getStylesheets().add(getClass().getResource("cascade-panel.css").toExternalForm());
         return page(panel);
+    }
+
+    // 10. Layout: one node per layout question of the inspector's Layout tab (PRD 09 §4), loaded from FXML so layout
+    // edits can be written back as attributes.
+    private Node layout() {
+        try {
+            return new javafx.fxml.FXMLLoader(getClass().getResource("layout.fxml")).load();
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
     }
 }

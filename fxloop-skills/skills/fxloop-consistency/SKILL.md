@@ -34,6 +34,8 @@ References: [javafx-css.md](references/javafx-css.md), [evidence.md](references/
    screen: `fx_reload`, then `fx_compare_screenshots before=<cons-screen seq> capture=true`.
 6. **Re-capture all screens** and rebuild the divergence table. Every role should now be one value, with origin
    AUTHOR from the shared stylesheet.
+7. **Dead rules:** `fx_lint_css` (with the other screens open). Rules you made redundant show up as `unused`, and a
+   misspelt class as `unknownSelectors`; remove or fix them.
 
 ## Output
 
