@@ -133,6 +133,7 @@ class ViewerTest {
             val page = req("$base/inspect?t=tok")
             assertThat(page.statusCode()).isEqualTo(200)
             assertThat(page.headers().firstValue("Content-Type").get()).startsWith("text/html")
+            assertThat(page.body()).contains("/api/states", "/api/find", "/api/props", "/api/sheets", "/api/lint", "/api/evidence")
         }
     }
 
