@@ -1,6 +1,6 @@
 # FXLoop — Implementation Tracking (Document 5)
 
-Feature/task mapping for PRDs 00–04 and 06–08 with live status. One row per deliverable; IDs reference the PRD section that specifies it.
+Feature/task mapping for PRDs 00–04 and 06–08, 11 with live status. One row per deliverable; IDs reference the PRD section that specifies it.
 
 Statuses last reconciled against the code on 2026-10-31. The implementation language is Kotlin rather than Java; see [decisions/kotlin.md](decisions/kotlin.md).
 
@@ -165,6 +165,20 @@ Baseline: Java 17 bytecode (`--release 17`), compiled against JavaFX 21. CI buil
 | F1 | Cascade engine (sheet order, matching, specificity, inheritance, shorthands, self-check), source mapping, blockers, `fx_explain_style` rule-level output, `fx_suggest_override`, gauntlet *CSS cascade* tab | 08 §3 | agent, server, gauntlet | ✅ | A-F1–A-F3 (`CssInspectorAcceptanceTest`, unit: `CascadeTest`). A-F1 first run: 99.93 % (1494/1495 over gauntlet, sample, showcase); the one mismatch is a MenuBar skin label (see limitations). Bound properties report `simulation: skipped` |
 | F2 | Browser inspector `/inspect` on the viewer: tree (+ skin nodes), styles, computed, box model, highlight overlay, pick/reload SSE | 08 §4 | server, agent | ✅ | A-F4 (`CssInspectorAcceptanceTest`, scripted HTTP + SSE); manual browser walkthrough pending. Overlay shared with E6. Opened from the dev bar's Open CSS inspector button or `fx_open_inspector`; contract in [css-inspector-contract](decisions/css-inspector-contract.md) |
 | F3 | Try it live: scratch stylesheet (`FXLOOP_INSPECTOR_EDIT`), copy / ask-agent hand-over, *Apply to file* (`cssScratchPlan` + server write + CSS reload), `scratchCss` in status | 08 §5 | server, agent | ✅ | A-F5 (`CssInspectorAcceptanceTest`, scripted HTTP; unit: `ScratchFxTest`, `ScratchApplyFxTest`, `ViewerTest`); manual browser walkthrough pending. `fx_reload{clearScratch}` drops the scratch sheet after the agent applied it (the css visualDiff then compares scratch vs. source); dev bar shows `Scratch CSS active · n rules [Clear]` |
+
+## Stage O — Onboarding (PRD 11)
+
+| ID | Feature / task | PRD ref | Module | Status | Notes |
+|---|---|---|---|---|---|
+| O1 | Jar-only install: README quickstart, `fxloop-connect` step 0 without the bootstrap (`FxloopBootstrap.java` deleted), `java -jar` MCP configs, skills zip install, PowerShell variants | 11 §3, §4.1, §5, §7 | docs, skills | 🟨 | Needs PRD 10's `edge` build for the asset URLs. Docs and skill text done; not yet run end to end (A-O2) |
+| O2 | `fxloop-launch` shared module (`MainClassResolver`, `JavaFxModules`, launch-mode rules) | 11 §4.2, §9 | launch, maven-plugin, gradle-plugin | ✅ | Extracted without behaviour change; both plugins delegate, `MainClassException` carries the candidates |
+| O3 | Plugin-free prepare, Maven (main class, launch mode, release, processors; `prepare: "server"`) | 11 §4.2 | server | ✅ | One Maven invocation (compile + cached effective POM + build-classpath). A-O5: same launch.json as the plugin on sample, gauntlet and showcase apps |
+| O4 | Plugin-free prepare, Gradle (bundled plugin jar via generated init script) | 11 §4.2 | server | ✅ | A-O4: byte-identical launch.json vs the applied plugin on the Kotlin sample, configuration cache reused. `PluginFreePrepareTest` |
+| O5 | `doctor [--json] [--client=…]` | 11 §6 | server | ⚠️ | A-O3 covered by `DoctorTest`. Main class is read from the raw pom.xml (with property substitution), not the effective POM. Not yet in `fx_get_app_status` (§9) |
+| O6 | `--version` with JDK check; `--seed-local-repo` (temporary, until Central) | 11 §3, §4.4 | server | ✅ | Seeds parent, protocol, launch, agent, maven-plugin. A-O6 checks layout and metadata; a full `mvn fxloop:run` on a fresh repo still needs Central for third-party deps |
+| O7 | `OnboardingTest`: local HTTP server serves the jar at the release path, install lines run, `fx_get_app_status` on a plugin-less sample | 11 §8 | acceptance | ✅ | Runs the README install line against a local server, then `fx_get_app_status` + screenshot with `prepare: server` |
+| O8 | OS matrix on Windows 11, macOS, Ubuntu against a release candidate | 11 §8 | manual | ⬜ | A-O1–A-O7, manual checklist |
+| O9 | Claude Code marketplace manifest (`.claude-plugin/`) | 11 §5.1, §13 Q2 | skills | ⏭️ | Deferred until after 1.0.0 |
 
 ## Items requiring external resources (cannot be completed in this local session)
 

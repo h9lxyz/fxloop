@@ -9,7 +9,7 @@ group = "dev.fxloop"
 version = "1.0.0-SNAPSHOT"
 
 repositories {
-    // fxloop-protocol is installed by the Maven build (`./mvnw install`); not yet on Central.
+    // fxloop-protocol and fxloop-launch are installed by the Maven build (`./mvnw install`); not yet on Central.
     mavenLocal()
     mavenCentral()
 }
@@ -50,7 +50,7 @@ kotlin {
 
 dependencies {
     implementation("dev.fxloop:fxloop-protocol:1.0.0-SNAPSHOT")
-    implementation("org.ow2.asm:asm:9.11.1")
+    implementation("dev.fxloop:fxloop-launch:1.0.0-SNAPSHOT")
 
     testImplementation(gradleTestKit())
     testImplementation(kotlin("test-junit5"))

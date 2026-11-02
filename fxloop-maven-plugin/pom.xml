@@ -14,23 +14,18 @@
   <name>FXLoop :: Maven Plugin</name>
   <description>Maven plugin providing fxloop:prepare, which emits target/fxloop/launch.json for the FXLoop server.</description>
 
-  <properties>
-    <asm.version>9.11.1</asm.version>
-  </properties>
-
   <dependencies>
     <dependency>
       <groupId>dev.fxloop</groupId>
       <artifactId>fxloop-protocol</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.jetbrains.kotlin</groupId>
-      <artifactId>kotlin-stdlib</artifactId>
+      <groupId>dev.fxloop</groupId>
+      <artifactId>fxloop-launch</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.ow2.asm</groupId>
-      <artifactId>asm</artifactId>
-      <version>${asm.version}</version>
+      <groupId>org.jetbrains.kotlin</groupId>
+      <artifactId>kotlin-stdlib</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>

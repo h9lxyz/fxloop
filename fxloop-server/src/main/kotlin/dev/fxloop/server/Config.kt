@@ -19,6 +19,8 @@ data class Config(
     val buildCmd: String? = null,
     val buildTool: String? = null,
     val prepare: Boolean = true,
+    /** Which prepare runs: `auto` (build plugin if present, else the server's own), `plugin` or `server` (PRD 11 4.2). */
+    val prepareRoute: String = "auto",
     val startupTimeoutMs: Long = 30_000,
     val agentJar: Path? = null,
     val headless: String? = null,
@@ -81,6 +83,7 @@ data class Config(
                 buildCmd = str("FXLOOP_BUILD_CMD") ?: str("FXLOOP_MVN_CMD"),
                 buildTool = str("FXLOOP_BUILD_TOOL"),
                 prepare = !"none".equals(str("FXLOOP_PREPARE"), ignoreCase = true),
+                prepareRoute = str("FXLOOP_PREPARE_ROUTE")?.lowercase() ?: "auto",
                 startupTimeoutMs = str("FXLOOP_STARTUP_TIMEOUT_MS")?.toLong() ?: 30_000,
                 agentJar = str("FXLOOP_AGENT_JAR")?.let(Path::of),
                 headless = str("FXLOOP_HEADLESS"),

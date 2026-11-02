@@ -34,6 +34,7 @@
 
   <modules>
     <module>fxloop-protocol</module>
+    <module>fxloop-launch</module>
     <module>fxloop-agent</module>
     <module>fxloop-dev</module>
     <module>fxloop-maven-plugin</module>
@@ -68,6 +69,11 @@
       <dependency>
         <groupId>dev.fxloop</groupId>
         <artifactId>fxloop-protocol</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>dev.fxloop</groupId>
+        <artifactId>fxloop-launch</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>

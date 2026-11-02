@@ -1,5 +1,10 @@
 package dev.fxloop.gradle
 
+import dev.fxloop.launch.JavaFxModules
+import dev.fxloop.launch.LaunchMode
+import dev.fxloop.launch.MainClassException
+import dev.fxloop.launch.MainClassResolver
+import dev.fxloop.launch.MainClassStep
 import dev.fxloop.protocol.LaunchDescriptor
 import java.nio.file.Files
 import java.nio.file.Path
@@ -55,12 +60,19 @@ abstract class FxloopPrepareTask : DefaultTask() {
         val extraClasses = allClasses.filter { it != outputDir && hasClasses(it) }
         val resources: Path? = resourcesDir.orNull?.asFile?.toPath()?.toAbsolutePath()
 
-        val main = MainClassResolver.resolve(
-            MainClassResolver.Inputs(
-                explicitMainClass.orNull, javafxMainClass.orNull, applicationMainClass.orNull,
-                manifestMainClass.orNull, listOf(outputDir) + extraClasses,
-            ),
-        )
+        val main = try {
+            MainClassResolver.resolve(
+                listOf(
+                    MainClassStep("fxloop.mainClass", explicitMainClass.orNull),
+                    MainClassStep("javafx plugin", javafxMainClass.orNull),
+                    MainClassStep("application.mainClass", applicationMainClass.orNull),
+                    MainClassStep("jar manifest Main-Class", manifestMainClass.orNull),
+                ),
+                listOf(outputDir) + extraClasses,
+            )
+        } catch (e: MainClassException) {
+            throw GradleException(mainClassMessage(e), e)
+        }
 
         val sourceRoots = existing(sourceRoots.get())
         val resourceRoots = existing(resourceRoots.get())
@@ -81,7 +93,7 @@ abstract class FxloopPrepareTask : DefaultTask() {
 
         if (mode == "modulepath") {
             if (moduleInfo != null) {
-                if (mainModule == null) mainModule = parseModuleName(Files.readString(moduleInfo))
+                if (mainModule == null) mainModule = LaunchMode.parseModuleName(Files.readString(moduleInfo))
                 if (extraClasses.isNotEmpty()) {
                     logger.warn("FXLoop: modular app with classes outside {} ({}); they would need --patch-module, " +
                         "set fxloop { launchMode = \"classpath\" } if the launch fails", outputDir, extraClasses)
@@ -126,10 +138,10 @@ abstract class FxloopPrepareTask : DefaultTask() {
     }
 
     private fun resolveMode(modular: Boolean): String =
-        when (val m = launchMode.getOrElse("auto").trim().lowercase()) {
-            "auto" -> if (modular) "modulepath" else "classpath"
-            "classpath", "modulepath" -> m
-            else -> throw GradleException("Invalid fxloop.launchMode '${launchMode.get()}' (expected auto|classpath|modulepath)")
+        try {
+            LaunchMode.resolve(launchMode.getOrElse("auto"), modular)
+        } catch (e: IllegalArgumentException) {
+            throw GradleException(e.message ?: "Invalid fxloop.launchMode", e)
         }
 
     private fun hasClasses(dir: Path): Boolean =
@@ -139,11 +151,13 @@ abstract class FxloopPrepareTask : DefaultTask() {
         dirs.map { Path.of(it) }.filter { Files.isDirectory(it) }.map { it.toAbsolutePath().toString() }
 
     internal companion object {
-        private val MODULE_NAME = Regex("(?:^|\\s)module\\s+([\\w.]+)\\s*\\{", RegexOption.MULTILINE)
-
-        fun parseModuleName(source: String): String? {
-            val stripped = source.replace(Regex("(?s)/\\*.*?\\*/"), " ").replace(Regex("//[^\\n]*"), " ")
-            return MODULE_NAME.find(stripped)?.groupValues?.get(1)
-        }
+        fun mainClassMessage(e: MainClassException): String =
+            if (e.noneFound) {
+                "FXLoop: no main class found in ${e.outputDirs.joinToString()}. Compile first, or set fxloop { mainClass = \"<fqcn>\" }."
+            } else {
+                "FXLoop: cannot determine the main class unambiguously. Candidates:\n  - " +
+                    e.candidates.joinToString("\n  - ") { it.describe() } +
+                    "\nSet fxloop { mainClass = \"<fqcn>\" } (or application { mainClass = ... })."
+            }
     }
 }

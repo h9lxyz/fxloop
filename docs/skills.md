@@ -10,12 +10,21 @@ They are for **your** app, Java or Kotlin, Maven or Gradle, FXML or code-built.
 ## Install
 
 ```sh
-./mvnw install -DskipTests                              # in this repository, until FXLoop is on Maven Central
-cp -r fxloop-skills/skills/fxloop-* ~/.claude/skills/   # Claude Code; other agents: their skills directory
+# bash / zsh
+curl -fsSL -o /tmp/fxloop-skills.zip \
+  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip \
+  && unzip -o /tmp/fxloop-skills.zip -d ~/.claude/skills/     # Claude Code; other agents: their skills directory
 ```
 
-Then, in your app's project: **"connect FXLoop to this project and show me the app"**. Install details, the MCP
-bootstrap and the layout for contributors are in the [skills README](../fxloop-skills/README.md).
+```powershell
+# PowerShell
+Invoke-WebRequest -OutFile "$env:TEMP\fxloop-skills.zip" `
+  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip
+Expand-Archive -Force "$env:TEMP\fxloop-skills.zip" "$HOME\.claude\skills\"
+```
+
+Then, in your app's project: **"connect FXLoop to this project and show me the app"**. The skill downloads the server
+jar itself. Install details and the layout for contributors are in the [skills README](../fxloop-skills/README.md).
 
 ## At a glance
 

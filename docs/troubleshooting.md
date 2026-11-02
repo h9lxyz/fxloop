@@ -14,7 +14,7 @@ Errors come back as tool results with `isError`, an error `code`, a message and 
 | `PROPERTY_BOUND` | Cannot set a bound property | `fx_explain_property` to see the binding; set the source property instead |
 | `REDEFINE_REJECTED` | JVM refused the HotSwap (fields/methods added, hierarchy change) | `fx_reload` with `allowRestart:true` (default) or `fx_restart_app {replay:true}`; or launch on JBR for structural hot-swaps, see [limitations](limitations.md) |
 | `HEADLESS_UNSUPPORTED` | `FXLOOP_HEADLESS=monocle` but no matching Monocle jar | Add `org.testfx:openjfx-monocle:<version>` (see [table](ci/monocle.md)) as a test dependency, set `FXLOOP_MONOCLE_JAR`, or use `FXLOOP_HEADLESS=xvfb` |
-| `CONFIG` | Missing/invalid configuration (e.g. `launch.json` unreadable, agent jar missing) | `FXLOOP_MAIN_CLASS` when the Maven plugin is unavailable; run `mvn compile dev.fxloop:fxloop-maven-plugin:1.0.0-SNAPSHOT:prepare` (or `gradlew fxloopPrepare`); `FXLOOP_AGENT_JAR` |
+| `CONFIG` | Missing/invalid configuration (e.g. `launch.json` unreadable, agent jar missing) | `main-class=` in `fxloop.properties` when detection is ambiguous; `java -jar ~/.fxloop/fxloop-server.jar doctor`; run `mvn compile dev.fxloop:fxloop-maven-plugin:1.0.0-SNAPSHOT:prepare` (or `gradlew fxloopPrepare`); `FXLOOP_AGENT_JAR` |
 
 ## Other codes you may see
 
@@ -32,6 +32,9 @@ Errors come back as tool results with `isError`, an error `code`, a message and 
 
 ## Common situations
 
+* **It doesn't work and you don't know why:** run `java -jar ~/.fxloop/fxloop-server.jar doctor` in the project directory (PowerShell: `java -jar "$HOME\.fxloop\fxloop-server.jar" doctor`). It checks the JDK (17+, a JDK not a JRE), the build tool and wrapper, JavaFX, the main class, the FXLoop build plugin and the display, and prints a one-line fix for each problem. It never writes anything. `--json` for tools.
+* **`java -jar` fails with a version or `UnsupportedClassVersionError` message:** the `java` on `PATH` is older than 17. Install a JDK 17+ (a JDK, not a JRE) or fix `PATH`/`JAVA_HOME`; `java -jar ~/.fxloop/fxloop-server.jar --version` prints the check.
+* **The jar download fails (proxy, firewall, antivirus):** get `fxloop-server-all.jar` any other way and save it as `~/.fxloop/fxloop-server.jar`.
 * **Nothing appears on Linux CI/SSH:** no display. Use `FXLOOP_HEADLESS=monocle` or `xvfb`, see [CI](ci/README.md).
 * **Server prints to stdout and the client breaks:** never wrap the server in scripts that echo to stdout; logs belong on stderr.
 * **Screenshots missing:** they are under `target/fxloop/screens` (`build/fxloop/screens` for Gradle); `FXLOOP_SCREENS_KEEP` limits retention.

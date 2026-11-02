@@ -1,50 +1,65 @@
-package dev.fxloop.maven
+package dev.fxloop.launch
 
 import java.io.IOException
 import java.io.UncheckedIOException
 import java.nio.file.Files
 import java.nio.file.Path
-import org.apache.maven.plugin.MojoFailureException
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassVisitor
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 
+/** One explicit source of a main class (parameter, plugin config, manifest ...); blank [value] is skipped. */
+data class MainClassStep(val source: String, val value: String?)
+
+/** A class the scan found but could not choose between. */
+data class MainClassCandidate(val name: String, val extendsApplication: Boolean, val declaresMain: Boolean, val launcher: Boolean) {
+    /** Human-readable label, e.g. `p.App (extends Application)` or `p.Main (declares main) [launcher]`. */
+    fun describe(): String =
+        if (extendsApplication) "$name (extends Application)"
+        else "$name (declares main)" + if (launcher) " [launcher]" else ""
+}
+
 /**
- * Resolves the application main class from plain inputs: explicit parameter, javafx-maven-plugin,
- * exec-maven-plugin, jar-plugin manifest, then an ASM scan of compiled classes.
+ * Main class could not be determined. [candidates] is empty when nothing was found ([outputDirs] holds the
+ * scanned dirs); otherwise it lists the ambiguous classes (Application subclasses first, then main classes).
+ * The default [message] is generic; build-tool callers compose their own with their own hint text.
+ */
+class MainClassException(val outputDirs: List<Path>, val candidates: List<MainClassCandidate>) :
+    RuntimeException(
+        if (candidates.isEmpty()) "No main class found in ${outputDirs.joinToString()}"
+        else "Cannot determine the main class unambiguously. Candidates:\n  - " +
+            candidates.joinToString("\n  - ") { it.describe() },
+    ) {
+    val noneFound: Boolean get() = candidates.isEmpty()
+}
+
+/**
+ * Resolves the application main class from plain inputs: ordered explicit [MainClassStep]s first, then an ASM
+ * scan of compiled classes in the output dirs.
  */
 object MainClassResolver {
 
     private const val APPLICATION = "javafx/application/Application"
 
-    /** Plain inputs; any string may be `null` or blank. */
-    data class Inputs(
-        val explicit: String?,
-        val javafxPlugin: String?,
-        val execPlugin: String?,
-        val jarManifest: String?,
-        val outputDir: Path?,
-    )
-
     /** Result; [mainModule] is non-null only when a `module/class` form was given. */
     data class Result(val mainModule: String?, val mainClass: String, val source: String)
 
+    /** First non-blank step wins (optionally `module/class`); otherwise scan [outputDirs]. */
     @JvmStatic
-    @Throws(MojoFailureException::class)
-    fun resolve(input: Inputs): Result {
-        val steps = listOf(
-            input.explicit to "fxloop.mainClass",
-            input.javafxPlugin to "javafx-maven-plugin",
-            input.execPlugin to "exec-maven-plugin",
-            input.jarManifest to "maven-jar-plugin manifest",
-        )
-        for ((value, name) in steps) {
-            if (!value.isNullOrBlank()) return parse(value.trim(), name)
+    @Throws(MainClassException::class)
+    fun resolve(steps: List<MainClassStep>, outputDirs: List<Path>): Result {
+        for (step in steps) {
+            if (!step.value.isNullOrBlank()) return parse(step.value.trim(), step.source)
         }
-        return scan(input.outputDir)
+        return scan(outputDirs)
     }
+
+    /** Scan only, no explicit steps. */
+    @JvmStatic
+    @Throws(MainClassException::class)
+    fun scan(outputDirs: List<Path>): Result = scanDirs(outputDirs)
 
     internal fun parse(value: String, source: String): Result {
         val slash = value.indexOf('/')
@@ -58,9 +73,9 @@ object MainClassResolver {
         val referenced = HashSet<String>()
     }
 
-    private fun scan(outputDir: Path?): Result {
+    private fun scanDirs(outputDirs: List<Path>): Result {
         val classes = HashMap<String, ClassInfo>()
-        if (outputDir != null && Files.isDirectory(outputDir)) {
+        for (outputDir in outputDirs.filter { Files.isDirectory(it) }) {
             try {
                 Files.walk(outputDir).use { s ->
                     s.filter { it.toString().endsWith(".class") }.forEach { p ->
@@ -89,15 +104,9 @@ object MainClassResolver {
         if (launchers.isEmpty() && apps.isEmpty() && mains.size == 1) {
             return Result(null, mains[0], "class scan (main method)")
         }
-        val all = apps.map { "$it (extends Application)" } +
-            mains.map { "$it (declares main)" + if (it in launchers) " [launcher]" else "" }
-        val msg = if (all.isEmpty()) {
-            "No main class found in $outputDir. Compile first, or set -Dfxloop.mainClass=<fqcn>."
-        } else {
-            "Cannot determine the main class unambiguously. Candidates:\n  - " + all.joinToString("\n  - ") +
-                "\nSet -Dfxloop.mainClass=<fqcn> (or <mainClass> in the fxloop plugin configuration)."
-        }
-        throw MojoFailureException(msg)
+        val candidates = apps.map { MainClassCandidate(it, extendsApplication = true, declaresMain = it in mains, launcher = false) } +
+            mains.map { MainClassCandidate(it, extendsApplication = false, declaresMain = true, launcher = it in launchers) }
+        throw MainClassException(outputDirs, candidates)
     }
 
     private fun isApplication(ci: ClassInfo, all: Map<String, ClassInfo>, depth: Int): Boolean {

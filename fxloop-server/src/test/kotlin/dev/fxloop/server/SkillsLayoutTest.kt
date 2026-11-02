@@ -80,11 +80,9 @@ class SkillsLayoutTest {
     }
 
     @Test
-    fun `connect skill and bootstrap carry the server version`() {
+    fun `connect skill carries the server version`() {
         val connect = root.resolve("skills/fxloop-connect")
         val version = dev.fxloop.server.app.Versions.SERVER
         assertThat(connect.resolve("SKILL.md").readText()).contains("  fxloop-version: $version\n")
-        assertThat(connect.resolve("scripts/FxloopBootstrap.java").readText())
-            .contains("env(\"FXLOOP_SERVER_VERSION\", \"$version\")")
     }
 }

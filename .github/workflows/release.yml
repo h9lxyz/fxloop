@@ -25,6 +25,14 @@ jobs:
           gpg-passphrase: GPG_PASSPHRASE
       - uses: gradle/actions/setup-gradle@v6
 
+      # The server jar bundles the Gradle plugin (plugin-free Gradle prepare, PRD 11 4.2), and Gradle builds it:
+      # install the Maven modules it depends on, publish the plugin to mavenLocal, and only then run the real
+      # deploy, which rebuilds fxloop-server with the plugin jar inside.
+      - name: Build order (Maven libs -> Gradle plugin -> server)
+        run: |
+          ./mvnw -B install -DskipTests
+          ./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin publishToMavenLocal
+
       # Requires publishing configuration (distributionManagement or a central publishing plugin) in the POMs.
       - name: Maven deploy (signed, sources, javadoc, SBOM)
         run: ./mvnw -B -Prelease deploy

@@ -6,27 +6,37 @@ aren't for developing FXLoop itself. What each skill does and returns: [skills o
 
 ## Install
 
-Copy the skill folders into your agent's skills directory. Each folder is self-contained, so you can also take only
-the ones you want.
+Unzip the skill folders into your agent's skills directory. Each folder is self-contained, so you can also keep only
+the ones you want. The zip is a release asset (the `edge` pre-release until a numbered release exists).
 
 ```sh
-cp -r fxloop-skills/skills/fxloop-* ~/.claude/skills/     # Claude Code, all projects
-cp -r fxloop-skills/skills/fxloop-* .claude/skills/       # Claude Code, one project
+# bash / zsh
+curl -fsSL -o /tmp/fxloop-skills.zip \
+  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip \
+  && unzip -o /tmp/fxloop-skills.zip -d ~/.claude/skills/      # Claude Code, all projects
 ```
 
-Other agents that read `SKILL.md` folders: copy them into that agent's skills directory.
+```powershell
+# PowerShell
+Invoke-WebRequest -OutFile "$env:TEMP\fxloop-skills.zip" `
+  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip
+Expand-Archive -Force "$env:TEMP\fxloop-skills.zip" "$HOME\.claude\skills\"
+```
 
-Until FXLoop is on Maven Central, build it once so the server and build plugins are in `~/.m2`: `./mvnw install
--DskipTests` in this repository.
+For one project only, unzip into `.claude/skills/` instead. Other agents that read `SKILL.md` folders: the same zip
+into that agent's skills directory. From a clone: copy `fxloop-skills/skills/fxloop-*`.
+
+The server jar needs no separate step: `fxloop-connect` downloads it to `~/.fxloop/fxloop-server.jar`.
 
 ## First run
 
 In your app's project, ask: **"connect FXLoop to this project and show me the app"**. `fxloop-connect`:
 
 1. registers the FXLoop MCP server for the agent you're using (Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI,
-   or any stdio MCP client), using the launcher it copies to `~/.fxloop/`;
+   or any stdio MCP client), as `java -jar ~/.fxloop/fxloop-server.jar`, after downloading the jar and checking your JDK;
 2. adds the FXLoop build plugin and a production guard, and an `## FXLoop` section in `AGENTS.md`/`CLAUDE.md`;
-3. asks you to reload the agent's MCP servers once, since no agent loads a new server mid-session;
+3. asks you to reload the agent's MCP servers once, since no agent loads a new server mid-session (everything the
+   server reads at startup is written first, so it is one reload);
 4. after you say "continue", launches the app and shows a screenshot.
 
 After that, just describe what you want. The skills trigger from plain requests:
@@ -46,18 +56,16 @@ After that, just describe what you want. The skills trigger from plain requests:
 
 ## How the MCP server starts
 
-The MCP config that `fxloop-connect` writes runs `java ~/.fxloop/FxloopBootstrap.java`, a single-file Java program. It
-finds the server jar via `FXLOOP_SERVER_JAR` → `~/.fxloop/` → the local Maven repository → `jbang` → the project's
-own wrapper (`mvnw dependency:copy`, or `gradlew` on a throwaway resolve build) into `~/.fxloop/`, then runs it in the
-workspace (`FXLOOP_WORKSPACE`, else `CLAUDE_PROJECT_DIR`, else the current directory). Project-specific server
-settings go in an optional `fxloop.properties` at the workspace root (keys are the server flags, e.g.
-`project-dir=app`, `app-args=--seed`). See the configuration doc.
+The MCP config that `fxloop-connect` writes runs `java -jar <absolute path to ~/.fxloop/fxloop-server.jar>` in the
+workspace. The path is per machine. If the jar is missing or the JDK is wrong, `java -jar ~/.fxloop/fxloop-server.jar
+doctor` says what to fix. Project-specific server settings go in an optional `fxloop.properties` at the workspace root
+(keys are the server flags, e.g. `project-dir=app`, `app-args=--seed`). See the configuration doc.
 
 ## Layout (for contributors)
 
 | Path | What |
 |---|---|
-| `skills/fxloop-*/` | The installable skills. `fxloop-connect` also carries `scripts/FxloopBootstrap.java` and the MCP config reference |
+| `skills/fxloop-*/` | The installable skills. `fxloop-connect` also carries the MCP config reference and the build-file snippets |
 | `references/` | Shared reference docs: evidence rule, JavaFX CSS, layout containers, FX thread, accessibility, FXML, TestFX, Kotlin notes |
 | `sync-references.sh` | Copies each shared reference into the skills that link it. Run it after editing `references/` |
 | `evals/` | One eval file per skill (skill-creator format plus a `setup` field naming the sample app and flags) and `triggers.json` (should/shouldn't trigger phrasings) |

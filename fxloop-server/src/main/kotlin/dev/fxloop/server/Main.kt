@@ -73,12 +73,18 @@ fun toolReference(reg: ToolRegistry): String = buildString {
 
 /** stdio MCP server entry point. stdout carries MCP frames only; all logging goes to stderr. */
 fun main(args: Array<String>) {
+    // `doctor` is a read-only diagnostic: no Config/MCP startup (PRD 11 §6)
+    if (args.firstOrNull() == "doctor") exitProcess(dev.fxloop.server.cli.Doctor.main(args.drop(1)))
     System.setProperty("java.awt.headless", "true")
     System.getenv("FXLOOP_LOG")?.let { System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", it) }
     if (args.any { it == "--version" }) {
-        System.err.println("fxloop-server ${Versions.SERVER}")
+        // Not MCP mode, so stdout is free. Exit code is non-zero when the JDK check fails.
+        val code = dev.fxloop.server.cli.JdkCheck.run(Versions.SERVER)
+        if (code != 0) exitProcess(code)
         return
     }
+    // TEMPORARY pre-Central bridge, removed after Central publishing (PRD 10 A-R5).
+    if (args.any { it == "--seed-local-repo" }) exitProcess(dev.fxloop.server.cli.SeedLocalRepo.run(args))
     val config = Config.load(System.getenv(), args)
     if (args.any { it == "--tool-reference" }) {
         print(toolReference(registry(Ctx(config.copy(webview = true)))))

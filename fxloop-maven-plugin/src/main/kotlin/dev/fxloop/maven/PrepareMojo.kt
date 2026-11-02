@@ -1,5 +1,10 @@
 package dev.fxloop.maven
 
+import dev.fxloop.launch.JavaFxModules
+import dev.fxloop.launch.LaunchMode
+import dev.fxloop.launch.MainClassException
+import dev.fxloop.launch.MainClassResolver
+import dev.fxloop.launch.MainClassStep
 import dev.fxloop.protocol.LaunchDescriptor
 import java.io.File
 import java.io.IOException
@@ -58,15 +63,19 @@ open class PrepareMojo : AbstractMojo() {
         val jarPlugin = PluginConfigs.find(project, "org.apache.maven.plugins", "maven-jar-plugin")
         val compilerPlugin = PluginConfigs.find(project, "org.apache.maven.plugins", "maven-compiler-plugin")
 
-        val main = MainClassResolver.resolve(
-            MainClassResolver.Inputs(
-                mainClass,
-                PluginConfigs.text(javafxPlugin, "mainClass"),
-                PluginConfigs.text(execPlugin, "mainClass"),
-                PluginConfigs.text(jarPlugin, "archive", "manifest", "mainClass"),
-                outputDir,
-            ),
-        )
+        val main = try {
+            MainClassResolver.resolve(
+                listOf(
+                    MainClassStep("fxloop.mainClass", mainClass),
+                    MainClassStep("javafx-maven-plugin", PluginConfigs.text(javafxPlugin, "mainClass")),
+                    MainClassStep("exec-maven-plugin", PluginConfigs.text(execPlugin, "mainClass")),
+                    MainClassStep("maven-jar-plugin manifest", PluginConfigs.text(jarPlugin, "archive", "manifest", "mainClass")),
+                ),
+                listOf(outputDir),
+            )
+        } catch (e: MainClassException) {
+            throw MojoFailureException(mainClassMessage(e), e)
+        }
 
         val sourceRoots = existing(project.compileSourceRoots)
         val resourceRoots = project.resources.flatMap { existing(listOf(it.directory)) }
@@ -86,7 +95,7 @@ open class PrepareMojo : AbstractMojo() {
 
         if (mode == "modulepath") {
             if (moduleInfoSource != null) {
-                if (mainModule == null) mainModule = parseModuleName(Files.readString(Path.of(moduleInfoSource)))
+                if (mainModule == null) mainModule = LaunchMode.parseModuleName(Files.readString(Path.of(moduleInfoSource)))
                 modulePath.add(outputDir.toString())
                 modulePath.addAll(runtime)
             } else {
@@ -138,10 +147,10 @@ open class PrepareMojo : AbstractMojo() {
         }
 
     private fun resolveMode(modular: Boolean): String =
-        when (val m = (launchMode ?: "auto").trim().lowercase()) {
-            "auto" -> if (modular) "modulepath" else "classpath"
-            "classpath", "modulepath" -> m
-            else -> throw MojoFailureException("Invalid fxloop.launchMode '$launchMode' (expected auto|classpath|modulepath)")
+        try {
+            LaunchMode.resolve(launchMode, modular)
+        } catch (e: IllegalArgumentException) {
+            throw MojoFailureException(e.message, e)
         }
 
     private fun resolveRelease(compilerPlugin: Plugin?): String {
@@ -178,16 +187,16 @@ open class PrepareMojo : AbstractMojo() {
     }
 
     companion object {
-        private val MODULE_NAME = Regex("""(?:^|\s)module\s+([\w.]+)\s*\{""", RegexOption.MULTILINE)
         private val WHITESPACE = Regex("\\s+")
 
-        @JvmStatic
-        internal fun parseModuleName(moduleInfoSource: String): String? {
-            val stripped = moduleInfoSource
-                .replace(Regex("(?s)/\\*.*?\\*/"), " ")
-                .replace(Regex("//[^\\n]*"), " ")
-            return MODULE_NAME.find(stripped)?.groupValues?.get(1)
-        }
+        internal fun mainClassMessage(e: MainClassException): String =
+            if (e.noneFound) {
+                "No main class found in ${e.outputDirs.joinToString()}. Compile first, or set -Dfxloop.mainClass=<fqcn>."
+            } else {
+                "Cannot determine the main class unambiguously. Candidates:\n  - " +
+                    e.candidates.joinToString("\n  - ") { it.describe() } +
+                    "\nSet -Dfxloop.mainClass=<fqcn> (or <mainClass> in the fxloop plugin configuration)."
+            }
 
         private fun findModuleInfo(roots: List<String>): String? =
             roots.map { Path.of(it, "module-info.java") }.firstOrNull { Files.isRegularFile(it) }?.toString()

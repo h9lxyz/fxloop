@@ -14,6 +14,10 @@ Replace `<version>` with `fxloop-version` from the skill's frontmatter.
 </plugin>
 ```
 
+For a `-SNAPSHOT` version, run `java -jar ~/.fxloop/fxloop-server.jar --seed-local-repo` once first (PowerShell:
+`java -jar "$HOME\.fxloop\fxloop-server.jar" --seed-local-repo`); it writes the plugin into `~/.m2` until the
+artifacts are on Maven Central.
+
 No executions: the server runs `compile dev.fxloop:fxloop-maven-plugin:<version>:prepare` itself, which writes
 `target/fxloop/launch.json`. Other parameters: `launchMode` (`auto|classpath|modulepath`), `jvmArgs`, `appArgs`.
 
@@ -65,7 +69,8 @@ plugins {
 // fxloop { mainClass = "com.acme.MainKt" }
 ```
 
-For a `-SNAPSHOT` version, add this to `settings.gradle.kts` (merge with an existing block):
+For a `-SNAPSHOT` version, run `java -jar ~/.fxloop/fxloop-server.jar --seed-local-repo` once (it writes the plugin
+into `~/.m2`), and add this to `settings.gradle.kts` (merge with an existing block):
 
 ```kotlin
 pluginManagement {
@@ -114,7 +119,7 @@ tasks.named('jar') { dependsOn fxloopGuard }
 ## fxloop.properties (workspace root)
 
 ```properties
-# FXLoop server config (keys = server flags without --). Reconnect the fxloop MCP server after editing.
+# FXLoop server config (keys = server flags without --). Reload the fxloop MCP server after editing.
 project-dir=app
 app-args=--seed
 ```

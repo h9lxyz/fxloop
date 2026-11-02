@@ -1,5 +1,7 @@
 package dev.fxloop.gradle
 
+import dev.fxloop.launch.JavaFxModules
+import dev.fxloop.launch.LaunchMode
 import dev.fxloop.protocol.LaunchDescriptor
 import java.nio.file.Files
 import java.nio.file.Path
@@ -269,7 +271,7 @@ class FxloopPluginFunctionalTest {
     fun `module name parsing ignores comments`() {
         assertEquals(
             "my.app",
-            FxloopPrepareTask.parseModuleName("/* module no { */ // module nope {\nopen module my.app {\n}"),
+            LaunchMode.parseModuleName("/* module no { */ // module nope {\nopen module my.app {\n}"),
         )
         assertEquals(listOf("javafx.controls"), JavaFxModules.moduleNames(listOf("javafx-controls", "javafx-controls", "x")))
     }

@@ -60,6 +60,8 @@ jobs:
       - run: ./mvnw -B install -DskipTests
       # The Gradle and Kotlin lane tests resolve the dev.fxloop plugin from mavenLocal.
       - run: ./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin publishToMavenLocal
+      # Rebuild the server so it bundles the Gradle plugin just published (plugin-free Gradle prepare, PRD 11 4.2).
+      - run: ./mvnw -B -q install -DskipTests -pl fxloop-server
       - run: ./mvnw -B -Pacceptance verify -pl fxloop-acceptance  # the harness starts its own xvfb-run per launch
       - uses: actions/upload-artifact@v7
         if: failure()

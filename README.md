@@ -82,54 +82,97 @@ and every fix comes with evidence you can check: before/after frames, measured v
 
 ## Quickstart
 
-You need JDK 17+, a JavaFX app built with Maven or Gradle, and an agent that speaks MCP. FXLoop isn't on Maven Central
-yet, so build it once:
+**Requirements**
+
+- JDK 17 or newer on `PATH`: a JDK, not a JRE (`java -version`, and `javac -version` should work).
+- A JavaFX app built with Maven or Gradle.
+- An agent that speaks MCP.
+
+### Install
+
+One jar in `~/.fxloop/`. No clone, no build. Until the first numbered release exists, it comes from the rolling `edge`
+pre-release.
 
 ```sh
-git clone https://github.com/h9lxyz/fxloop.git && cd fxloop
-./mvnw install -DskipTests
-(cd fxloop-gradle-plugin && ./gradlew publishToMavenLocal)   # only if your app uses Gradle
+# bash / zsh
+mkdir -p ~/.fxloop && curl -fsSL -o ~/.fxloop/fxloop-server.jar \
+  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-server-all.jar
+java -jar ~/.fxloop/fxloop-server.jar --version
 ```
 
-### With the skills (recommended)
+```powershell
+# PowerShell
+New-Item -Force -ItemType Directory "$HOME\.fxloop" | Out-Null
+Invoke-WebRequest -OutFile "$HOME\.fxloop\fxloop-server.jar" `
+  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-server-all.jar
+java -jar "$HOME\.fxloop\fxloop-server.jar" --version
+```
+
+Once a numbered release exists, use `releases/latest/download/fxloop-server-all.jar` instead (same file name).
+`--version` prints the version and checks your JDK.
+
+**No access to GitHub (proxy, firewall, antivirus quarantine)?** Get `fxloop-server-all.jar` any way you can and put it
+at `~/.fxloop/fxloop-server.jar` (`%USERPROFILE%\.fxloop\fxloop-server.jar` on Windows). Nothing else is downloaded.
+If the file is missing or the JDK is wrong, `java -jar ~/.fxloop/fxloop-server.jar doctor` says what to fix.
+
+### A. Just the MCP server
+
+Register the jar with your agent. The path is absolute and per machine.
 
 ```sh
-cp -r fxloop-skills/skills/fxloop-* ~/.claude/skills/   # Claude Code; other agents: their skills directory
+# bash / zsh
+claude mcp add fxloop -- java -jar ~/.fxloop/fxloop-server.jar
 ```
 
-Then, in your app's project, ask: **"connect FXLoop to this project and show me the app"**. `fxloop-connect` registers
-the MCP server for your agent, adds the build plugin and a production guard, asks you to reload the agent's MCP
-servers once, then launches the app and shows you a screenshot. After that, just describe what you want.
-
-### With the MCP server only
-
-```sh
-claude mcp add fxloop -e FXLOOP_PROJECT_DIR=/abs/path/to/your-app -- \
-  java -jar /abs/path/to/fxloop/fxloop-server/target/fxloop-server-1.0.0-SNAPSHOT-all.jar
+```powershell
+# PowerShell
+claude mcp add fxloop -- java -jar "$HOME\.fxloop\fxloop-server.jar"
 ```
 
-Or in your project's `.mcp.json` (see [.mcp.json.example](.mcp.json.example)):
-
-```json
-{ "mcpServers": { "fxloop": {
-    "command": "java",
-    "args": ["-jar", "/abs/path/to/fxloop/fxloop-server/target/fxloop-server-1.0.0-SNAPSHOT-all.jar"],
-    "env": { "FXLOOP_PROJECT_DIR": "/abs/path/to/your-app" } } } }
-```
-
-Ask your agent to call `fx_get_app_status`: the first call builds the app, launches it and connects. Without the
-FXLoop [Maven](fxloop-maven-plugin/README.md) or [Gradle](fxloop-gradle-plugin/README.md) plugin in your build, also
-set `FXLOOP_MAIN_CLASS`. Configs for Cursor, VS Code, Codex CLI and Gemini CLI are in the
+The server runs in the agent's working directory; set `FXLOOP_PROJECT_DIR` (or `project-dir` in `fxloop.properties`)
+only when the app is not the workspace root. Configs for Cursor, VS Code, Codex CLI and Gemini CLI are in the
 [MCP clients reference](fxloop-skills/skills/fxloop-connect/references/mcp-clients.md).
 
-With [jbang](https://www.jbang.dev): `jbang-catalog.json` defines the alias `fxloop`, so after `./mvnw install`,
-`jbang fxloop@<path-to-this-repo>` runs the server.
+Then ask your agent to call `fx_get_app_status`: the first call builds the app, launches it and connects. Nothing in
+your build file has to change: without the [Maven](fxloop-maven-plugin/README.md) or [Gradle](fxloop-gradle-plugin/README.md)
+plugin the server finds the main class and launch mode itself (`prepare: server` in the status). When several classes
+could be the main class, the error lists them; pin one with `main-class=<fqcn>` in `fxloop.properties`.
+
+### B. With the skills (recommended)
+
+Path A plus the skill folders. `fxloop-connect` adds the build plugin, a production guard and notes for the agent.
+
+```sh
+# bash / zsh
+curl -fsSL -o /tmp/fxloop-skills.zip \
+  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip \
+  && unzip -o /tmp/fxloop-skills.zip -d ~/.claude/skills/     # Claude Code; other agents: their skills directory
+```
+
+```powershell
+# PowerShell
+Invoke-WebRequest -OutFile "$env:TEMP\fxloop-skills.zip" `
+  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip
+Expand-Archive -Force "$env:TEMP\fxloop-skills.zip" "$HOME\.claude\skills\"
+```
+
+Then, in your app's project, ask: **"connect FXLoop to this project and show me the app"**. `fxloop-connect` checks
+your JDK, downloads the server jar if it isn't there, registers it for your agent, adds the build plugin and the
+guard, asks you to reload the agent's MCP servers once, then launches the app and shows a screenshot. After that, just
+describe what you want.
 
 ### Run the app yourself, bring the agent in later
+
+Needs the build plugin in your project (path B adds it; or copy the snippet from the
+[Maven](fxloop-maven-plugin/README.md) or [Gradle](fxloop-gradle-plugin/README.md) plugin README).
 
 ```sh
 mvn fxloop:run        # or: gradle fxloopRun
 ```
+
+Until the plugins are on Maven Central and the Gradle Plugin Portal, run `java -jar ~/.fxloop/fxloop-server.jar
+--seed-local-repo` once. It writes the plugin and agent into `~/.m2/repository/dev/fxloop/` (Gradle projects also need
+`mavenLocal()` in `pluginManagement`).
 
 Your app starts with the dev bar. Click around, **Pick** the node that bothers you, then ask your agent. It finds the
 running app on its first call, connects instead of launching another copy, and leaves your mouse alone. Close the app
@@ -161,7 +204,7 @@ back. Diffing, compiling, journaling and test generation happen in the server.
 
 ## Status
 
-FXLoop is `1.0.0-SNAPSHOT` and built from source. Per-feature status is in the
+FXLoop is `1.0.0-SNAPSHOT`; install from the `edge` build. Per-feature status is in the
 [implementation tracking](docs/05-implementation-tracking.md). Still open: publishing to Maven Central and the Gradle
 Plugin Portal, and CI runs on macOS and Windows (configured, not yet run). Know the edges before you rely on it:
 [limitations](docs/limitations.md).
@@ -190,7 +233,7 @@ Browse it as a site with `mkdocs serve` (see `mkdocs.yml`).
 | `fxloop-server` | The stdio MCP server (shaded `-all.jar`): builds, launches, supervises, reloads |
 | `fxloop-maven-plugin` | `fxloop:run` and `fxloop:prepare` ([README](fxloop-maven-plugin/README.md)) |
 | `fxloop-gradle-plugin` | Gradle plugin `dev.fxloop` with `fxloopRun` and `fxloopPrepare`; a standalone Gradle build ([README](fxloop-gradle-plugin/README.md)) |
-| `fxloop-skills` | The agent skills, the MCP bootstrap, shared references and skill evals ([README](fxloop-skills/README.md)) |
+| `fxloop-skills` | The agent skills, shared references and skill evals ([README](fxloop-skills/README.md)) |
 | `sample-apps/*` | Test targets: `fxloop-sample-app` (contacts), `fxloop-gauntlet-app` (dialogs, menus, tabs and more), `fxloop-sample-app-gradle`, `fxloop-sample-app-kotlin`, and `fxloop-showcase-app`, a Kotlin helpdesk with planted UI and UX issues for trying the skills |
 | `fxloop-acceptance` | End-to-end suite that drives the server over MCP (`-Pacceptance`) |
 
@@ -199,7 +242,9 @@ projects.
 
 </details>
 
-## Building
+## Contributing
+
+### Build and test
 
 ```sh
 ./mvnw install                  # the FXLoop modules; UI tests run headless on Monocle, no display needed
@@ -209,6 +254,31 @@ projects.
 
 `docs/tools.md` is generated from the tool registry (`java -jar fxloop-server/target/fxloop-server-*-all.jar
 --tool-reference`); don't edit it by hand.
+
+### Build from source
+
+For working on FXLoop, not for using it:
+
+```sh
+# bash / zsh
+git clone https://github.com/h9lxyz/fxloop.git && cd fxloop
+./mvnw install -DskipTests
+(cd fxloop-gradle-plugin && ./gradlew publishToMavenLocal)   # only for Gradle apps against a local build
+```
+
+```powershell
+# PowerShell
+git clone https://github.com/h9lxyz/fxloop.git; cd fxloop
+.\mvnw.cmd install -DskipTests
+cd fxloop-gradle-plugin; .\gradlew.bat publishToMavenLocal; cd ..
+```
+
+Your build is then `fxloop-server/target/fxloop-server-1.0.0-SNAPSHOT-all.jar`; register that path instead of
+`~/.fxloop/fxloop-server.jar`. The skills install from `fxloop-skills/skills/fxloop-*` by copying the folders into your
+agent's skills directory.
+
+With [jbang](https://www.jbang.dev): `jbang-catalog.json` defines the alias `fxloop`, so after `./mvnw install`,
+`jbang fxloop@<path-to-this-repo>` runs the server.
 
 ## License
 

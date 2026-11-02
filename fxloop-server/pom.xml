@@ -23,6 +23,10 @@
       <artifactId>fxloop-protocol</artifactId>
     </dependency>
     <dependency>
+      <groupId>dev.fxloop</groupId>
+      <artifactId>fxloop-launch</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.jetbrains.kotlin</groupId>
       <artifactId>kotlin-stdlib</artifactId>
     </dependency>
@@ -52,6 +56,20 @@
     <dependency>
       <groupId>dev.fxloop</groupId>
       <artifactId>fxloop-agent</artifactId>
+      <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- TEMPORARY (removed after Central publishing, PRD 10 A-R5): bundled for the seed-local-repo command; ordering only. -->
+    <dependency>
+      <groupId>dev.fxloop</groupId>
+      <artifactId>fxloop-maven-plugin</artifactId>
+      <version>${project.version}</version>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
@@ -103,7 +121,150 @@
               <overWriteSnapshots>true</overWriteSnapshots>
             </configuration>
           </execution>
+          <!-- BEGIN plugin-free Gradle prepare (PRD 11 4.2): runtime jars of the bundled Gradle plugin -->
+          <execution>
+            <id>bundle-gradle-plugin-deps</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <includeArtifactIds>fxloop-protocol,fxloop-launch,asm,kotlin-stdlib,jackson-databind,jackson-core,jackson-annotations</includeArtifactIds>
+              <stripVersion>true</stripVersion>
+              <outputDirectory>${project.build.outputDirectory}/dev/fxloop/server/gradle</outputDirectory>
+            </configuration>
+          </execution>
+          <!-- END plugin-free Gradle prepare -->
+          <!-- TEMPORARY (PRD 10 A-R5): artifacts for the seed-local-repo command, see SeedLocalRepo.kt. -->
+          <execution>
+            <id>bundle-seed</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>dev.fxloop</groupId>
+                  <artifactId>fxloop-parent</artifactId>
+                  <version>${project.version}</version>
+                  <type>pom</type>
+                  <destFileName>fxloop-parent.pom</destFileName>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>dev.fxloop</groupId>
+                  <artifactId>fxloop-protocol</artifactId>
+                  <version>${project.version}</version>
+                  <type>pom</type>
+                  <destFileName>fxloop-protocol.pom</destFileName>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>dev.fxloop</groupId>
+                  <artifactId>fxloop-protocol</artifactId>
+                  <version>${project.version}</version>
+                  <type>jar</type>
+                  <destFileName>fxloop-protocol.jar</destFileName>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>dev.fxloop</groupId>
+                  <artifactId>fxloop-launch</artifactId>
+                  <version>${project.version}</version>
+                  <type>pom</type>
+                  <destFileName>fxloop-launch.pom</destFileName>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>dev.fxloop</groupId>
+                  <artifactId>fxloop-launch</artifactId>
+                  <version>${project.version}</version>
+                  <type>jar</type>
+                  <destFileName>fxloop-launch.jar</destFileName>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>dev.fxloop</groupId>
+                  <artifactId>fxloop-agent</artifactId>
+                  <version>${project.version}</version>
+                  <type>pom</type>
+                  <destFileName>fxloop-agent.pom</destFileName>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>dev.fxloop</groupId>
+                  <artifactId>fxloop-agent</artifactId>
+                  <version>${project.version}</version>
+                  <type>jar</type>
+                  <destFileName>fxloop-agent.jar</destFileName>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>dev.fxloop</groupId>
+                  <artifactId>fxloop-maven-plugin</artifactId>
+                  <version>${project.version}</version>
+                  <type>pom</type>
+                  <destFileName>fxloop-maven-plugin.pom</destFileName>
+                </artifactItem>
+                <artifactItem>
+                  <groupId>dev.fxloop</groupId>
+                  <artifactId>fxloop-maven-plugin</artifactId>
+                  <version>${project.version}</version>
+                  <type>jar</type>
+                  <destFileName>fxloop-maven-plugin.jar</destFileName>
+                </artifactItem>
+              </artifactItems>
+              <outputDirectory>${project.build.outputDirectory}/dev/fxloop/server/seed</outputDirectory>
+              <overWriteSnapshots>true</overWriteSnapshots>
+            </configuration>
+          </execution>
         </executions>
+      </plugin>
+      <!-- BEGIN plugin-free Gradle prepare (PRD 11 4.2): the Gradle plugin jar itself (runtime jars: see maven-dependency-plugin above).
+           BUILD ORDER: the Gradle plugin is built by Gradle, so for it to be inside this jar run
+             ./mvnw install -DskipTests && ./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin publishToMavenLocal
+           and THEN build this module again. If the plugin jar is absent the build still succeeds; the server then
+           reports "lacks the bundled Gradle plugin" when asked to prepare a Gradle project that does not apply dev.fxloop. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>bundle-gradle-plugin</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <mkdir dir="${project.build.outputDirectory}/dev/fxloop/server/gradle"/>
+                <copy file="${settings.localRepository}/dev/fxloop/fxloop-gradle-plugin/${project.version}/fxloop-gradle-plugin-${project.version}.jar"
+                      tofile="${project.build.outputDirectory}/dev/fxloop/server/gradle/fxloop-gradle-plugin.jar"
+                      failonerror="false" overwrite="true"/>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- END plugin-free Gradle prepare -->
+      <plugin>
+        <groupId>io.github.git-commit-id</groupId>
+        <artifactId>git-commit-id-maven-plugin</artifactId>
+        <version>9.0.1</version>
+        <executions>
+          <execution>
+            <id>git-commit</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>revision</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <!-- No .git (source tarball): the property stays at its default and the version output prints "unknown". -->
+          <failOnNoGitDirectory>false</failOnNoGitDirectory>
+          <failOnUnableToExtractRepoInfo>false</failOnUnableToExtractRepoInfo>
+          <generateGitPropertiesFile>false</generateGitPropertiesFile>
+          <abbrevLength>10</abbrevLength>
+          <includeOnlyProperties>
+            <includeOnlyProperty>^git.commit.id.abbrev$</includeOnlyProperty>
+          </includeOnlyProperties>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -115,6 +276,7 @@
             </manifest>
             <manifestEntries>
               <Implementation-Version>${project.version}</Implementation-Version>
+              <Implementation-Build>${git.commit.id.abbrev}</Implementation-Build>
             </manifestEntries>
           </archive>
         </configuration>

@@ -1,4 +1,4 @@
-package dev.fxloop.maven
+package dev.fxloop.launch
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -19,11 +19,5 @@ class JavaFxModulesTest {
             "javafx-controls", "javafx-controls", "javafx-graphics", "javafx-graphics", "javafx-base", "javafx-base",
         )
         assertThat(JavaFxModules.moduleNames(ids)).containsExactly("javafx.controls", "javafx.graphics", "javafx.base")
-    }
-
-    @Test
-    fun parsesModuleInfoName() {
-        assertThat(PrepareMojo.parseModuleName("/* module fake { */\n// module x {\nopen module my.app {\n requires a; }"))
-            .isEqualTo("my.app")
     }
 }

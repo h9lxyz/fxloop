@@ -35,48 +35,95 @@ class BuildTool(private val config: Config) {
         else addAll(listOf("-q", "-p", config.projectDir.toString(), "-Dorg.gradle.daemon.idletimeout=$GRADLE_DAEMON_IDLE_MS"))
     }
 
-    /** Compiles and emits launch.json; Maven falls back to the PoC classpath pipeline when the plugin is unavailable. */
+    /** Which prepare produced the current launch.json: `plugin` (fxloop build plugin) or `server` (plugin-free, PRD 11 4.2). */
+    @Volatile var prepareRoute: String? = null
+        private set
+
+    /**
+     * Compiles and emits launch.json. The build plugin wins when present; otherwise the server does the plugin's
+     * job itself ([MavenPrepare], [GradlePrepare]) and records `prepare: server`.
+     */
     fun prepare(): LaunchDescriptor {
         val launch = fxloopDir.resolve(LaunchDescriptor.FILE_NAME)
         if (!config.prepare) return read(launch)
-        val cmd = base()
-        if (kind == Kind.MAVEN) {
-            cmd += listOf("-DskipTests", "compile", "dev.fxloop:fxloop-maven-plugin:${Versions.SERVER}:prepare")
-            config.mainClass?.let { cmd += "-Dfxloop.mainClass=$it" }
-        } else {
-            cmd += listOf("classes", "fxloopPrepare")
-        }
-        val r = run(cmd, 600)
-        if (r.exit != 0) {
-            if (kind == Kind.MAVEN && "fxloop-maven-plugin" in r.output) {
-                log.info("fxloop-maven-plugin unavailable; falling back to dependency:build-classpath")
-                return classpathFallback()
+        return if (kind == Kind.MAVEN) prepareMaven(launch) else prepareGradle(launch)
+    }
+
+    private fun prepareMaven(launch: Path): LaunchDescriptor {
+        if (config.prepareRoute != "server") {
+            val cmd = base().apply {
+                addAll(listOf("-DskipTests", "compile", "dev.fxloop:fxloop-maven-plugin:${Versions.SERVER}:prepare"))
+                config.mainClass?.let { add("-Dfxloop.mainClass=$it") }
             }
-            throw ToolException("BUILD_FAILED", "build failed (exit ${r.exit}):\n${r.tail(40)}",
-                "fix the build error above (once the app runs, fx_reload returns compile errors as data)")
+            val r = run(cmd, 600)
+            if (r.exit == 0) return read(launch).also { prepareRoute = "plugin" }
+            if (config.prepareRoute == "plugin" || !pluginUnresolvable(r.output)) failed(r)
+            log.info("prepare: fxloop-maven-plugin unavailable; the server prepares the project itself")
         }
+        return prepareMavenInServer()
+    }
+
+    private fun prepareMavenInServer(): LaunchDescriptor {
+        val pomFile = config.projectDir.resolve("pom.xml")
+        Files.createDirectories(fxloopDir)
+        val r = run(base() + MavenPrepare.goals(fxloopDir, pomFile), 600)
+        if (r.exit != 0) failed(r)
+        val d = try {
+            val pom = MavenPrepare.loadPom(fxloopDir, pomFile)
+            MavenPrepare.describe(config.projectDir, pom, MavenPrepare.readClasspath(fxloopDir), config.mainClass)
+        } catch (e: IOException) {
+            throw ToolException("BUILD_FAILED", "cannot read the Maven build model: ${e.message}", "check that mvn runs: ${command.joinToString(" ")} -v")
+        } catch (e: org.xml.sax.SAXException) {
+            throw ToolException("BUILD_FAILED", "cannot parse the effective POM: ${e.message}", "delete ${fxloopDir.resolve(MavenPrepare.EFFECTIVE_POM)} and retry")
+        }
+        d.writeTo(fxloopDir.resolve(LaunchDescriptor.FILE_NAME))
+        prepareRoute = "server"
+        log.info("prepare: server (mainClass={}, classpath={}, modulePath={})", d.mainClass, d.classpath.size, d.modulePath.size)
+        return d
+    }
+
+    private fun prepareGradle(launch: Path): LaunchDescriptor {
+        val applied = config.prepareRoute == "plugin" ||
+            (config.prepareRoute != "server" && GradlePrepare.pluginApplied(config.projectDir))
+        if (applied) {
+            val r = run(base() + listOf("classes", "fxloopPrepare"), 600)
+            if (r.exit == 0) return read(launch).also { prepareRoute = "plugin" }
+            if (config.prepareRoute == "plugin" || !GradlePrepare.taskMissing(r.output)) failed(r)
+            log.info("prepare: the project does not apply dev.fxloop; the server applies it through an init script")
+        }
+        val r = run(base() + gradleInit() + listOf("classes", "fxloopPrepare"), 600)
+        if (r.exit != 0) {
+            // the plugin was applied some way the grep missed (convention plugin, buildSrc): the plain run is right
+            if (config.prepareRoute != "server" && GradlePrepare.duplicateTask(r.output)) {
+                val again = run(base() + listOf("classes", "fxloopPrepare"), 600)
+                if (again.exit == 0) return read(launch).also { prepareRoute = "plugin" }
+                failed(again)
+            }
+            failed(r)
+        }
+        prepareRoute = "server"
+        log.info("prepare: server (Gradle init script)")
         return read(launch)
     }
 
-    private fun classpathFallback(): LaunchDescriptor {
-        val main = config.mainClass ?: throw ToolException("CONFIG", "FXLOOP_MAIN_CLASS is required without fxloop-maven-plugin",
-            "set FXLOOP_MAIN_CLASS or install dev.fxloop:fxloop-maven-plugin")
-        val cpFile = fxloopDir.resolve("cp.txt")
-        val r = run(base() + listOf("-DskipTests", "compile", "dependency:build-classpath", "-Dmdep.outputFile=$cpFile",
-            "-Dmdep.pathSeparator=${File.pathSeparator}", "-Dmdep.includeScope=runtime"), 600)
-        if (r.exit != 0) throw ToolException("BUILD_FAILED", "build failed (exit ${r.exit}):\n${r.tail(40)}", "fix the build")
-        val cp = Files.readString(cpFile).trim()
-        val dir = config.projectDir
-        return LaunchDescriptor(
-            buildTool = "maven", mainClass = main,
-            classpath = if (cp.isEmpty()) emptyList() else cp.split(File.pathSeparator),
-            workingDir = dir.toString(),
-            sourceRoots = listOf(dir.resolve("src/main/java").toString()),
-            resourceRoots = listOf(dir.resolve("src/main/resources").toString()),
-            outputDir = dir.resolve("target/classes").toString(),
-            release = Runtime.version().feature().toString(),
-        ).also { it.writeTo(fxloopDir.resolve(LaunchDescriptor.FILE_NAME)) }
+    private fun gradleInit(): List<String> {
+        val jars = try {
+            GradlePrepare.extract(GradlePrepare.defaultCacheDir(Versions.SERVER))
+        } catch (e: ToolException) {
+            if (e.message?.startsWith("cannot extract") != true) throw e
+            GradlePrepare.extract(fxloopDir.resolve("gradle"))
+        }
+        val script = GradlePrepare.writeInitScript(fxloopDir.resolve(GradlePrepare.INIT_SCRIPT), jars)
+        return listOf("--init-script", script.toString())
     }
+
+    internal fun pluginUnresolvable(output: String): Boolean = "fxloop-maven-plugin" in output &&
+        listOf("could not be resolved", "Could not find artifact", "Could not transfer", "No plugin found", "PluginResolutionException")
+            .any { it in output }
+
+    private fun failed(r: Result): Nothing =
+        throw ToolException("BUILD_FAILED", "build failed (exit ${r.exit}):\n${r.tail(40)}",
+            "fix the build error above (once the app runs, fx_reload returns compile errors as data)")
 
     /** Full compile through the build tool (annotation-processor fallback, PRD 02 §3). */
     fun compile(): Result = run(base() + if (kind == Kind.MAVEN) listOf("-o", "-DskipTests", "compile") else listOf("--offline", "classes"), 600)

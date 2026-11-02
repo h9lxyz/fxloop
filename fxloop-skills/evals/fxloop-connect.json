@@ -14,6 +14,10 @@
         "a screenshot labeled connect-first-look exists under target/fxloop/screens and its path is cited",
         "CLAUDE.md contains a '## FXLoop' section mentioning the main class and screenshot directory",
         "the report says .kt edits compile through the build tool (or external-compile) and lists what was added and how to undo",
+        "no FxloopBootstrap.java or other source file was written to ~/.fxloop/; only fxloop-server.jar and server caches",
+        "java -jar <jar> doctor was run before any file was written",
+        "the MCP entry is java -jar with an absolute jar path, fxloop.properties (if needed) was written before it, and exactly one reload was requested",
+        "the report's undo section lists the MCP entry, the build-file hunks and ~/.fxloop/",
         "no git commit was created; edits are unstaged"
       ]
     },
@@ -36,7 +40,7 @@
       "files": [],
       "expectations": [
         "build.gradle.kts has id(\"dev.fxloop\") version matching the fxloop-connect skill",
-        "settings.gradle.kts pluginManagement includes mavenLocal() (SNAPSHOT version)",
+        "settings.gradle.kts pluginManagement includes mavenLocal() (SNAPSHOT version), after --seed-local-repo was run",
         "fxloopGuard task registered and wired before jar",
         "the app launches and a screenshot is cited"
       ]
@@ -49,7 +53,7 @@
       "files": [],
       "expectations": [
         "fxloop.properties at the workspace root contains project-dir=app",
-        "the agent asks the developer to reconnect the fxloop MCP server before launching",
+        "fxloop.properties was written before the MCP config, so one reload is requested before launching",
         "only app/pom.xml gets the fxloop plugin, not the aggregator"
       ]
     }

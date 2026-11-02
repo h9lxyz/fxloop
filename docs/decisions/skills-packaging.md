@@ -1,6 +1,6 @@
 # Decision: skills ship as plain skill folders, not a Claude Code plugin
 
-**Status:** accepted 2026-10-31. Supersedes the packaging in PRD 06 §3.1 and §7 (plugin, `.mcp.json` in the plugin,
+**Status:** accepted 2026-10-31. The bootstrap part is superseded by PRD 11 (see the note below). Supersedes the packaging in PRD 06 §3.1 and §7 (plugin, `.mcp.json` in the plugin,
 marketplace).
 
 ## Context
@@ -30,3 +30,11 @@ install mechanism, while the skills themselves are agent-neutral: they call MCP 
 - No plugin hooks (PRD 06 §7 mentioned an optional SessionStart hook; it was never built).
 - Only the Claude Code config is exercised in this repository. The other clients' formats follow their docs and are
   flagged as such in `mcp-clients.md`.
+
+## Update 2026-11-02: bootstrap superseded
+
+[PRD 11](../11-prd-onboarding.md) removes `FxloopBootstrap.java`. `fxloop-connect` now downloads
+`fxloop-server.jar` from the GitHub release (`edge` for a SNAPSHOT) into `~/.fxloop/`, runs `doctor`, and writes an
+MCP entry of `java -jar <absolute jar path>`. Nothing else goes into the home directory. Skills are installed from
+the `fxloop-skills.zip` release asset. The decision above (plain folders, one reference source, version pinned in the
+frontmatter) stands; the original text is kept for the record.

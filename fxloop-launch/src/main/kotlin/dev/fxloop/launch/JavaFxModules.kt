@@ -1,4 +1,4 @@
-package dev.fxloop.maven
+package dev.fxloop.launch
 
 /** Derives JavaFX module names from `org.openjfx` artifact ids. */
 object JavaFxModules {

@@ -449,6 +449,7 @@ class AppSession(val config: Config) {
         descriptor?.let {
             s.put("mainClass", it.mainClass)
             s.put("buildTool", it.buildTool)
+            build.prepareRoute?.let { r -> s.put("prepare", r) }
         }
         s.put("uiErrors", errors.lastSeq())
         return s
