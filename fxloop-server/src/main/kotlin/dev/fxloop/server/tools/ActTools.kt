@@ -57,7 +57,10 @@ object ActTools {
 
         reg.tool("fx_set_property", "Set property", Kind.WRITE,
             "Write a JavaFX property (coerces strings to boolean/number/enum/Color/Insets). Bound properties fail with " +
-                "PROPERTY_BOUND — write to the binding's source instead.",
+                "PROPERTY_BOUND — write to the binding's source instead. name may also be a layout constraint key " +
+                "(value \"\" or null clears it): HBox.hgrow|margin, VBox.vgrow|margin, GridPane.columnIndex|rowIndex|columnSpan|" +
+                "rowSpan|halignment|valignment|hgrow|vgrow|margin, AnchorPane.topAnchor|rightAnchor|bottomAnchor|leftAnchor, " +
+                "BorderPane.alignment|margin, StackPane.alignment|margin, FlowPane.margin, TilePane.alignment|margin.",
             Schema.obj().target().str("name", "Property name; window.<name> targets the node's Stage, e.g. window.width / window.height to resize it").any("value", "New value").effects().required("name", "value")) { a ->
             ctx.action("fx_set_property", Fcp.Method.SET_PROPERTY, a) { r ->
                 "${r.path("path").asText()}.${r.path("name").asText()}: ${r.path("valueBefore")} → ${r.path("valueAfter")}"

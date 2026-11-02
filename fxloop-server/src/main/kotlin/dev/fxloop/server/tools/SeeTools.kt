@@ -34,7 +34,10 @@ object SeeTools {
             val include = a.path("includeImage").asBoolean(true)
             listOf("label", "includeImage").forEach(a::remove)
             val c = v.capture(a, label)
+            val forced = c.meta.path("forcedStates").takeIf { it.isObject }
             val result = ok("saved ${c.meta["file"].asText()} (${c.frame.w}x${c.frame.h}, ${c.frame.bytes / 1024} KB)" +
+                (forced?.let { " [forced states on ${it.path("target").path("path").asText(it.path("target").asText("a node"))}: " +
+                    it.path("forced").joinToString { f -> f.asText() } + " — the developer holds them in the inspector]" } ?: "") +
                 (c.meta["legend"]?.let { l -> "\nlegend:" + l.joinToString("") { "\n  [${it["n"]}] ${it["path"].asText()}" +
                     (it["text"]?.let { t -> " '${t.asText()}'" } ?: "") } } ?: ""), c.meta)
             if (include) result.image(c.png) else result

@@ -68,6 +68,7 @@ agent losing its connection. Your app needs no FXLoop dependency: the agent is i
 | Tool | For |
 |---|---|
 | [`fx_lint_visual`](tools.md#fx_lint_visual) | Truncated text, overlapping siblings, zero-size or off-screen nodes, low contrast (WCAG ratio) |
+| [`fx_lint_css`](tools.md#fx_lint_css) | Unused rules, misspelt classes/ids and parse errors in the open windows' stylesheets, with `file:line` |
 | [`fx_lint_fxml`](tools.md#fx_lint_fxml) | FXML vs. controller mismatches (missing `fx:id` fields, wrong types, missing handlers, bad imports), with line numbers, before the app even starts |
 | [`fx_get_ui_errors`](tools.md#fx_get_ui_errors) | Uncaught exceptions on the FX Application Thread, deduplicated |
 | [`fx_get_logs`](tools.md#fx_get_logs) | The app's stdout/stderr and, optionally, its `java.util.logging` records |

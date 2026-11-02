@@ -60,5 +60,8 @@ that proves the finding, and exact values. Never "looks a bit off" without a num
 
 - `fx_lint_visual` is heuristic. Before reporting, confirm a surprising finding with an explain tool or a zoomed node
   shot. Drop it if it doesn't hold up, and say what you dropped.
+- Low severity: `fx_lint_css` (`windowIndex` for one window) reports stylesheet rules that match nothing, misspelt
+  classes/ids and parse errors with `file:line`. List them as **Low** findings; they may style a screen that is not
+  open, so say which windows were showing.
 - Big trees: lint a subtree (`path`/`query`) and page with `offset`.
 - Don't resize the window or switch locale here. That's the `fxloop-responsive` skill.

@@ -43,14 +43,16 @@ object LoopTools {
                 .bool("remount", "Rebuild registered views after a HotSwap (default true)")
                 .bool("carryState", "Carry view state (selection, scroll, text, …) across a remount/FXML swap (default true)")
                 .bool("restartWhenHumanActive", "Restart even while the developer is using the app (default false: the restart is deferred)")
-                .bool("clearScratch", "Remove the inspector's scratch CSS (fx_get_app_status.scratchCss) once you have applied it " +
-                    "to the stylesheets; the css visualDiff then compares scratch vs. source (default false)")
+                .bool("clearScratch", "Remove the inspector's scratch CSS (fx_get_app_status.scratchCss) and revert its scratch property " +
+                    "edits (scratchProps) once you have applied them to the sources; the css visualDiff then compares scratch vs. " +
+                    "source (default false)")
                 .effects()) { a ->
             s.ensureStarted()
             if (s.mode == AppSession.Mode.ATTACHED) {
                 guardLive { ctx.live.setActionNeeded(listOf(ActionNeeded("attachedEdits",
                     "Edits don't apply live when attached · relaunch with FXLoop or your IDE", "Relaunch with FXLoop or your IDE"))) }
             }
+            if (a.path("clearScratch").asBoolean(false)) runCatching { ctx.clearScratchProps() }
             val effectsOn = a.path("effects").asBoolean(true)
             val before = if (effectsOn) runCatching { ctx.snapshot() }.getOrNull() else null
             val files = a["files"]?.map { it.asText() }
@@ -94,6 +96,17 @@ object LoopTools {
             Schema.obj().strEnum("mode", "css-only | all | off", "css-only", "all", "off").required("mode")) { a ->
             ctx.applyWatchMode(a["mode"].asText())
             ok("watch mode ${ctx.watch.mode}", Json.obj { put("mode", ctx.watch.mode) })
+        }
+
+        reg.tool("fx_lint_css", "Lint CSS", Kind.READ,
+            "Dead, broken and misspelt rules in the author stylesheets of the open windows: unused (the rule's selectors match no " +
+                "node in the open windows), unknownSelectors (a style class or #id no node has, e.g. .bttn), and parse errors per " +
+                "sheet, all with file:line. Low severity: a rule may style a screen that is not open, so open the other screens " +
+                "(or pass windowIndex) before deleting anything. Pseudo-classes are ignored when matching.",
+            Schema.obj().integer("windowIndex", "One window (default: every showing window)", 0, 64)) { a ->
+            s.ensureStarted()
+            val r = s.call(Fcp.Method.CSS_LINT, ctx.withCssRoots(a)) as ObjectNode
+            ok(lintCssText(r), r)
         }
 
         reg.tool("fx_lint_fxml", "Lint FXML", Kind.READ,
@@ -243,9 +256,12 @@ object WhyTools {
             "CSS-styled properties of a node with their origin (USER_AGENT/AUTHOR/INLINE/USER), inline style, style " +
                 "classes, pseudo-classes and candidate stylesheets along the parent chain. With rules (default) each property " +
                 "also names the winner rule (selector, file:line), the overridden rules with reasons (all of them when " +
-                "property is given) and blockers that stop an override (inline style, !important, code-set value). Paginated.",
+                "property is given) and blockers that stop an override (inline style, !important, code-set value). With " +
+                "states=[\"hover\"] the cascade is simulated as if those pseudo-classes were set (nothing changes on the node; " +
+                "items carry simulation:\"assumed\"). Paginated.",
             Schema.obj().target().str("property", "One CSS property, e.g. -fx-text-fill").integer("limit", "Page size", 1, 200)
                 .integer("offset", "Page offset")
+                .strArray("states", "Pseudo-classes to assume, without the colon, e.g. [\"hover\",\"focused\"]")
                 .bool("rules", "Rule-level cascade: winner rule with file:line, overridden rules with reasons, blockers (default true). false = origin-only output as before")) { a ->
             val r = s.call(Fcp.Method.EXPLAIN_STYLE, ctx.withCssRoots(a)) as ObjectNode
             ok(r["items"].joinToString("\n") { styleLine(it) }
@@ -286,7 +302,7 @@ object WhyTools {
             "Why is it there/that size? layout/parent/screen bounds, insets, min/pref/max sizes, parent constraints " +
                 "(grow, margins, anchors, grid cell) and anomaly hints (unmanaged, translated, below pref width).",
             Schema.obj().target()) { a ->
-            val r = s.call(Fcp.Method.EXPLAIN_LAYOUT, a) as ObjectNode
+            val r = s.call(Fcp.Method.EXPLAIN_LAYOUT, ctx.withCssRoots(a)) as ObjectNode
             ok(Json.pretty(r), r)
         }
         if (ctx.config.webview) {
@@ -306,6 +322,20 @@ private fun blockerText(b: com.fasterxml.jackson.databind.JsonNode) =
     "${b.path("kind").asText()}: ${b.path("cause").asText()}" + b.path("next").asText(null)?.let { " -> $it" }.orEmpty()
 
 /** One text line per explain-style item: rule-level when the agent sent a winner, origin-only otherwise. */
+/** Text summary of a `cssLint` result: one line per finding with `file:line`. */
+internal fun lintCssText(r: JsonNode): String {
+    fun at(it: JsonNode) = it.path("file").asText("?") + ":" + (it.path("line").takeIf { l -> l.isInt }?.asText() ?: "?")
+    val unused = r.path("unused")
+    val unknown = r.path("unknownSelectors")
+    val errors = r.path("sheets").flatMap { sh -> sh.path("errors").map { e -> sh.path("file").asText(sh.path("url").asText("?")) to e } }
+    return "${unused.size()} unused rule(s), ${unknown.size()} unknown selector(s), ${errors.size} parse error(s) in " +
+        "${r.path("sheets").size()} sheet(s) over ${r.path("nodes").asInt()} node(s)" +
+        unused.joinToString("") { "\n  unused ${at(it)} ${it.path("selector").asText()}" } +
+        unknown.joinToString("") { "\n  unknown ${at(it)} ${it.path("selector").asText()} (no node has ${it.path("unknown").joinToString { u -> u.asText() }})" } +
+        errors.joinToString("") { (f, e) -> "\n  error $f:${e.path("line").takeIf { l -> l.isInt }?.asText() ?: "?"} ${e.path("message").asText()}" } +
+        (r.path("note").asText(null)?.let { "\n$it" } ?: "")
+}
+
 internal fun styleLine(it: com.fasterxml.jackson.databind.JsonNode): String {
     val base = "${it["cssProperty"].asText()} = ${it["value"]} [${it["origin"].asText()}]"
     val w = it.path("winner")
