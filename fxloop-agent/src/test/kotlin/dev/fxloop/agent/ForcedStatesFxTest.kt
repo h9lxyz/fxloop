@@ -34,6 +34,7 @@ class ForcedStatesFxTest {
         a = Button("A").apply { id = "a"; setOnAction { } }
         b = Button("B").apply { id = "b" }
         stage.scene = Scene(VBox(a, b), 300.0, 200.0)
+        stage.scene.stylesheets.add("data:text/css,%23a%7B-fx-background-color:%23dddddd;%7D%23a:hover%7B-fx-background-color:%23ff9900;%7D")
         stage.show()
     }
 
@@ -122,5 +123,14 @@ class ForcedStatesFxTest {
         assertThat(fx { Overlay.isShown() }).isTrue()
         val single = fx { Overlay.highlight(Json.obj().put("path", NodePath.of(a))) }
         assertThat(single.path("shown").asBoolean()).isTrue()
+    }
+
+    @Test
+    fun screenshotRendersForcedState() {
+        force(a, "hover")
+        val shot = Snapshots.screenshot(Json.obj().put("path", NodePath.of(a)).put("target", "node").put("settleMs", 0))
+        val img = javax.imageio.ImageIO.read(java.io.ByteArrayInputStream(java.util.Base64.getDecoder().decode(shot["pngB64"].asText())))
+        val rgb = img.getRGB(img.width / 2, 2) and 0xffffff
+        assertThat(Integer.toHexString(rgb)).isEqualTo("ff9900")
     }
 }

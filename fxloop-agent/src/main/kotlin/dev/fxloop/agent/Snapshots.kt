@@ -48,6 +48,9 @@ internal object Snapshots {
             val window: Window
             if ("node" == target) {
                 node = Targets.resolve(p)
+                if (p.path("requireShown").asBoolean(false)) {
+                    NodeInfo.notShownReason(node)?.let { throw FcpException(Fcp.Error.UNSUPPORTED_TARGET, "not rendered: $it") }
+                }
                 val b = node.localToScreen(node.boundsInLocal)
                     ?: throw FcpException(Fcp.Error.UNSUPPORTED_TARGET, "node is not showing; cannot snapshot")
                 originX = b.minX

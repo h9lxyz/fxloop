@@ -723,6 +723,7 @@ function renderStyles(){
   if (chips.firstChild) info.appendChild(chips);
   if (d.inlineStyle) info.appendChild(el('div', 'inl mono', 'style: ' + d.inlineStyle));
   side.appendChild(thumbImg);
+  side.appendChild(thumbNote);
   var sb = el('button', 'linkb', state.stripOpen ? 'Hide states strip' : 'States strip');
   sb.title = 'Render the node in each state (hover, focused, pressed, disabled)';
   sb.addEventListener('click', toggleStrip);
@@ -2161,8 +2162,15 @@ function stateRow(){
 // --- G7 thumbnail and states strip
 var thumbImg = new Image(), thumbSeq = 0, thumbStale = false, thumbTimer;
 thumbImg.className = 'thumb'; thumbImg.alt = 'Node as it looks in the app'; thumbImg.style.display = 'none';
-thumbImg.addEventListener('load', function(){ thumbImg.style.display = ''; });
-thumbImg.addEventListener('error', function(){ thumbImg.style.display = 'none'; });
+// a node the app does not render (a hidden tab, an invisible ancestor) has no honest picture: say so instead
+var thumbNote = el('div', 'stnote');
+thumbImg.addEventListener('load', function(){ thumbImg.style.display = ''; thumbNote.textContent = ''; });
+thumbImg.addEventListener('error', function(){
+  thumbImg.style.display = 'none';
+  var hidden = ((state.layout && state.layout.hints) || []).some(function(h){ return /^not rendered/.test(String(h)); });
+  thumbNote.textContent = hidden ? 'not rendered in the app' : '';
+  thumbNote.title = hidden ? 'The node or an ancestor is hidden (an unselected tab?), so a picture of it would be stale' : '';
+});
 function refreshThumb(){
   clearTimeout(thumbTimer);
   thumbTimer = setTimeout(function(){

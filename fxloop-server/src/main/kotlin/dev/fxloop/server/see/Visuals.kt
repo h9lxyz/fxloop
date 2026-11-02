@@ -89,10 +89,13 @@ class Visuals(private val session: AppSession, val store: ScreenStore, private v
         return Capture(f, png, out)
     }
 
-    /** PNG of one node (`target`: handle or path) at most [maxWidth] px wide, for the inspector; not persisted. */
+    /**
+     * PNG of one node (`target`: handle or path) at most [maxWidth] px wide, for the inspector; not persisted. Fails for
+     * a node the app does not render (an unselected tab), whose picture would be stale.
+     */
     fun nodePng(target: ObjectNode, maxWidth: Int): ByteArray {
         throttle()
-        val p = target.deepCopy().apply { put("target", "node"); put("maxWidth", maxWidth) }
+        val p = target.deepCopy().apply { put("target", "node"); put("maxWidth", maxWidth); put("requireShown", true) }
         return Base64.getDecoder().decode(session.call(Fcp.Method.SCREENSHOT, p, 15_000)["pngB64"].asText())
     }
 
