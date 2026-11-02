@@ -31,6 +31,9 @@ nav:
       - Skills PRD: 06-prd-skills.md
       - Live dev loop PRD: 07-prd-live-dev.md
       - CSS inspector PRD: 08-prd-css-inspector.md
+      - Inspector v2 PRD: 09-prd-inspector-v2.md
+      - Release PRD: 10-prd-release.md
+      - Onboarding PRD: 11-prd-onboarding.md
   - Decisions:
       - FXML load registry: decisions/fxml-load-registry.md
       - Kotlin tooling: decisions/kotlin.md
