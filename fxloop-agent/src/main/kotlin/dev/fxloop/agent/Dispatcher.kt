@@ -65,7 +65,7 @@ internal class Dispatcher(private val rt: AgentRuntime) {
         handlers[Method.REMOUNT_VIEWS] = { p -> rt.mounts.remount(p) }
         handlers[Method.SET_BAR_STATE] = { p ->
             p["config"]?.let(rt.human::configure)
-            rt.bar.applyState(p)
+            rt.bar.post(p)
         }
         handlers[Method.GET_BAR_STATE] = { Fx.call { rt.bar.describe() } }
         handlers[Method.GET_PICKED] = { p -> rt.pick.get(p) }

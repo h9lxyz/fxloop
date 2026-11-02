@@ -25,7 +25,7 @@ Methods (server → agent):
 |---|---|---|
 | `remountViews` | `{remount=true, carryState=true, restage=false}` | `{mounts, remounted:[key], skipped:[{key,reason}], failed:[{key,error}], stateCarried:{restored,skipped:[{path,reason}]}, callbacks:{ran, failed:[{error}]}, restaged?, restageError?}` |
 | `reloadFxml` | gains `carryState` (default true) | each `swapped[]` entry gains `stateCarried`; top level gains merged `stateCarried` |
-| `setBarState` | full bar state, see below | `getBarState` result |
+| `setBarState` | full bar state, see below | `{queued:true}` — applied on the FX thread without waiting for it (states pushed while it is busy coalesce to the latest), so a blocked FX thread never holds back the next request; read `getBarState` for what renders |
 | `getBarState` | — | debug view of what the bar renders: `{bar, rendered, windows, texts:{session,lastReload,actionNeeded}, controlHistory:[…], collapsed}` |
 | `getPicked` | — | `{target, details, explain, ageMs, windowOrigin, outputScale, w, h, pngB64}` or error `PICK_STALE` |
 | `setPickMode` | `{on, windowIndex?}` | `{active}` |

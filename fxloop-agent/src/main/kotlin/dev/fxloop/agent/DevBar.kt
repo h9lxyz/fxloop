@@ -7,6 +7,7 @@ import dev.fxloop.protocol.Json
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.atomic.AtomicReference
 import javafx.animation.PauseTransition
 import javafx.application.Platform
 import javafx.beans.InvalidationListener
@@ -42,6 +43,7 @@ class DevBar(private val rt: AgentRuntime) {
     private class Action(val kind: String, val reason: String, val next: String, val button: String)
 
     private val lock = Any()
+    private val posted = AtomicReference<ObjectNode?>()
     private var state: ObjectNode = Json.obj().put("bar", "off")
     private var bar = "off"
     private var control = "agent"
@@ -65,7 +67,28 @@ class DevBar(private val rt: AgentRuntime) {
         }
     } }
 
-    /** FCP `setBarState` (the full state, see docs/decisions/live-dev-loop.md). Returns [describe]. */
+    /**
+     * FCP `setBarState`: queues [applyState] on the FX thread and returns without waiting for it. The agent serves
+     * requests on one worker, so waiting here on a busy or blocked FX thread would hold back the tool call queued behind
+     * this push and leave it a timed-out call to wait out ([Fx.call]): a cosmetic push must never cost a tool its
+     * timeout or its FX_TIMEOUT stack. Pushes made while the FX thread is busy coalesce to the latest state.
+     */
+    internal fun post(p: ObjectNode): ObjectNode {
+        if (posted.getAndSet(p) == null) {
+            Platform.runLater {
+                posted.getAndSet(null)?.let { s ->
+                    try {
+                        applyState(s)
+                    } catch (e: RuntimeException) {
+                        AgentLog.warn("setBarState failed", e)
+                    }
+                }
+            }
+        }
+        return Json.obj().put("queued", true)
+    }
+
+    /** Applies the full bar state (see docs/decisions/live-dev-loop.md). Returns [describe]. */
     internal fun applyState(p: ObjectNode): ObjectNode = Fx.call {
         synchronized(lock) {
             state = p.deepCopy()

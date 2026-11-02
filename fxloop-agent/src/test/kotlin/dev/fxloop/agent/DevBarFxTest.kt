@@ -1,7 +1,11 @@
 package dev.fxloop.agent
 
 import com.fasterxml.jackson.databind.node.ObjectNode
+import dev.fxloop.protocol.Fcp
 import dev.fxloop.protocol.Json
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import javafx.application.Platform
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.layout.VBox
@@ -136,6 +140,25 @@ class DevBarFxTest {
         assertThat(rt.human.locked).isFalse()
         assertThat(after.path("texts").path("activity").asText()).isEmpty()
         assertThat(after.path("texts").path("session").asText()).contains("you can interact")
+    }
+
+    @Test
+    fun setBarStateDoesNotWaitForABlockedFxThread() {
+        // the agent serves requests on one worker: a push that waited here would hold back the tool call behind it
+        val dispatcher = Dispatcher(rt)
+        val release = CountDownLatch(1)
+        Platform.runLater { release.await(10, TimeUnit.SECONDS) }
+        try {
+            val t0 = System.nanoTime()
+            dispatcher.dispatch(Fcp.Method.SET_BAR_STATE, state("on") { put("activity", "clicking Button#ok") })
+            val r = dispatcher.dispatch(Fcp.Method.SET_BAR_STATE, state("on") { put("activity", "reading the scene graph") })
+            assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - t0)).isLessThan(1000)
+            assertThat(r.path("queued").asBoolean()).isTrue()
+        } finally {
+            release.countDown()
+        }
+        // applied once the FX thread is free; pushes made while it was blocked coalesce to the latest
+        assertThat(fx { rt.bar.describe() }.path("texts").path("activity").asText()).isEqualTo("reading the scene graph")
     }
 
     @Test
