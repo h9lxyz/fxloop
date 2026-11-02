@@ -140,7 +140,8 @@ and the [fxloop-dev API](configuration.md#live-dev-loop-fxloop-dev-api).
 
 - **Dev bar.** A thin overlay on the app window shows the mode, who is driving, the last reload ("CSS applied · 12 ms")
   and anything that needs you ("Restart needed · pom.xml changed" with a **Restart** button). It is invisible to the
-  tools, so it never shows up in screenshots or layout measurements.
+  tools, so it never shows up in screenshots or layout measurements. Drag it to move the window, double-click it to
+  maximize; on a narrow window the buttons that don't fit move into its `⋯` menu, and `⌄` collapses it to a pill.
 - **Pick.** Click **Pick** (or press `Ctrl+Shift+F12`), click a node, and ask "why is *this* grey?". The agent reads
   it with `fx_get_picked`, and every node tool accepts `picked:true`.
 - **Open CSS inspector.** The bar's **Open CSS inspector** button opens the browser inspector: live scene tree, the
