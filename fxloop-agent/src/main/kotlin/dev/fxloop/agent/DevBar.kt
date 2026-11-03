@@ -15,6 +15,7 @@ import javafx.beans.InvalidationListener
 import javafx.collections.ListChangeListener
 import javafx.geometry.Pos
 import javafx.scene.Node
+import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonBase
 import javafx.scene.control.ContextMenu
@@ -32,6 +33,8 @@ import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
+import javafx.scene.layout.StackPane
+import javafx.scene.paint.Paint
 import javafx.stage.Popup
 import javafx.stage.PopupWindow
 import javafx.stage.Screen
@@ -43,8 +46,9 @@ import kotlin.math.abs
 import kotlin.math.floor
 
 /**
- * E5a (PRD 07 §7): the dev bar, an agent-owned `Popup` per showing app stage carrying session, last reload and
- * action-needed segments. Rendered from the full state the server pushes with `setBarState`.
+ * E5a (PRD 07 §7): the dev bar, an agent-owned bar window per showing app stage carrying session, last reload and
+ * action-needed segments (a `Popup`, or on Linux an owned `Stage`, see [BarView]). Rendered from the full state the
+ * server pushes with `setBarState`.
  *
  * The bar docks above the window (or over its title bar) so it never covers app controls; when neither fits it
  * collapses to a pill in the window's top-right corner, and expanding that pill lays the bar over the window's top
@@ -182,7 +186,7 @@ class DevBar(private val rt: AgentRuntime) {
     internal fun describe(): ObjectNode = synchronized(lock) {
         val o = Json.obj()
         o.put("bar", bar)
-        o.put("rendered", views.values.count { it.popup.isShowing })
+        o.put("rendered", views.values.count { it.win.isShowing })
         o.put("windows", targets().size)
         o.put("collapsed", collapsed)
         val texts = o.putObject("texts")
@@ -196,7 +200,7 @@ class DevBar(private val rt: AgentRuntime) {
         val h = o.putArray("controlHistory")
         history.forEach { h.add(it) }
         val vs = o.putArray("views")
-        views.values.filter { it.popup.isShowing }.forEach { vs.add(it.describe()) }
+        views.values.filter { it.win.isShowing }.forEach { vs.add(it.describe()) }
         o
     }
 
@@ -408,7 +412,16 @@ class DevBar(private val rt: AgentRuntime) {
     }
 
     private inner class BarView(val stage: Stage) {
-        val popup = Popup()
+        /**
+         * The bar's own window. On Linux (GTK) a `Popup` maps to an override-redirect window (`GTK_WINDOW_POPUP` in
+         * glass), which the window manager never stacks: the bar then floats above every other app, not just above
+         * the app it belongs to. An owned `Stage` is a normal managed window, transient for the app stage, so it
+         * stays one level above the app and sinks behind other apps with it. On Windows and macOS popups stack with
+         * their owner already, and only a stage takes focus on click, so there the lighter popup stays.
+         */
+        val win: Window
+        private val place: (Double, Double) -> Unit
+        private val trackSize: () -> Unit
         private val root = HBox()
         private var effective = "on"
         private var pill = false
@@ -433,10 +446,43 @@ class DevBar(private val rt: AgentRuntime) {
         private var filtered: javafx.scene.Scene? = null
 
         init {
-            Overlays.mark(popup)
-            popup.isAutoHide = false
-            popup.isAutoFix = false
-            popup.scene.root.style = "-fx-background-color: transparent;"
+            if (LINUX) {
+                val s = Stage(StageStyle.TRANSPARENT)
+                s.initOwner(stage)
+                // a window the WM lists needs a name; JavaFX cannot ask it to skip the taskbar
+                s.title = "FXLoop dev bar"
+                val content = StackPane(root).apply { style = "-fx-background-color: transparent;" }
+                s.scene = Scene(content, null as Paint?)
+                win = s
+                place = { x, y ->
+                    if (s.isShowing) {
+                        s.x = x
+                        s.y = y
+                    } else {
+                        s.x = x
+                        s.y = y
+                        val back = stage.isFocused // a stage takes focus on show; a popup never does
+                        s.show()
+                        if (back) stage.requestFocus()
+                    }
+                }
+                trackSize = {
+                    // a popup re-sizes to its content on every layout pass; a stage only on request
+                    if (abs(s.width - root.prefWidth(-1.0)) > 0.5 || abs(s.height - root.prefHeight(-1.0)) > 0.5) {
+                        s.sizeToScene()
+                    }
+                }
+            } else {
+                val p = Popup()
+                p.isAutoHide = false
+                p.isAutoFix = false
+                p.content.add(root)
+                win = p
+                place = { x, y -> if (p.isShowing) { p.x = x; p.y = y } else p.show(stage, x, y) }
+                trackSize = {}
+            }
+            Overlays.mark(win)
+            win.scene.root.style = "-fx-background-color: transparent;"
             root.id = "fxloop-bar"
             root.alignment = Pos.CENTER_LEFT
             CSS?.let { root.stylesheets.add(it) }
@@ -456,7 +502,6 @@ class DevBar(private val rt: AgentRuntime) {
                     stage.isMaximized = !stage.isMaximized
                 }
             }
-            popup.content.add(root)
             stage.xProperty().addListener(geometry)
             stage.yProperty().addListener(geometry)
             stage.widthProperty().addListener(geometry)
@@ -474,7 +519,7 @@ class DevBar(private val rt: AgentRuntime) {
             stage.sceneProperty().removeListener(geometry)
             filtered?.removeEventFilter(KeyEvent.KEY_PRESSED, esc)
             menu.hide()
-            popup.hide()
+            win.hide()
         }
 
         /** This window's bar for [describe]: shape, dock and what a narrow window moved into the `⋯` menu. */
@@ -780,12 +825,8 @@ class DevBar(private val rt: AgentRuntime) {
                 x = left
                 y = top
             }
-            if (popup.isShowing) {
-                popup.x = x
-                popup.y = y
-            } else {
-                popup.show(stage, x, y)
-            }
+            trackSize()
+            place(x, y)
         }
 
         private fun onScreen(x: Double, y: Double): Boolean = Screen.getScreens().any { it.visualBounds.contains(x, y) }
@@ -799,6 +840,9 @@ class DevBar(private val rt: AgentRuntime) {
         /** Title bar width left free for the window's own buttons when the bar docks over it. */
         const val WINDOW_BUTTONS = 140.0
         val MAC = System.getProperty("os.name", "").lowercase(Locale.ROOT).contains("mac")
+
+        /** Linux/GTK: popups are override-redirect there, so the bar needs a real window (see [BarView.win]). */
+        val LINUX = System.getProperty("os.name", "").lowercase(Locale.ROOT).startsWith("linux")
 
         /** [Fit.priority] of what the bar always shows. */
         const val ALWAYS = Int.MAX_VALUE
