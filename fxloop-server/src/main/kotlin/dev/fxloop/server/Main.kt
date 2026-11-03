@@ -154,7 +154,7 @@ private fun runSidecar(ctx: Ctx): Nothing {
     ParentWatchdog.start { exitProcess(0) }
     Runtime.getRuntime().addShutdownHook(Thread { ctx.shutdown() })
     val viewer = ctx.ensureViewer(ctx.config.viewerPort ?: 0)
-    System.err.println("[fxloop] CSS inspector: ${viewer.inspectUrl()} (also via Inspect CSS in the dev bar)")
+    System.err.println("[fxloop] CSS inspector: ${viewer.inspectUrl()} (also via Open CSS inspector in the dev bar)")
     var yielded = false
     var seen = false
     val startDeadline = System.currentTimeMillis() + 120_000

@@ -184,10 +184,11 @@ id("dev.fxloop") version "1.0.0-SNAPSHOT"
 Then:
 
 ```sh
-mvn fxloop:run        # or: gradle fxloopRun
+./mvnw fxloop:run        # or: ./gradlew fxloopRun
 ```
 
-The production guard that fails the package if FXLoop ever leaks in is in
+No display (SSH, a container, CI)? These goals need one, so wrap them: `xvfb-run -a ./mvnw fxloop:run`. The
+production guard that fails the package if FXLoop ever leaks in is in
 [INSTALL.md](INSTALL.md#7-add-the-build-plugin-and-the-guard-optional); the skills add it for you.
 
 ### Add the skills

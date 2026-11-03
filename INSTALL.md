@@ -407,6 +407,10 @@ tasks.named('jar') { dependsOn fxloopGuard }
 Finally, make sure `target/` (Maven) or `build/` (Gradle) is in `.gitignore`: FXLoop writes screenshots and
 `launch.json` there.
 
+`./mvnw fxloop:run` and `./gradlew fxloopRun` need a display: the `headless=` line of step 4 only applies to launches
+by the server. On a machine without one, wrap them (`xvfb-run -a ./mvnw fxloop:run`); the window is invisible, but
+the agent connects to it all the same.
+
 ## 8. Reload, then take the first screenshot
 
 The `fx_*` tools appear only after the client reloads its MCP servers (the last column of the table in step 5); no
@@ -419,11 +423,10 @@ With the tools available:
 1. Call `fx_get_app_status`. The first call compiles the project, launches the app with the FXLoop agent and
    connects; expect thirty seconds to three minutes the first time (the slow end is a cold Maven or Gradle cache
    downloading the app's dependencies; later calls answer in well under a second). The result says `state: running`,
-   which window is open, and
-   `prepare: plugin` or `prepare: server` (how the launch was worked out). If the developer already runs the app
-   with `mvn fxloop:run` or `gradle fxloopRun`, the server connects to that window instead (`mode: embedded`). If the
-   first call fails, fix the cause from the table below and call `fx_start_app`: after a failed launch
-   `fx_get_app_status` only reports `state: exited` and does not build again.
+   which window is open, and `prepare: plugin` or `prepare: server` (how the launch was worked out). If the developer
+   already runs the app with `mvn fxloop:run` or `gradle fxloopRun`, the server connects to that window instead
+   (`mode: embedded`, no `prepare` field since nothing was built). If the first call fails, fix the cause from the table below and call `fx_start_app`: after a
+   failed launch `fx_get_app_status` only reports `state: exited` and does not build again.
 2. Call `fx_take_screenshot` with `label: first-look` and show the developer the PNG path it returns (screenshots
    land in `target/fxloop/screens/` or `build/fxloop/screens/`).
 3. From here on, describe what you want: `fx_take_screenshot`, `fx_find_nodes`, `fx_click_node`, `fx_explain_layout`,
@@ -433,15 +436,14 @@ With the tools available:
 |---|---|
 | `BUILD_FAILED` with compile errors | The project does not compile as-is. Report it; don't "fix" unrelated code |
 | `BUILD_FAILED` with `Could not GET`, `Could not resolve`, `429 Too Many Requests` or `Connection reset` on a repository URL | A cold dependency cache and a slow, rate-limited or proxied repository, not FXLoop or the code. Wait twenty seconds and call `fx_start_app` again, or run the project's own build (`./mvnw compile`, `./gradlew classes`) until it passes |
-| `BUILD_FAILED`: plugin `dev.fxloop:...` not found | The build plugin is in the build file but not in a repository: run the `--seed-local-repo` line from step 7, add `mavenLocal()` to `pluginManagement` for Gradle, retry |
+| `BUILD_FAILED`: plugin `dev.fxloop:...` not found | The build plugin is in the build file but not in a repository: run the `--seed-local-repo` line from step 7, add `mavenLocal()` to both repository blocks for Gradle (step 7), retry |
 | `CONFIG`: cannot determine the main class, candidates listed | Pin one with `main-class=` in `fxloop.properties` (step 4), then reload |
 | `JavaFX runtime components are missing` | The app is launched on the classpath with a main class that *extends* `Application`. Pin a Launcher (a class or a Kotlin top-level `main` that calls `Application.launch`), or force the module path: `launch-mode=modulepath` in `fxloop.properties` (Maven projects), `<configuration><launchMode>modulepath</launchMode></configuration>` on `fxloop-maven-plugin`, or `fxloop { launchMode = "modulepath" }` in Gradle |
 | `Module javafx.controls not found` / `--add-modules` | JavaFX jars are missing from the runtime classpath; add the `javafx-controls`/`-fxml` dependencies or the OpenJFX plugin |
 | `STARTUP_TIMEOUT` | `start()` blocks (I/O, dialogs before show) or the main class never launches JavaFX. Read the log tail in the message |
 | `APP_EXITED` with an exception | Read the log lines in the error: usually a resource path or a missing demo flag (`app-args=`) |
-| No display / `Unable to open DISPLAY` | `headless=xvfb` or `headless=monocle` in `fxloop.properties` (step 4), then reload |
-| Anything else | `java -jar ~/.fxloop/fxloop-server.jar doctor` in the project, and
-  [docs/troubleshooting.md](https://github.com/h9lxyz/fxloop/blob/main/docs/troubleshooting.md) |
+| No display / `Unable to open DISPLAY` | `headless=xvfb` or `headless=monocle` in `fxloop.properties` (step 4), then reload. For `fxloop:run` / `fxloopRun` wrap the command in `xvfb-run -a` instead |
+| Anything else | `java -jar ~/.fxloop/fxloop-server.jar doctor` in the project, and [docs/troubleshooting.md](https://github.com/h9lxyz/fxloop/blob/main/docs/troubleshooting.md) |
 
 ## 9. Report
 
@@ -454,8 +456,8 @@ End with:
    written, and delete `~/.fxloop/` (`Remove-Item -Recurse "$HOME\.fxloop"` in PowerShell). Nothing else was added
    outside the project.
 4. How to run the app yourself with the dev bar and bring the agent in later (`./mvnw fxloop:run` or
-   `./gradlew fxloopRun`, step 7), and three things to try next, for example "review the main window", "the dialog
-   looks cramped, fix the layout", "add a dark mode".
+   `./gradlew fxloopRun`, step 7; under `xvfb-run -a` without a display), and three things to try next, for example
+   "review the main window", "the dialog looks cramped, fix the layout", "add a dark mode".
 
 ## Uninstall
 
