@@ -151,19 +151,21 @@ drop other servers; if an `fxloop` entry already exists with the same command, l
 | Gemini CLI | `.gemini/settings.json` | Restart `gemini` |
 | Anything else | The client's stdio MCP server config | Its own reload |
 
-**Claude Code.** Either one line, run inside the project (`-s user` registers it for every project instead, `-s project`
-writes `.mcp.json` for the whole team):
+**Claude Code.** One command, run inside the project. `-s project` writes `.mcp.json` next to the build file, which
+is what an agent should use (Claude Code treats `.mcp.json` as sensitive and may refuse to write it directly; the
+command writes the same file). Without `-s` the entry is private to this directory in `~/.claude.json`; `-s user`
+registers it for every project.
 
 ```sh
-claude mcp add fxloop -- java -jar ~/.fxloop/fxloop-server.jar
+claude mcp add -s project fxloop -- java -jar '${HOME}/.fxloop/fxloop-server.jar'
 ```
 
 ```powershell
-claude mcp add fxloop -- java -jar "$HOME\.fxloop\fxloop-server.jar"
+claude mcp add -s project fxloop -- java -jar "$HOME\.fxloop\fxloop-server.jar"
 ```
 
-or `.mcp.json` in the project root (Claude Code expands `${HOME}`; on Windows use `${USERPROFILE}` or the absolute
-path, `C:\\Users\\me\\.fxloop\\fxloop-server.jar` in JSON):
+The resulting `.mcp.json` (Claude Code expands `${HOME}`; on Windows use `${USERPROFILE}` or the absolute path,
+`C:\\Users\\me\\.fxloop\\fxloop-server.jar` in JSON):
 
 ```json
 {
