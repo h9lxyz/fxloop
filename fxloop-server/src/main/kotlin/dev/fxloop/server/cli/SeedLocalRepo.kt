@@ -32,6 +32,8 @@ object SeedLocalRepo {
         val module: Boolean = false,
         val optional: Boolean = false,
         val classifier: String? = null,
+        /** Also store the classified jar under the main artifact name: Gradle's `mavenLocal()` ignores a module without a main jar. */
+        val alsoMain: Boolean = false,
     )
 
     /** Everything a user's build needs that is not on Central or the Plugin Portal. */
@@ -42,7 +44,7 @@ object SeedLocalRepo {
         Coord("fxloop-agent"),
         Coord("fxloop-maven-plugin"),
         // this jar: `fxloop:run` and `fxloopRun` start it next to the app as the CSS inspector helper
-        Coord("fxloop-server", classifier = "all", optional = true),
+        Coord("fxloop-server", classifier = "all", optional = true, alsoMain = true),
         // Gradle: `id("dev.fxloop")` resolves the marker POM, which depends on the plugin jar (with its module metadata)
         Coord("fxloop-gradle-plugin", module = true, optional = true),
         Coord("dev.fxloop.gradle.plugin", jar = false, optional = true),
@@ -107,7 +109,20 @@ object SeedLocalRepo {
                 written.add(dir.resolve(name))
             }
             put("pom", pomBytes)
-            if (c.jar) put("jar", read("jar"), c.classifier)
+            if (c.jar) {
+                val jar = read("jar")
+                put("jar", jar, c.classifier)
+                if (c.classifier != null && c.alsoMain) {
+                    // a hard link where the file system allows it (the same bytes, no second copy), else a copy
+                    val main = dir.resolve("${c.artifactId}-$version.jar")
+                    Files.deleteIfExists(main)
+                    runCatching { Files.createLink(main, dir.resolve("${c.artifactId}-$version-${c.classifier}.jar")) }
+                        .onFailure { Files.write(main, jar) }
+                    remote.append("${main.fileName}>=\n")
+                    files.add("jar" to null)
+                    written.add(main)
+                }
+            }
             if (c.module) put("module", read("module"))
             Files.writeString(dir.resolve("_remote.repositories"), remote.toString())
             if (version.endsWith("-SNAPSHOT")) {

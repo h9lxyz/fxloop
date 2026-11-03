@@ -69,14 +69,22 @@ plugins {
 // fxloop { mainClass = "com.acme.MainKt" }
 ```
 
-For a `-SNAPSHOT` version, run `java -jar ~/.fxloop/fxloop-server.jar --seed-local-repo` once (it writes the plugin
-into `~/.m2`), and add this to `settings.gradle.kts` (merge with an existing block):
+For a `-SNAPSHOT` version, run `java -jar ~/.fxloop/fxloop-server.jar --seed-local-repo` once (it writes the plugin,
+the agent and the server into `~/.m2`), and add `mavenLocal()` to both repository blocks of `settings.gradle.kts`
+(merge with existing blocks; a project that declares `repositories {}` in the build file adds `mavenLocal()` there):
 
 ```kotlin
 pluginManagement {
     repositories {
         mavenLocal()
         gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        mavenLocal() // fxloopRun resolves dev.fxloop:fxloop-agent and fxloop-server:all from the project repositories
+        mavenCentral()
     }
 }
 ```

@@ -97,7 +97,8 @@ In your app's project, tell your agent:
 
 [INSTALL.md](INSTALL.md) is the whole setup on one page, written for the agent: it checks the JDK, gets the server
 jar, registers it with the client it is running in, installs the skills, adds the build plugin and the production
-guard, asks you for one reload, and ends with a screenshot of the app. It reads just as well by hand.
+guard, asks you for one reload, and ends with a screenshot of the app. It reads just as well by hand, and the same
+file is at the root of a clone or source zip of this repository.
 
 ### Or copy and paste
 
@@ -119,11 +120,12 @@ Invoke-WebRequest -OutFile "$HOME\.fxloop\fxloop-server.jar" `
 java -jar "$HOME\.fxloop\fxloop-server.jar" --version
 ```
 
-`--version` prints the version and checks your JDK. No access to GitHub (proxy, firewall, antivirus quarantine)? Get
-`fxloop-server-all.jar` any way you can and put it at that path; the build-from-source lines are in
+`--version` prints the version and checks your JDK. A 404 means no `edge` build has been published yet, and no
+access to GitHub (proxy, firewall, antivirus quarantine) looks much the same: get `fxloop-server-all.jar` any way you
+can (a colleague, an internal mirror) and put it at that path, or build it from source with the lines in
 [INSTALL.md](INSTALL.md#2-get-the-server-jar).
 
-**2. Register it with your agent.** Run it inside your app's project:
+**2. Register it with your agent.** Run it in the directory you will start your agent from:
 
 ```sh
 # bash / zsh
@@ -135,14 +137,15 @@ claude mcp add fxloop -- java -jar ~/.fxloop/fxloop-server.jar
 claude mcp add fxloop -- java -jar "$HOME\.fxloop\fxloop-server.jar"
 ```
 
-By default that is a private entry in `~/.claude.json` for this directory only (nothing is written into the
-project); `-s project` writes a committable `.mcp.json` for the whole team, `-s user` registers it for every
-project. Cursor, VS Code, Codex CLI and Gemini CLI: the config files are in
-[INSTALL.md](INSTALL.md#5-register-the-server-with-your-agent), and `java -jar ~/.fxloop/fxloop-server.jar doctor`
-prints the entry for the client it finds in your project.
+By default that is a private entry in `~/.claude.json`, keyed to exactly this directory (not its subdirectories);
+nothing is written into the project, and `claude mcp get fxloop` shows it. `-s project` writes a committable
+`.mcp.json` for the whole team instead, `-s user` registers it for every project. Cursor, VS Code, Codex CLI and
+Gemini CLI: the config files are in [INSTALL.md](INSTALL.md#5-register-the-server-with-your-agent), and
+`java -jar ~/.fxloop/fxloop-server.jar doctor --client=<name>` prints the entry with your paths filled in.
 
-**3. Start your agent in the project and ask it to show you the app** (or to call `fx_get_app_status`). The first
-call compiles the project, launches it with the FXLoop agent and connects; the screenshot follows. Nothing in your
+**3. Start a new agent session in that directory and ask it to show you the app** (or to call `fx_get_app_status`;
+a session that was already open does not see a server added meanwhile). The first call compiles the project,
+launches it with the FXLoop agent and connects; the screenshot follows. Nothing in your
 build file has to change: the server finds the main class and the launch mode itself (`prepare: server` in the
 status). When several classes could be the main class, the error lists them; pin one with `main-class=<fqcn>` in a
 `fxloop.properties` at the project root. No display (SSH, a container, CI)? `headless=xvfb` in the same file. When
@@ -171,8 +174,8 @@ Maven, under `<build><plugins>` in `pom.xml`:
 </plugin>
 ```
 
-Gradle, in `plugins {}` of `build.gradle.kts` (a SNAPSHOT version also needs `mavenLocal()` in the
-`pluginManagement` repositories of `settings.gradle.kts`):
+Gradle, in `plugins {}` of `build.gradle.kts` (a SNAPSHOT version also needs `mavenLocal()` in the `pluginManagement`
+and the dependency repositories of `settings.gradle.kts`, see [INSTALL.md](INSTALL.md#7-add-the-build-plugin-and-the-guard-optional)):
 
 ```kotlin
 id("dev.fxloop") version "1.0.0-SNAPSHOT"
@@ -193,7 +196,7 @@ Ten `SKILL.md` workflows on top of the tools ([overview](docs/skills.md)). `fxlo
 above, including the plugin and the guard, from one request.
 
 ```sh
-# bash / zsh: Claude Code, every project. Other agents: their skills directory
+# bash / zsh: Claude Code, every project. Other agents: their skills directory. Needs unzip (apt install unzip)
 curl -fsSL -o /tmp/fxloop-skills.zip \
   https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip \
   && unzip -o /tmp/fxloop-skills.zip -d ~/.claude/skills/

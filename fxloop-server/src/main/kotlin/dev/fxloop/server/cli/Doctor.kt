@@ -115,7 +115,14 @@ object Doctor {
         }
         val client = args.firstOrNull { it.startsWith("--client=") }?.substringAfter('=')
         val checks = run(config, DoctorEnv.system(), client)
-        println(if ("--json" in args) toJson(checks) else render(config, checks))
+        if ("--json" in args) {
+            // JSON is for tools: always UTF-8, whatever the console encoding
+            val out = java.io.PrintStream(java.io.FileOutputStream(java.io.FileDescriptor.out), true, "UTF-8")
+            out.println(toJson(checks))
+            out.flush()
+        } else {
+            println(render(config, checks))
+        }
         return if (checks.any { it.status == DoctorStatus.fail }) 1 else 0
     }
 
@@ -226,7 +233,7 @@ object Doctor {
         val summary = (if (modules.isEmpty()) "JavaFX Gradle plugin" else modules.joinToString(", ") { it.replace('.', '-') }) +
             (version?.let { " $it" } ?: "") +
             "; " + (if (Files.isRegularFile(moduleInfo)) "module-info.java" + (moduleName?.let { " ($it)" } ?: "") else "no module-info.java") +
-            " → launch mode $mode" + if (requested != null) " (set explicitly)" else ""
+            " -> launch mode $mode" + if (requested != null) " (set explicitly)" else ""
         return DoctorCheck("javafx", DoctorStatus.ok, summary, data = data)
     }
 
@@ -337,7 +344,7 @@ object Doctor {
             if (configured.isNotEmpty()) emptyList()
             else states.filter { it.file != null }.map { it.client }.ifEmpty { listOf(McpClient.CLAUDE_CODE) }
         }
-        val snippets = snippetFor.map { cl -> mapOf("client" to cl.id, "file" to cl.file, "content" to McpClients.snippet(cl, jar, dir)) }
+        val snippets = snippetFor.map { cl -> mapOf("client" to cl.id, "file" to cl.file, "content" to McpClients.snippet(cl, jar, dir, env.home, env.windows)) }
         val data = mapOf(
             "clients" to states.map { mapOf("client" to it.client.id, "file" to it.file?.toString(), "hasFxloop" to it.hasFxloop, "missingPaths" to it.missingPaths, "scope" to it.scope) },
             "snippets" to snippets,

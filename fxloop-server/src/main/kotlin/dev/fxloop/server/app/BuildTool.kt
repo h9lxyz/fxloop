@@ -54,6 +54,7 @@ class BuildTool(private val config: Config) {
             val cmd = base().apply {
                 addAll(listOf("-DskipTests", "compile", "dev.fxloop:fxloop-maven-plugin:${Versions.SERVER}:prepare"))
                 config.mainClass?.let { add("-Dfxloop.mainClass=$it") }
+                config.launchMode?.let { add("-Dfxloop.launchMode=$it") }
             }
             val r = run(cmd, 600)
             if (r.exit == 0) return read(launch).also { prepareRoute = "plugin" }
@@ -70,7 +71,7 @@ class BuildTool(private val config: Config) {
         if (r.exit != 0) failed(r)
         val d = try {
             val pom = MavenPrepare.loadPom(fxloopDir, pomFile)
-            MavenPrepare.describe(config.projectDir, pom, MavenPrepare.readClasspath(fxloopDir), config.mainClass)
+            MavenPrepare.describe(config.projectDir, pom, MavenPrepare.readClasspath(fxloopDir), config.mainClass, launchMode = config.launchMode)
         } catch (e: IOException) {
             throw ToolException("BUILD_FAILED", "cannot read the Maven build model: ${e.message}", "check that mvn runs: ${command.joinToString(" ")} -v")
         } catch (e: org.xml.sax.SAXException) {

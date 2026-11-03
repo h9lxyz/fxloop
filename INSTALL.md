@@ -8,8 +8,8 @@ developer's project, and it reads just as well by hand.
 **If you are the agent:** work in the developer's current project directory. Do the steps in order; each says what
 to check and what to do when it fails. Stop and ask only where a step says so. Nothing here changes application
 code or commits anything, and nothing is written outside the project except `~/.fxloop/` (the server jar and its
-caches) and your own MCP client config. Say in one line what you are doing at each step, and finish with the report
-in step 9.
+caches), your own MCP client config and, only if you do step 7, `~/.m2/repository/dev/fxloop/`. Say in one line what
+you are doing at each step, and finish with the report in step 9.
 
 **Requirements:** a JDK 17 or newer on `PATH` (a JDK, not a JRE), a JavaFX app built with Maven or Gradle, and an
 agent that speaks MCP (Claude Code, Cursor, VS Code with Copilot agent mode, Codex CLI, Gemini CLI, or any other
@@ -33,7 +33,7 @@ Then note, read-only:
 - **App module:** in a multi-module build, the module whose sources contain the `Application` subclass (grep for
   `extends Application` or `: Application()`). Its path relative to the project root is needed in step 4.
 - **Display:** on Linux, `echo "$DISPLAY$WAYLAND_DISPLAY"` printing nothing means there is no display (SSH, a
-  container, CI). The app then needs a headless mode in step 4.
+  container, CI). The app then needs a headless mode in step 4. Windows and macOS desktops always have one.
 
 ## 2. Get the server jar
 
@@ -59,7 +59,9 @@ java -jar "$HOME\.fxloop\fxloop-server.jar" --version
 
 `edge` is the rolling build of `main`. Once a numbered release exists, `releases/latest/download/fxloop-server-all.jar`
 is the same file name from the latest release. `--version` prints the version, the commit it was built from, and
-whether the JDK that runs it is usable.
+whether the JDK that runs it is usable. The jar's other commands are `doctor` (step 3) and `--seed-local-repo`
+(step 7); `--help` lists them; anything else starts the MCP server on stdin and stdout. In Windows PowerShell 5.1
+(not PowerShell 7) run `$ProgressPreference = 'SilentlyContinue'` first, or the download crawls.
 
 **If the download fails** (404 because no `edge` build has been published yet, a proxy, a firewall, antivirus
 quarantine), either of these works:
@@ -86,7 +88,13 @@ quarantine), either of these works:
   ```
 
 - Or the developer gets `fxloop-server-all.jar` any other way and saves it as `~/.fxloop/fxloop-server.jar`
-  (`%USERPROFILE%\.fxloop\fxloop-server.jar` on Windows). Nothing is executed from the download location.
+  (`$HOME\.fxloop\fxloop-server.jar` on Windows, that is `C:\Users\<you>\.fxloop\...`). Nothing is executed from
+  the download location.
+
+Behind a proxy, `curl` honours `https_proxy=http://proxy:port` and `Invoke-WebRequest` uses the Windows proxy
+settings. With no access to GitHub at all, get the repository as a source zip or from an internal mirror (this file is
+at its root), build with the Maven proxy or mirror in `~/.m2/settings.xml`, or have a colleague send
+`fxloop-server-all.jar` and `fxloop-skills.zip`; nothing else is downloaded.
 
 ## 3. Run the doctor
 
@@ -111,7 +119,7 @@ one-line fix for every ❌ and ⚠️. Relay the lines to the developer and act 
 | ❌ Main class: *ambiguous*, candidates listed | Pin one in step 4 (`main-class=`) |
 | ✅ FXLoop build plugin: *no FXLoop build plugin* | Fine; the server prepares the project itself. Step 7 adds the plugin only for `fxloop:run` |
 | ⚠️ Display | Add the headless line it suggests in step 4 |
-| ⚠️ Agent (MCP client) | Step 5. The doctor prints the config snippet for the client it finds (`--client=cursor`, `--client=all` for others) |
+| ⚠️ Agent (MCP client) | Step 5. The doctor prints the config snippet for the client it finds (`--client=cursor`, `--client=all` for others). A `claude mcp add` registration counts; `claude mcp get fxloop` confirms it too |
 
 `--json` prints the same checks as JSON. In a terminal whose locale is not UTF-8 the markers print as `OK`,
 `WARN` and `FAIL` instead of the symbols.
@@ -138,9 +146,11 @@ class it was pinned to), which proves the file is read from the right directory.
 
 Pick the client you are running in. The command is always `java -jar <absolute path to ~/.fxloop/fxloop-server.jar>`;
 the path is per machine, so a committed config only works for colleagues who installed the jar at the same place
-(the Claude Code form below uses `${HOME}` for that). The server runs in the client's working directory; add
-`FXLOOP_PROJECT_DIR` only when the client does not start it in the project. Merge into an existing file and never
-drop other servers; if an `fxloop` entry already exists with the same command, leave it alone.
+(the Claude Code, Cursor and VS Code forms below use a home variable for that). Fastest: paste what
+`java -jar ~/.fxloop/fxloop-server.jar doctor --client=<claude-code|cursor|vscode|codex|gemini>` prints, which has
+your real paths filled in. The server runs in the client's working directory; add `FXLOOP_PROJECT_DIR` only when the
+client does not start it in the project. Merge into an existing file and never drop other servers; if an `fxloop`
+entry already exists with the same command, leave it alone.
 
 | Client | File (project root unless noted) | Reload after writing |
 |---|---|---|
@@ -165,7 +175,7 @@ claude mcp add -s project fxloop -- java -jar "$HOME\.fxloop\fxloop-server.jar"
 ```
 
 The resulting `.mcp.json` (Claude Code expands `${HOME}`; on Windows use `${USERPROFILE}` or the absolute path,
-`C:\\Users\\me\\.fxloop\\fxloop-server.jar` in JSON):
+`C:\\Users\\me\\.fxloop\\fxloop-server.jar` in JSON; a copy is `.mcp.json.example` in the repository):
 
 ```json
 {
@@ -207,8 +217,9 @@ The resulting `.mcp.json` (Claude Code expands `${HOME}`; on Windows use `${USER
 }
 ```
 
-**Codex CLI**, `.codex/config.toml` (no variables: absolute paths; the project file only applies when the project is
-trusted, otherwise write `~/.codex/config.toml` and say that the entry is pinned to this project):
+**Codex CLI**, `.codex/config.toml` (no variables: absolute paths, where `/home/me` stands for your home directory,
+`/Users/<you>` on macOS; the project file only applies when the project is trusted, otherwise write
+`~/.codex/config.toml` and say that the entry is pinned to this project):
 
 ```toml
 [mcp_servers.fxloop]
@@ -217,7 +228,7 @@ args = ["-jar", "/home/me/.fxloop/fxloop-server.jar"]
 env = { FXLOOP_PROJECT_DIR = "/home/me/work/my-app" }
 ```
 
-**Gemini CLI**, `.gemini/settings.json`:
+**Gemini CLI**, `.gemini/settings.json` (absolute paths, same placeholders as for Codex):
 
 ```json
 {
@@ -245,7 +256,8 @@ locking fixes in as TestFX tests. They trigger from plain requests ("the buttons
 They are plain folders in the open skills format; the MCP tools work without them.
 
 ```sh
-# bash / zsh: Claude Code, every project. Other agents: unzip into their skills directory instead
+# bash / zsh: Claude Code, every project. Other agents: unzip into their skills directory instead.
+# Needs unzip (apt install unzip), or: python3 -m zipfile -e /tmp/fxloop-skills.zip ~/.claude/skills/
 curl -fsSL -o /tmp/fxloop-skills.zip \
   https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip \
   && unzip -o /tmp/fxloop-skills.zip -d ~/.claude/skills/
@@ -339,14 +351,22 @@ plugins {
 // fxloop { mainClass = "com.acme.MainKt" }
 ```
 
-For a `-SNAPSHOT` version the plugin comes from the local repository, so `settings.gradle.kts` needs (merge with an
-existing block):
+For a `-SNAPSHOT` version the plugin, the agent and the server come from the local repository, so `settings.gradle.kts`
+needs `mavenLocal()` in both repository blocks (merge with existing blocks; a project that declares `repositories {}`
+in the build file instead adds `mavenLocal()` there):
 
 ```kotlin
 pluginManagement {
     repositories {
         mavenLocal()
         gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        mavenLocal() // fxloopRun resolves dev.fxloop:fxloop-agent and fxloop-server:all from the project repositories
+        mavenCentral()
     }
 }
 ```
@@ -401,7 +421,9 @@ With the tools available:
    downloading the app's dependencies; later calls answer in well under a second). The result says `state: running`,
    which window is open, and
    `prepare: plugin` or `prepare: server` (how the launch was worked out). If the developer already runs the app
-   with `mvn fxloop:run` or `gradle fxloopRun`, the server connects to that window instead (`mode: embedded`).
+   with `mvn fxloop:run` or `gradle fxloopRun`, the server connects to that window instead (`mode: embedded`). If the
+   first call fails, fix the cause from the table below and call `fx_start_app`: after a failed launch
+   `fx_get_app_status` only reports `state: exited` and does not build again.
 2. Call `fx_take_screenshot` with `label: first-look` and show the developer the PNG path it returns (screenshots
    land in `target/fxloop/screens/` or `build/fxloop/screens/`).
 3. From here on, describe what you want: `fx_take_screenshot`, `fx_find_nodes`, `fx_click_node`, `fx_explain_layout`,
@@ -410,9 +432,10 @@ With the tools available:
 | Error or log line | Fix |
 |---|---|
 | `BUILD_FAILED` with compile errors | The project does not compile as-is. Report it; don't "fix" unrelated code |
+| `BUILD_FAILED` with `Could not GET`, `Could not resolve`, `429 Too Many Requests` or `Connection reset` on a repository URL | A cold dependency cache and a slow, rate-limited or proxied repository, not FXLoop or the code. Wait twenty seconds and call `fx_start_app` again, or run the project's own build (`./mvnw compile`, `./gradlew classes`) until it passes |
 | `BUILD_FAILED`: plugin `dev.fxloop:...` not found | The build plugin is in the build file but not in a repository: run the `--seed-local-repo` line from step 7, add `mavenLocal()` to `pluginManagement` for Gradle, retry |
 | `CONFIG`: cannot determine the main class, candidates listed | Pin one with `main-class=` in `fxloop.properties` (step 4), then reload |
-| `JavaFX runtime components are missing` | The app is launched on the classpath with a main class that *extends* `Application`. Pin a Launcher (a class or a Kotlin top-level `main` that calls `Application.launch`), or set `launch-mode=modulepath` |
+| `JavaFX runtime components are missing` | The app is launched on the classpath with a main class that *extends* `Application`. Pin a Launcher (a class or a Kotlin top-level `main` that calls `Application.launch`), or force the module path: `launch-mode=modulepath` in `fxloop.properties` (Maven projects), `<configuration><launchMode>modulepath</launchMode></configuration>` on `fxloop-maven-plugin`, or `fxloop { launchMode = "modulepath" }` in Gradle |
 | `Module javafx.controls not found` / `--add-modules` | JavaFX jars are missing from the runtime classpath; add the `javafx-controls`/`-fxml` dependencies or the OpenJFX plugin |
 | `STARTUP_TIMEOUT` | `start()` blocks (I/O, dialogs before show) or the main class never launches JavaFX. Read the log tail in the message |
 | `APP_EXITED` with an exception | Read the log lines in the error: usually a resource path or a missing demo flag (`app-args=`) |
@@ -436,6 +459,6 @@ End with:
 
 ## Uninstall
 
-Remove the MCP entry (`claude mcp remove fxloop` for Claude Code, or the entry in the client's file), the plugin and
-guard from the build file if they were added, `fxloop.properties`, and `~/.fxloop/`. The seeded artifacts, if any, are
-`~/.m2/repository/dev/fxloop/`. Nothing else is installed.
+Remove the MCP entry (`claude mcp remove fxloop` for Claude Code, run in the directory where it was added, or the
+entry in the client's file), the plugin and guard from the build file if they were added, `fxloop.properties`, and
+`~/.fxloop/`. The seeded artifacts, if any, are `~/.m2/repository/dev/fxloop/`. Nothing else is installed.

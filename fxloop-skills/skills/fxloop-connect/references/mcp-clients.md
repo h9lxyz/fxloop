@@ -72,8 +72,9 @@ Windows: `HOME` is often unset. Use `${USERPROFILE}` instead, or the absolute pa
 
 ## Codex CLI — `config.toml`
 
-No variables: absolute paths. The project file only applies when the project is trusted. If you write the user
-file, the entry is pinned to this workspace, so say so in the report.
+No variables: absolute paths (`/home/me` stands for the home directory, `/Users/<name>` on macOS). The project file
+only applies when the project is trusted. If you write the user file, the entry is pinned to this workspace, so say so
+in the report.
 
 ```toml
 [mcp_servers.fxloop]

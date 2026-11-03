@@ -69,6 +69,7 @@ class CliTest {
         assertThat(repo.resolve("dev/fxloop/fxloop-maven-plugin/9.9.9/fxloop-maven-plugin-9.9.9.jar")).isNotEmptyFile()
         // the server jar is stored under its `all` classifier, as the run goals resolve it
         assertThat(repo.resolve("dev/fxloop/fxloop-server/9.9.9/fxloop-server-9.9.9-all.jar")).isNotEmptyFile()
+        assertThat(repo.resolve("dev/fxloop/fxloop-server/9.9.9/fxloop-server-9.9.9.jar")).describedAs("main-name alias for Gradle's mavenLocal").isNotEmptyFile()
         assertThat(repo.resolve("dev/fxloop/fxloop-server/9.9.9/fxloop-server-9.9.9.pom")).isRegularFile()
         assertThat(repo.resolve("dev/fxloop/fxloop-server/9.9.9/maven-metadata-local.xml")).doesNotExist() // not a SNAPSHOT
         assertThat(repo.resolve("dev/fxloop/fxloop-gradle-plugin")).doesNotExist()
@@ -84,6 +85,20 @@ class CliTest {
     fun serverPomCarriesTheVersion() {
         assertThat(SeedLocalRepo.pomVersion(SeedLocalRepo.serverPom("1.2.3").toByteArray())).isEqualTo("1.2.3")
         assertThat(SeedLocalRepo.serverPom("1.2.3")).contains("<artifactId>fxloop-server</artifactId>", "<packaging>jar</packaging>")
+    }
+
+    @Test
+    fun usageNamesEveryCommand() {
+        val u = dev.fxloop.server.usage()
+        assertThat(u).contains("--version").contains("doctor").contains("--seed-local-repo").contains("--tool-reference").contains("INSTALL.md")
+    }
+
+    @Test
+    fun launchModeIsAServerKey(@TempDir dir: Path) {
+        assertThat(dev.fxloop.server.Config.load(emptyMap(), emptyArray(), dir).launchMode).isNull()
+        assertThat(dev.fxloop.server.Config.load(mapOf("FXLOOP_LAUNCH_MODE" to "modulepath"), emptyArray(), dir).launchMode).isEqualTo("modulepath")
+        Files.writeString(dir.resolve("fxloop.properties"), "launch-mode=Classpath\n")
+        assertThat(dev.fxloop.server.Config.load(emptyMap(), emptyArray(), dir).launchMode).isEqualTo("classpath")
     }
 
     @Test

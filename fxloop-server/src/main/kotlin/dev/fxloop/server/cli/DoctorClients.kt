@@ -92,23 +92,42 @@ internal object McpClients {
         return Regex("""["']([^"']*)["']""").findAll(arr).map { it.groupValues[1] }.toList()
     }
 
+    /** `<home>/.fxloop/x.jar` as `<variable>/.fxloop/x.jar` (forward slashes, which Java accepts on Windows too); else [jar] unchanged. */
+    fun homeRelative(jar: String, home: Path?, variable: String): String {
+        if (home == null) return jar
+        val h = home.toAbsolutePath().normalize()
+        val j = runCatching { Path.of(jar).toAbsolutePath().normalize() }.getOrNull() ?: return jar
+        if (!j.startsWith(h)) return jar
+        return variable + "/" + h.relativize(j).toString().replace('\\', '/')
+    }
+
     private fun expand(s: String, workspace: Path, home: Path): String = s
         .replace("\${HOME}", home.toString()).replace("\${userHome}", home.toString()).replace("\${USERPROFILE}", home.toString())
         .replace("\${workspaceFolder}", workspace.toString()).replace("\${workspaceRoot}", workspace.toString())
         .let { if (it.startsWith("~/")) home.resolve(it.substring(2)).toString() else it }
 
-    /** The config file text to add for [c]. Claude Code starts servers in the workspace; the others get the project dir. */
-    fun snippet(c: McpClient, jar: String, projectDir: Path): String {
+    /**
+     * The config file text to add for [c]. Claude Code starts servers in the workspace; the others get the project dir.
+     * Clients that expand a home variable get the jar relative to it when it lives under [home], so the file holds no
+     * machine-specific path (`${HOME}`, `${USERPROFILE}` on Windows, `${userHome}` for Cursor and VS Code); Codex and
+     * Gemini get the absolute path.
+     */
+    fun snippet(c: McpClient, jar: String, projectDir: Path, home: Path? = null, windows: Boolean = false): String {
         fun q(s: String) = mapper.writeValueAsString(s)
         val ws = when (c) {
             McpClient.CURSOR, McpClient.VSCODE -> "\${workspaceFolder}"
             else -> projectDir.toString()
         }
+        val jarPath = when (c) {
+            McpClient.CLAUDE_CODE -> homeRelative(jar, home, if (windows) "\${USERPROFILE}" else "\${HOME}")
+            McpClient.CURSOR, McpClient.VSCODE -> homeRelative(jar, home, "\${userHome}")
+            else -> jar
+        }
         return when (c) {
             McpClient.CLAUDE_CODE -> """
                 {
                   "mcpServers": {
-                    "fxloop": { "command": "java", "args": ["-jar", ${q(jar)}] }
+                    "fxloop": { "command": "java", "args": ["-jar", ${q(jarPath)}] }
                   }
                 }
             """.trimIndent()
@@ -124,7 +143,7 @@ internal object McpClients {
                 appendLine("    \"fxloop\": {")
                 if (c == McpClient.VSCODE) appendLine("      \"type\": \"stdio\",")
                 appendLine("      \"command\": \"java\",")
-                appendLine("      \"args\": [\"-jar\", ${q(jar)}],")
+                appendLine("      \"args\": [\"-jar\", ${q(jarPath)}],")
                 appendLine("      \"env\": { \"FXLOOP_PROJECT_DIR\": ${q(ws)} }")
                 appendLine("    }")
                 appendLine("  }")

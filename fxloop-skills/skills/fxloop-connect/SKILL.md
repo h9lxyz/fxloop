@@ -71,8 +71,8 @@ Collect these facts before editing anything:
 - **Maven:** add `dev.fxloop:fxloop-maven-plugin:<version>` under `<build><plugins>`, with no `<executions>` (the goal
   is invoked explicitly by the server, so the normal build is unaffected). Add `<configuration><mainClass>` only if
   step 1 found ambiguity.
-- **Gradle:** add `id("dev.fxloop") version "<version>"` to `plugins {}`. For a `-SNAPSHOT` version also make sure
-  `settings.gradle(.kts)` has `pluginManagement { repositories { mavenLocal(); gradlePluginPortal() } }`. Add an
+- **Gradle:** add `id("dev.fxloop") version "<version>"` to `plugins {}`. For a `-SNAPSHOT` version also put
+  `mavenLocal()` in `pluginManagement` and in the dependency repositories (snippets file). Add an
   `fxloop { mainClass = "..." }` block only for ambiguity.
 - Multi-module: edit only `<app>`'s build file.
 
