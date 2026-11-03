@@ -127,6 +127,7 @@ internal class FcpServer(private val runtime: AgentRuntime) {
             }
             socket.soTimeout = 0 // authenticated: requests may be minutes apart
             current.getAndSet(conn)?.let { closeQuietly(it.socket) }
+            runtime.onConnected()
             while (true) {
                 val frame = conn.codec.read()
                 if (!frame.isRequest) continue

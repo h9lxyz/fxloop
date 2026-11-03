@@ -24,6 +24,7 @@ class AgentRuntime private constructor(
     val human: HumanInput = HumanInput(this)
     val bar: DevBar = DevBar(this)
     val pick: PickMode = PickMode(this)
+    internal val windows: WindowsWatcher = WindowsWatcher(this::emitEvent)
 
     @Volatile
     internal var server: FcpServer? = null
@@ -63,6 +64,7 @@ class AgentRuntime private constructor(
         }
         options.stateFile?.let { GeometryStore(it).install() }
         human.install() // hotkeys work even when recording is off (options.recordHuman)
+        windows.install()
         if (options.bar != null) bar.standalone(options.bar)
         Thread(::listen, "fxloop-agent-listen").apply { isDaemon = true }.start()
     }
@@ -81,6 +83,14 @@ class AgentRuntime private constructor(
         } catch (e: Exception) {
             AgentLog.warn("FCP listener failed", e)
         }
+    }
+
+    /**
+     * A server just connected: it and its inspector pages have not seen this app's windows yet (first connect, or the
+     * app restarted under a page that stayed open), so push the current list.
+     */
+    internal fun onConnected() {
+        Platform.runLater { windows.emitNow() }
     }
 
     /**

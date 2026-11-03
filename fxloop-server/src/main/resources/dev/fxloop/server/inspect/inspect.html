@@ -412,21 +412,34 @@ function copy(text, msg){
 }
 
 // ---------- windows ----------
+function normWindows(j){ return Array.isArray(j) ? j : ((j && j.windows) || []); }
+/** Rebuilds the window dropdown; true when the window the page is on is still in the list. */
+function renderWindows(list){
+  var s = $('win'); clear(s);
+  list.forEach(function(w, i){
+    var idx = (w.index != null) ? w.index : i;
+    var o = el('option', null, (w.title || w.type || 'window') + ' [' + idx + ']');
+    o.value = String(idx);
+    s.appendChild(o);
+  });
+  if (!list.length) { var o = el('option', null, 'no windows'); o.value = '0'; s.appendChild(o); }
+  s.value = String(state.win);
+  if (s.value !== String(state.win) && s.options.length) { s.selectedIndex = 0; state.win = parseInt(s.value, 10) || 0; }
+  return s.value === String(state.win);
+}
 function loadWindows(){
   return api('/api/windows').then(function(j){
-    var list = Array.isArray(j) ? j : (j.windows || []);
-    var s = $('win'); clear(s);
-    list.forEach(function(w, i){
-      var idx = (w.index != null) ? w.index : i;
-      var o = el('option', null, (w.title || w.type || 'window') + ' [' + idx + ']');
-      o.value = String(idx);
-      s.appendChild(o);
-    });
-    if (!list.length) { var o = el('option', null, 'no windows'); o.value = '0'; s.appendChild(o); }
-    s.value = String(state.win);
-    if (s.value !== String(state.win) && s.options.length) { s.selectedIndex = 0; state.win = parseInt(s.value, 10) || 0; }
+    renderWindows(normWindows(j));
     showBanner(null);
   }).catch(function(e){ showBanner(e); });
+}
+/** Moves the whole page to another window, as the dropdown does on change. */
+function switchWin(v){
+  clearForced().then(function(){
+    state.win = v; state.sel = null; state.styles = null; state.handlersKey = null;
+    resetSheets(); clearSearch(false); thumbImg.style.display = 'none';
+    loadTree().then(loadStyles);
+  });
 }
 
 // ---------- tree ----------
@@ -2830,6 +2843,16 @@ function connect(){
     if (was !== !!state.lock) { closePlan(); state.lplan = null; renderStyles(); }
   });
   es.addEventListener('status', retryApp);
+  // The app opened or closed a window (a dialog, usually): refresh the dropdown. A window merely appearing must not
+  // yank the view away, but the page's own window closing — or indices shifting under it — falls back like a switch.
+  es.addEventListener('windows', function(ev){
+    var j; try { j = JSON.parse(ev.data); } catch(e){ return; }
+    var s = $('win');
+    var was = s.selectedIndex >= 0 ? s.options[s.selectedIndex].textContent : null;
+    var kept = renderWindows(normWindows(j));
+    var now = s.selectedIndex >= 0 ? s.options[s.selectedIndex].textContent : null;
+    if (was != null && (!kept || now !== was)) switchWin(state.win);
+  });
   es.addEventListener('sheetMap', function(){ if (!state.editing) loadStyles(); });
   es.addEventListener('scratch', function(ev){
     var j; try { j = JSON.parse(ev.data); } catch(e){ return; }
@@ -2966,12 +2989,7 @@ $('takeover').addEventListener('click', function(){
 });
 $('skin').addEventListener('change', function(){ state.skin = this.checked; loadTree(); });
 $('win').addEventListener('change', function(){
-  var v = parseInt(this.value, 10) || 0;
-  clearForced().then(function(){
-    state.win = v; state.sel = null; state.styles = null; state.handlersKey = null;
-    resetSheets(); clearSearch(false); thumbImg.style.display = 'none';
-    loadTree().then(loadStyles);
-  });
+  switchWin(parseInt(this.value, 10) || 0);
 });
 $('treePane').addEventListener('keydown', onKey);
 $('treePane').addEventListener('mouseleave', clearHighlight);
