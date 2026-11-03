@@ -283,8 +283,9 @@ later. The guard makes sure FXLoop can never end up in a packaged build; FXLoop 
 (the agent is injected with `-javaagent` at dev launch).
 
 Until FXLoop is on Maven Central and the Gradle Plugin Portal, seed the local Maven repository once from the jar you
-installed. It writes FXLoop's build plugins, agent and server into `~/.m2/repository/dev/fxloop/` and nothing else;
-the run goals below resolve them from there (Gradle through `mavenLocal()`):
+installed. It writes FXLoop's build plugins, agent and server, plus the three small artifacts they depend on, into
+`~/.m2/repository/dev/fxloop/` and nothing else; the run goals below resolve them from there (Gradle through
+`mavenLocal()`). Re-run it after updating the jar:
 
 ```sh
 java -jar ~/.fxloop/fxloop-server.jar --seed-local-repo
@@ -437,6 +438,7 @@ With the tools available:
 | `BUILD_FAILED` with compile errors | The project does not compile as-is. Report it; don't "fix" unrelated code |
 | `BUILD_FAILED` with `Could not GET`, `Could not resolve`, `429 Too Many Requests` or `Connection reset` on a repository URL | A cold dependency cache and a slow, rate-limited or proxied repository, not FXLoop or the code. Wait twenty seconds and call `fx_start_app` again, or run the project's own build (`./mvnw compile`, `./gradlew classes`) until it passes |
 | `BUILD_FAILED`: plugin `dev.fxloop:...` not found | The build plugin is in the build file but not in a repository: run the `--seed-local-repo` line from step 7, add `mavenLocal()` to both repository blocks for Gradle (step 7), retry |
+| `fxloopRun`: `Could not find dev.fxloop:fxloop-agent` or `fxloop-server` | `mavenLocal()` is missing from the dependency repositories (`fxloopPrepare` still works with it in `pluginManagement` only): add it to `dependencyResolutionManagement` in `settings.gradle.kts` or to `repositories {}` in the build file, or re-run the seed line if the jar was updated |
 | `CONFIG`: cannot determine the main class, candidates listed | Pin one with `main-class=` in `fxloop.properties` (step 4), then reload |
 | `JavaFX runtime components are missing` | The app is launched on the classpath with a main class that *extends* `Application`. Pin a Launcher (a class or a Kotlin top-level `main` that calls `Application.launch`), or force the module path: `launch-mode=modulepath` in `fxloop.properties` (Maven projects), `<configuration><launchMode>modulepath</launchMode></configuration>` on `fxloop-maven-plugin`, or `fxloop { launchMode = "modulepath" }` in Gradle |
 | `Module javafx.controls not found` / `--add-modules` | JavaFX jars are missing from the runtime classpath; add the `javafx-controls`/`-fxml` dependencies or the OpenJFX plugin |

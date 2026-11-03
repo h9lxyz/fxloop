@@ -157,8 +157,9 @@ With the FXLoop build plugin in your build, `mvn fxloop:run` or `gradle fxloopRu
 Click around, **Pick** the node that bothers you, open the CSS inspector, then ask your agent: it connects to that
 window instead of launching another copy and leaves your mouse alone
 ([details](docs/configuration.md#running-the-app-yourself)). Until FXLoop is on Maven Central and the Gradle Plugin
-Portal, seed your local Maven repository once from the jar you installed (it writes FXLoop's build plugins, agent and
-server into `~/.m2/repository/dev/fxloop/`, nothing else):
+Portal, seed your local Maven repository from the jar you installed, once and again after updating the jar (it
+writes FXLoop's build plugins, agent and server, plus the three small artifacts they depend on, into
+`~/.m2/repository/dev/fxloop/` and nothing else):
 
 ```sh
 java -jar ~/.fxloop/fxloop-server.jar --seed-local-repo    # PowerShell: java -jar "$HOME\.fxloop\fxloop-server.jar" --seed-local-repo

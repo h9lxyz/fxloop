@@ -41,7 +41,9 @@ on any JDK >= 17 (no toolchain required).
 ```
 
 Runs the app in the foreground from `launch.json` with the agent (`dev.fxloop:fxloop-agent` at the plugin's version,
-resolved from the project's repositories: a SNAPSHOT needs `mavenLocal()`). The dev bar shows before any agent
+resolved from the project's repositories: a SNAPSHOT needs `mavenLocal()` in the dependency repositories, not only in
+`pluginManagement`, after `java -jar ~/.fxloop/fxloop-server.jar --seed-local-repo`; without a display run the task
+under `xvfb-run -a`). The dev bar shows before any agent
 connects, with **Pick** and **Open CSS inspector**: an inspector helper (`dev.fxloop:fxloop-server:all`, also from the project's
 repositories) serves the browser CSS inspector until an agent session connects, steps aside while it is there, and
 returns afterwards; its output and URL are in `build/fxloop/inspector.log`. The inspector has "Try it live" on, also
