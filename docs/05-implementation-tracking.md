@@ -185,7 +185,7 @@ Baseline: Java 17 bytecode (`--release 17`), compiled against JavaFX 21. CI buil
 | ID | Feature / task | PRD ref | Module | Status | Notes |
 |---|---|---|---|---|---|
 | R-E1 | Edge build: `edge.yml` on every push to `main` builds the Maven modules, publishes the Gradle plugin to mavenLocal, rebuilds the server so it bundles the plugin, runs `release/assemble-assets.sh` and replaces the assets of the rolling `edge` pre-release (tag moved to the commit, never "latest") | 10 §2.4, §2.5 | ci | 🟨 | Assets: `fxloop-server-<v>-all.jar` + `fxloop-server-all.jar`, `fxloop-skills-<v>.zip` + `fxloop-skills.zip`, `SHA256SUMS`. The script is exercised locally (`InstallGuideTest` checks the names the docs download); the workflow has not run on GitHub yet (A-R3) |
-| R-E2 | Release workflow rewrite (dispatch, version script, gated stages, attestation) | 10 §2.1–2.3, §3 | ci | ⬜ | `release.yml` unchanged; it should call `release/assemble-assets.sh` for the same asset names |
+| R-E2 | Release workflow rewrite (dispatch, version script, gated stages, attestation) | 10 §2.1–2.3, §3 | ci | ⬜ | `release.yml` still tag-triggered; it now uploads `release/assemble-assets.sh`'s assets (same names as edge) and marks hyphenated versions as pre-releases (R5, R6). The rest of §2 is open |
 
 ## Items requiring external resources (cannot be completed in this local session)
 
