@@ -17,6 +17,7 @@ import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
+import javafx.stage.Popup
 import javafx.stage.Stage
 import javafx.stage.Window
 import org.assertj.core.api.Assertions.assertThat
@@ -290,6 +291,35 @@ class DevBarFxTest {
             }
         } finally {
             fx { stage().scene.stylesheets.remove(css) }
+        }
+    }
+
+    /** The bar window of a [DevBar] of its own, built for either platform whatever this test runs on. */
+    private fun <T> withBar(ownedStage: Boolean, check: (Window) -> T): T {
+        val own = DevBar(rt, ownedStage)
+        try {
+            val d = fx { own.applyState(state("on")) }
+            assertThat(d.path("rendered").asInt()).isGreaterThanOrEqualTo(1)
+            return check(fx { Window.getWindows().first { Overlays.isOverlay(it) && (it is Stage || it is Popup) } })
+        } finally {
+            fx { own.applyState(state("off")) }
+        }
+    }
+
+    @Test
+    fun popupBarFollowsItsWindow() {
+        withBar(ownedStage = false) { win ->
+            assertThat(win).isInstanceOf(Popup::class.java)
+            assertThat(fx { win.x to win.y }).isEqualTo(fx { stage().x to stage().y - 24.0 })
+        }
+    }
+
+    @Test
+    fun ownedStageBarFollowsItsWindowAtTheBarsSize() {
+        withBar(ownedStage = true) { win ->
+            assertThat((win as Stage).owner).isSameAs(stage())
+            assertThat(fx { win.x to win.y }).isEqualTo(fx { stage().x to stage().y - 24.0 })
+            assertThat(fx { win.width to win.height }).isEqualTo(fx { stage().width to 24.0 })
         }
     }
 

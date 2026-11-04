@@ -14,25 +14,35 @@ import javafx.stage.Stage
 import javafx.stage.Window
 import javafx.util.Duration
 
-/** Persists stage geometry per stage index to `state.json` and restores it on next start (PRD 02 §5). */
+/**
+ * Persists stage geometry per stage index to `state.json` and restores it on next start (PRD 02 §5). Overlay stages
+ * (the dev bar on Linux) neither get an entry nor count toward the index.
+ */
 internal class GeometryStore(private val file: Path) {
     private lateinit var state: ObjectNode
     private val debounce = PauseTransition(Duration.millis(400.0))
+    private val windows = ListChangeListener<Window> { c ->
+        while (c.next()) {
+            c.addedSubList.forEach { attach(it) }
+        }
+    }
 
     /** FX thread. */
     fun install() {
         state = load()
         debounce.setOnFinished { save() }
         for (w in Window.getWindows()) attach(w)
-        Window.getWindows().addListener(ListChangeListener<Window> { c ->
-            while (c.next()) {
-                c.addedSubList.forEach { attach(it) }
-            }
-        })
+        Window.getWindows().addListener(windows)
+    }
+
+    /** Test hook: stops watching new windows, so a test's store does not restore the next test's stages. FX thread. */
+    internal fun uninstall() {
+        Window.getWindows().removeListener(windows)
+        debounce.stop()
     }
 
     private fun attach(w: Window) {
-        if (w !is Stage || w.properties.containsKey("fxloop.geometry")) return
+        if (w !is Stage || Overlays.isOverlay(w) || w.properties.containsKey("fxloop.geometry")) return
         w.properties["fxloop.geometry"] = java.lang.Boolean.TRUE
         restore(w)
         val l = InvalidationListener { debounce.playFromStart() }
@@ -47,7 +57,7 @@ internal class GeometryStore(private val file: Path) {
         var i = 0
         for (w in Window.getWindows()) {
             if (w === stage) return i
-            if (w is Stage) i++
+            if (w is Stage && !Overlays.isOverlay(w)) i++
         }
         return i
     }
@@ -72,7 +82,7 @@ internal class GeometryStore(private val file: Path) {
         val stages = state.putObject("stages")
         var i = 0
         for (w in Window.getWindows()) {
-            if (w is Stage && w.isShowing) {
+            if (w is Stage && w.isShowing && !Overlays.isOverlay(w)) {
                 val g = stages.putObject((i++).toString())
                 g.put("x", w.x).put("y", w.y).put("w", w.width).put("h", w.height)
                 g.put("maximized", w.isMaximized)
