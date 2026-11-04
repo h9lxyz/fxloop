@@ -219,6 +219,7 @@ class HumanInput(private val rt: AgentRuntime) {
         if (isOverlay(scene)) return
         if (!isHuman(type == MouseEvent.MOUSE_PRESSED) { it.expectsMouse(e) }) return
         lastHumanNanos = System.nanoTime()
+        if (type == MouseEvent.MOUSE_PRESSED) rt.pick.humanPress()
         if (type == MouseEvent.MOUSE_CLICKED && recordHuman && !pickActive()) {
             recordClick(e.target as? Node, e)
         }

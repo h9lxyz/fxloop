@@ -437,6 +437,7 @@ function loadWindows(){
 function switchWin(v){
   clearForced().then(function(){
     state.win = v; state.sel = null; state.styles = null; state.handlersKey = null;
+    api('/api/highlight', { release: 1 }, 'POST').catch(function(){});
     resetSheets(); clearSearch(false); thumbImg.style.display = 'none';
     loadTree().then(loadStyles);
   });
@@ -575,6 +576,7 @@ function select(n){
   state.bind = Object.create(null); state.evidence = null; state.stripOpen = false; state.lplan = null;
   hideLookups();
   renderTree(); scrollSelIntoView();
+  api('/api/highlight', { h: n.h, path: n.path, hold: 1 }, 'POST').catch(function(){});
   thumbImg.style.display = 'none';
   (moved ? clearForced() : Promise.resolve()).then(function(){ loadStyles(); refreshThumb(); });
 }

@@ -181,6 +181,7 @@ With Monocle or Xvfb nobody sees the window, so the bar is not rendered. The sam
 
 - The dev bar's **Pick** button or a hotkey (default `Ctrl+Shift+F12`, configurable via `FXLOOP_PICK_KEY`) toggles pick mode on the focused window.
 - While active: hover draws an outline plus a label (`Button#saveBtn .button.primary 120×32`); the click is **consumed** (not delivered to the app) and selects the node; Escape leaves pick mode. Same overlay mechanism and tool-invisibility as the dev bar.
+- The outline stays on the selected node after the pick, also while another window has focus, and follows the node when the window moves or resizes. It ends when another node is selected (a new pick, or a row in the CSS inspector) or the developer presses in an app window.
 - The selection becomes the server's *picked target* (FCP event `humanPick`). New read-only tool **`fx_get_picked`** returns node details, path, explain-style summary and an annotated, persisted screenshot of the node. All target-taking tools accept `{"picked": true}` as a target.
 - MCP is pull-based: the developer picks, then tells the agent ("fix this one"). The skills from PRD 06 (S1–S3) learn to call `fx_get_picked` for "this", "here", "that one". Picks older than 10 minutes, or whose node left the scene, report `PICK_STALE`.
 
