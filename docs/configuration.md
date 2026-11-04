@@ -21,6 +21,7 @@ headless=xvfb
 | `FXLOOP_BUILD_TOOL` / `--build-tool` | auto-detected | `maven` or `gradle` (anything other than `gradle` means Maven). |
 | `FXLOOP_PREPARE` / `--prepare` | on | `none` skips the build and reads an existing `launch.json`. |
 | `FXLOOP_PREPARE_ROUTE` / `--prepare-route` | `auto` | `plugin`, `server` or `auto` (plugin when it resolves, else server-side prepare). |
+| `FXLOOP_LAUNCH_MODE` / `--launch-mode` | `auto` | Maven projects: `auto` (module path when a `module-info.java` exists, else classpath), `classpath` or `modulepath`; passed to the plugin as `-Dfxloop.launchMode` or used by the server-side prepare. Gradle: `fxloop { launchMode = ... }` in the build. |
 | `FXLOOP_STARTUP_TIMEOUT_MS` / `--startup-timeout-ms` | `30000` | Max wait for the agent handshake after launch (`STARTUP_TIMEOUT`). |
 | `FXLOOP_AGENT_JAR` / `--agent-jar` | bundled in server jar, extracted to `<fxloop dir>/fxloop-agent.jar` | Use a different agent jar. |
 | `FXLOOP_JAVA_HOME` | server's `java.home` | JDK used to launch the app (not a `--flag`; read straight from the environment). |

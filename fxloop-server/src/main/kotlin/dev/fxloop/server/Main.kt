@@ -71,8 +71,27 @@ fun toolReference(reg: ToolRegistry): String = buildString {
     }
 }
 
+/** `--help`: the jar's commands; anything else starts the MCP server, which a developer at a terminal would not expect. */
+fun usage(): String = """
+    fxloop-server ${Versions.SERVER}: the FXLoop MCP server (stdio). Register it with your agent as `java -jar <this jar>`.
+
+    java -jar fxloop-server.jar                      start the MCP server on stdin/stdout (what the agent runs)
+    java -jar fxloop-server.jar --version            version, build commit and a JDK check
+    java -jar fxloop-server.jar doctor [--json] [--client=claude-code|cursor|vscode|codex|gemini|all]
+                                                     check the project in the current directory (never writes)
+    java -jar fxloop-server.jar --seed-local-repo    write FXLoop's Maven artifacts into ~/.m2 (until Maven Central)
+    java -jar fxloop-server.jar --tool-reference     the MCP tool reference as Markdown
+
+    Server options are --key=value flags, FXLOOP_* environment variables or an fxloop.properties file in the project
+    (docs/configuration.md). Setup guide: https://github.com/h9lxyz/fxloop/blob/main/INSTALL.md
+""".trimIndent() + "\n"
+
 /** stdio MCP server entry point. stdout carries MCP frames only; all logging goes to stderr. */
 fun main(args: Array<String>) {
+    if (args.firstOrNull() in setOf("--help", "-h", "help")) {
+        print(usage())
+        return
+    }
     // `doctor` is a read-only diagnostic: no Config/MCP startup (PRD 11 §6)
     if (args.firstOrNull() == "doctor") exitProcess(dev.fxloop.server.cli.Doctor.main(args.drop(1)))
     System.setProperty("java.awt.headless", "true")
@@ -112,7 +131,8 @@ fun main(args: Array<String>) {
         .capabilities(McpSchema.ServerCapabilities.builder().tools(false).build())
         .tools(reg.toMcp())
         .build()
-    log.info("fxloop {} ready: project {} ({} tools)", Versions.SERVER, config.projectDir, reg.all().size)
+    log.info("fxloop {} ready: project {} ({} tools, headless={}, prepare-route={})", Versions.SERVER, config.projectDir, reg.all().size,
+        config.headless ?: "no", config.prepareRoute)
     Runtime.getRuntime().addShutdownHook(Thread {
         ctx.shutdown()
         runCatching { server.close() }
@@ -134,7 +154,7 @@ private fun runSidecar(ctx: Ctx): Nothing {
     ParentWatchdog.start { exitProcess(0) }
     Runtime.getRuntime().addShutdownHook(Thread { ctx.shutdown() })
     val viewer = ctx.ensureViewer(ctx.config.viewerPort ?: 0)
-    System.err.println("[fxloop] CSS inspector: ${viewer.inspectUrl()} (also via Inspect CSS in the dev bar)")
+    System.err.println("[fxloop] CSS inspector: ${viewer.inspectUrl()} (also via Open CSS inspector in the dev bar)")
     var yielded = false
     var seen = false
     val startDeadline = System.currentTimeMillis() + 120_000

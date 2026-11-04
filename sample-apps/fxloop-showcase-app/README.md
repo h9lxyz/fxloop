@@ -11,8 +11,10 @@ entry point is a top-level `fun main` (`dev.fxloop.showcase.MainKt`).
     ./mvnw verify          # one headless smoke test (TestFX + Monocle)
     ./mvnw javafx:run      # plain run, no FXLoop
 
-The FXLoop server can also launch it unconnected: it runs `compile dev.fxloop:fxloop-maven-plugin:<version>:prepare`
-by coordinates (needs the FXLoop artifacts in `~/.m2`, `./mvnw install` at the repo root).
+The server jar from the README quickstart is all the FXLoop server needs to launch it: without the build plugin it
+prepares the project itself (`prepare: server` in `fx_get_app_status`). `./mvnw install -DskipTests` at the repo root,
+or `java -jar ~/.fxloop/fxloop-server.jar --seed-local-repo`, is only needed once you add `fxloop-maven-plugin` to the
+pom for `./mvnw fxloop:run`.
 
 ## Screens
 
@@ -37,8 +39,8 @@ Program arguments, or `-Dfxloop.showcase.args="..."`:
 
 ## Running a demo
 
-Once per machine, from the FXLoop repo root: `./mvnw install -DskipTests`, then copy the skills into your agent's
-skills directory (`cp -r fxloop-skills/skills/fxloop-* ~/.claude/skills/` for Claude Code).
+Once per machine: install the server jar and the skills as the [README quickstart](../../README.md#quickstart) says
+(from a clone, the skills are `cp -r fxloop-skills/skills/fxloop-* ~/.claude/skills/` for Claude Code).
 
 Per demo, work on a copy. Connecting edits `pom.xml` and adds an MCP config, and the copy leaves the answer key behind:
 

@@ -2,11 +2,7 @@
   "mcpServers": {
     "fxloop": {
       "command": "java",
-      "args": ["-jar", "/abs/path/to/home/.fxloop/fxloop-server.jar"],
-      "env": {
-        "FXLOOP_PROJECT_DIR": "/abs/path/to/your-app",
-        "FXLOOP_APP_ARGS": "--seed"
-      }
+      "args": ["-jar", "${HOME}/.fxloop/fxloop-server.jar"]
     }
   }
 }

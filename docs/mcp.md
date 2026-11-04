@@ -188,7 +188,9 @@ Headless runs make FXLoop usable in devcontainers, over SSH and in CI. There the
 ## Setup
 
 The [`fxloop-connect` skill](skills.md#fxloop-connect) registers the server for your agent, adds the build plugin and a
-production guard, and launches the app. To do it by hand, point your client at the server jar and your project:
+production guard, and launches the app. The complete setup for any client, written so that an agent can follow it
+from its raw URL, is [INSTALL.md](https://github.com/h9lxyz/fxloop/blob/main/INSTALL.md). To do it by hand, point your
+client at the server jar and your project:
 
 ```sh
 # bash / zsh

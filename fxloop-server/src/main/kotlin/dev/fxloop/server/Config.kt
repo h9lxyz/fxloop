@@ -21,6 +21,8 @@ data class Config(
     val prepare: Boolean = true,
     /** Which prepare runs: `auto` (build plugin if present, else the server's own), `plugin` or `server` (PRD 11 4.2). */
     val prepareRoute: String = "auto",
+    /** Maven launch mode override: `auto`, `classpath` or `modulepath` (`-Dfxloop.launchMode` for the plugin route). */
+    val launchMode: String? = null,
     val startupTimeoutMs: Long = 30_000,
     val agentJar: Path? = null,
     val headless: String? = null,
@@ -84,6 +86,7 @@ data class Config(
                 buildTool = str("FXLOOP_BUILD_TOOL"),
                 prepare = !"none".equals(str("FXLOOP_PREPARE"), ignoreCase = true),
                 prepareRoute = str("FXLOOP_PREPARE_ROUTE")?.lowercase() ?: "auto",
+                launchMode = str("FXLOOP_LAUNCH_MODE")?.lowercase(),
                 startupTimeoutMs = str("FXLOOP_STARTUP_TIMEOUT_MS")?.toLong() ?: 30_000,
                 agentJar = str("FXLOOP_AGENT_JAR")?.let(Path::of),
                 headless = str("FXLOOP_HEADLESS"),

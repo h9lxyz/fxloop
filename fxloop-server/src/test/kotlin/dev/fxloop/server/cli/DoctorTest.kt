@@ -123,7 +123,7 @@ class DoctorTest {
         Files.writeString(dir.resolve("mvnw"), "#!/bin/sh\n").toFile().setExecutable(true)
         assertThat(run(dir)["build-tool"]!!.summary).contains("Maven").contains("wrapper mvnw")
         val fx = run(dir)["javafx"]!!
-        assertThat(fx.summary).contains("javafx-controls").contains("21.0.2").contains("classpath")
+        assertThat(fx.summary).contains("javafx-controls").contains("21.0.2").contains("-> launch mode classpath")
         Files.createDirectories(dir.resolve("src/main/java"))
         Files.writeString(dir.resolve("src/main/java/module-info.java"), "module demo { requires javafx.controls; }")
         assertThat(run(dir)["javafx"]!!.summary).contains("module-info.java (demo)").contains("modulepath")
@@ -141,6 +141,42 @@ class DoctorTest {
         assertThat(r["javafx"]!!.summary).contains("javafx-controls").contains("21.0.1")
         assertThat(r["main-class"]!!.summary).contains("demo.GMain")
         assertThat(r["build-plugin"]!!.status).isEqualTo(DoctorStatus.warn)
+    }
+
+    @Test
+    fun `a dev fxloop group id or package name is not the Gradle plugin`(@TempDir dir: Path) {
+        Files.writeString(dir.resolve("build.gradle.kts"), """
+            plugins { kotlin("jvm") version "2.4.21"; application; id("org.openjfx.javafxplugin") version "0.1.0" }
+            group = "dev.fxloop"
+            application { mainClass = "dev.fxloop.sample.MainKt" }
+        """.trimIndent())
+        val absent = run(dir)["build-plugin"]!!
+        assertThat(absent.status).isEqualTo(DoctorStatus.ok)
+        assertThat(absent.summary).contains("no FXLoop build plugin")
+        Files.writeString(dir.resolve("build.gradle"), "plugins { id 'dev.fxloop' version '9.9.9' }\n")
+        Files.delete(dir.resolve("build.gradle.kts"))
+        assertThat(run(dir)["build-plugin"]!!.status).isEqualTo(DoctorStatus.warn)
+    }
+
+    @Test
+    fun `snippets use the home variable for clients that expand it`(@TempDir dir: Path) {
+        pom(dir)
+        val home = Files.createDirectories(dir.resolve("home"))
+        val jar = Files.createDirectories(home.resolve(".fxloop")).resolve("fxloop-server.jar").also { Files.writeString(it, "x") }
+        val all = run(dir, env(dir, jar = jar), client = "all")["mcp-client"]!!
+        @Suppress("UNCHECKED_CAST") val snips = (all.data!!["snippets"] as List<Map<String, String>>).associate { it["client"]!! to it["content"]!! }
+        assertThat(snips["claude-code"]).contains("\"\${HOME}/.fxloop/fxloop-server.jar\"")
+        assertThat(snips["cursor"]).contains("\"\${userHome}/.fxloop/fxloop-server.jar\"")
+        assertThat(snips["vscode"]).contains("\"\${userHome}/.fxloop/fxloop-server.jar\"")
+        assertThat(snips["gemini"]).contains(jar.toString())
+        assertThat(snips["codex"]).contains(jar.toString())
+        val win = run(dir, env(dir, os = "Windows 11", jar = jar), client = "claude-code")["mcp-client"]!!
+        @Suppress("UNCHECKED_CAST") val winSnip = (win.data!!["snippets"] as List<Map<String, String>>).single()["content"]!!
+        assertThat(winSnip).contains("\${USERPROFILE}/.fxloop/fxloop-server.jar")
+        // a jar outside the home directory stays absolute
+        val elsewhere = Files.writeString(dir.resolve("fxloop-server.jar"), "x")
+        @Suppress("UNCHECKED_CAST") val abs = (run(dir, env(dir, jar = elsewhere), client = "claude-code")["mcp-client"]!!.data!!["snippets"] as List<Map<String, String>>).single()["content"]!!
+        assertThat(abs).contains(elsewhere.toString())
     }
 
     @Test
@@ -185,6 +221,34 @@ class DoctorTest {
         @Suppress("UNCHECKED_CAST") val allSnips = all.data!!["snippets"] as List<Map<String, String>>
         assertThat(allSnips.map { it["client"] }).containsExactly("claude-code", "cursor", "vscode", "gemini", "codex")
         assertThat(allSnips.last()["content"]).contains("[mcp_servers.fxloop]")
+        // the VS Code snippet is indented like the others, with "type" aligned with "command"
+        assertThat(allSnips[2]["content"]).contains("\n    \"fxloop\": {\n      \"type\": \"stdio\",\n      \"command\": \"java\",\n")
+    }
+
+    @Test
+    fun `claude mcp add registrations in the user file count, local scope for this directory first`(@TempDir dir: Path) {
+        pom(dir)
+        val jar = Files.writeString(dir.resolve("fxloop-server.jar"), "x")
+        val home = Files.createDirectories(dir.resolve("home"))
+        val ws = dir.toAbsolutePath().normalize().toString().replace("\\", "\\\\")
+        Files.writeString(home.resolve(".claude.json"), """{"projects":{"$ws":{"mcpServers":{"fxloop":{"type":"stdio","command":"java","args":["-jar","$jar"]}}}}}""")
+        val local = run(dir, env(dir, jar = jar))["mcp-client"]!!
+        assertThat(local.status).isEqualTo(DoctorStatus.ok)
+        assertThat(local.summary).contains("Claude Code (~/.claude.json, local scope)")
+        assertThat(local.fix).isNull()
+
+        Files.writeString(home.resolve(".claude.json"), """{"mcpServers":{"fxloop":{"type":"stdio","command":"java","args":["-jar","$jar"]}},"projects":{}}""")
+        val user = run(dir, env(dir, jar = jar))["mcp-client"]!!
+        assertThat(user.status).isEqualTo(DoctorStatus.ok)
+        assertThat(user.summary).contains("user scope")
+
+        // another directory's local entry does not count, and a stale jar path in the user file is reported
+        Files.writeString(home.resolve(".claude.json"), """{"projects":{"/elsewhere":{"mcpServers":{"fxloop":{"command":"java","args":["-jar","$jar"]}}}}}""")
+        assertThat(run(dir, env(dir, jar = jar))["mcp-client"]!!.status).isEqualTo(DoctorStatus.warn)
+        Files.writeString(home.resolve(".claude.json"), """{"mcpServers":{"fxloop":{"command":"java","args":["-jar","${dir.resolve("gone.jar")}"]}}}""")
+        val broken = run(dir, env(dir, jar = jar))["mcp-client"]!!
+        assertThat(broken.status).isEqualTo(DoctorStatus.fail)
+        assertThat(broken.summary).contains("gone.jar").contains(".claude.json")
     }
 
     @Test
@@ -207,7 +271,8 @@ class DoctorTest {
         assertThat(json.map { it["status"].asText() }).allMatch { it in setOf("ok", "warn", "fail") }
         assertThat(json[3]["data"]["candidates"]).hasSize(2)
         assertThat(json[0].has("fix")).isFalse()
-        assertThat(Doctor.render(cfg(dir), checks)).contains("❌ 4 Main class").contains("main-class=demo.AppOne")
+        assertThat(Doctor.render(cfg(dir), checks, utf8 = true)).contains("❌ 4 Main class").contains("   → ").contains("main-class=demo.AppOne")
+        assertThat(Doctor.render(cfg(dir), checks, utf8 = false)).contains("FAIL 4 Main class").contains("   -> ").doesNotContain("❌").doesNotContain("✅")
         assertThat(Doctor.summary(checks)).startsWith("doctor:")
         assertThat(Files.walk(dir).use { s -> s.map { it.toString() }.sorted().toList() }).isEqualTo(before)
     }

@@ -124,8 +124,9 @@ class RunMojo : PrepareMojo() {
             val request = ArtifactRequest(DefaultArtifact(coords), pluginRepositories, null)
             repositorySystem.resolveArtifact(repositorySession, request).artifact.file.toPath().toAbsolutePath()
         } catch (e: ArtifactResolutionException) {
-            throw MojoExecutionException("cannot resolve $coords (a SNAPSHOT needs `./mvnw install` in the FXLoop " +
-                "repository; or set $property)", e)
+            throw MojoExecutionException("cannot resolve $coords (until FXLoop is on Maven Central, run " +
+                "`java -jar ~/.fxloop/fxloop-server.jar --seed-local-repo` once, or `./mvnw install` in the FXLoop repository; " +
+                "or set $property)", e)
         }
     }
 }

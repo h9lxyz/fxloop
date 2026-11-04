@@ -123,6 +123,7 @@ internal class GradleFacts(val text: String) {
         .find(text)?.groupValues?.get(1)?.let { Regex("""["'](javafx\.[\w.]+)["']""").findAll(it).map { m -> m.groupValues[1] }.toList() }.orEmpty()
     val mainClass: String? = Regex("""mainClass(?:Name)?\s*(?:=|\.set\(|\()\s*["']([\w.$/]+)["']""").find(text)?.groupValues?.get(1)
         ?: Regex("""["']Main-Class["']\s*(?:to|:|=)\s*["']([\w.$]+)["']""").find(text)?.groupValues?.get(1)
-    val fxloopPlugin: Boolean = Regex("""["']dev\.fxloop["']|dev\.fxloop\.\w+""").containsMatchIn(text)
+    /** A plugin application (`id("dev.fxloop")`, `id 'dev.fxloop'`, `apply plugin:`, `alias(...)`, the plugin on a classpath), not a group id or a package name. */
+    val fxloopPlugin: Boolean = Regex("""\b(id|plugin|apply|alias)\b[^\n]*["']dev\.fxloop["']|fxloop-gradle-plugin|dev\.fxloop\.gradle\b""").containsMatchIn(text)
     val fxloopPluginVersion: String? = Regex("""["']dev\.fxloop["'](?:\)|\s)*\s*version\s*\(?\s*["']([^"']+)["']""").find(text)?.groupValues?.get(1)
 }
