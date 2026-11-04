@@ -6,6 +6,7 @@ import dev.fxloop.agent.Fx
 import dev.fxloop.agent.Reloads
 import dev.fxloop.protocol.FcpException
 import dev.fxloop.protocol.Json
+import java.net.URLConnection
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.jar.JarEntry
@@ -16,6 +17,7 @@ import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -36,6 +38,14 @@ class ScratchApplyFxTest {
         @BeforeAll
         fun runtime() {
             AgentRuntime.startForTest()
+            // a cached `jar:` connection keeps the library's jar open, and Windows then cannot delete the temp dir
+            URLConnection.setDefaultUseCaches("jar", false)
+        }
+
+        @JvmStatic
+        @AfterAll
+        fun restoreJarCache() {
+            URLConnection.setDefaultUseCaches("jar", true)
         }
     }
 

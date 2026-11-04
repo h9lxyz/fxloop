@@ -48,7 +48,10 @@ class DevBarFxTest {
 
     @AfterEach
     fun off() {
-        fx { rt.bar.applyState(state("off")) }
+        fx {
+            rt.bar.applyState(state("off"))
+            if (rt.pick.active) rt.pick.toggle(null) // a press and release on the Pick button turned it on
+        }
     }
 
     private fun <T> fx(work: () -> T): T {
@@ -222,8 +225,8 @@ class DevBarFxTest {
                 assertThat(reason.isManaged).isTrue()
                 assertThat(reason.width).isGreaterThanOrEqualTo(100.0)
             }
-            // wider again: what fits comes back from the menu (only up to the first width: see below)
-            fx { stage().width = width }
+            // wider again: what fits comes back from the menu (well past the first width: fonts differ per OS)
+            fx { stage().width = 900.0 }
             assertThat(view(fx { rt.bar.describe() }).path("overflow").map { it.asText() }).doesNotContain("Pick")
         } finally {
             fx { stage().width = width }

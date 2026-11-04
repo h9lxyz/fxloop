@@ -11,7 +11,8 @@ class SelectorsTest {
         val p = Selectors.parts(Selector.createSelector("Button#ok.a.b:hover:focused")).single()
         assertThat(p.name).isEqualTo("Button")
         assertThat(p.id).isEqualTo("ok")
-        assertThat(p.styleClasses).containsExactly("a", "b")
+        // the order comes from JavaFX's class set: it depends on which classes this JVM has already seen
+        assertThat(p.styleClasses).containsExactlyInAnyOrder("a", "b")
         assertThat(p.pseudoClasses.map { it.pseudoClassName }).containsExactlyInAnyOrder("hover", "focused")
     }
 

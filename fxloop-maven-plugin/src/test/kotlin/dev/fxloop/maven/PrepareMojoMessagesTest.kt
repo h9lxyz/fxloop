@@ -10,9 +10,10 @@ class PrepareMojoMessagesTest {
 
     @Test
     fun noneFoundMessage() {
-        val e = MainClassException(listOf(Path.of("/x/classes")), emptyList())
+        val classes = Path.of("/x/classes")
+        val e = MainClassException(listOf(classes), emptyList())
         assertThat(PrepareMojo.mainClassMessage(e))
-            .isEqualTo("No main class found in /x/classes. Compile first, or set -Dfxloop.mainClass=<fqcn>.")
+            .isEqualTo("No main class found in $classes. Compile first, or set -Dfxloop.mainClass=<fqcn>.")
     }
 
     @Test

@@ -24,6 +24,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.within
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.framework.junit5.ApplicationExtension
@@ -56,6 +57,12 @@ class PickModeFxTest {
         box = VBox(button)
         stage.scene = Scene(box, 300.0, 200.0)
         stage.show()
+    }
+
+    /** The real pointer sits wherever the last test class left the stage, and a frame part under it stays away. */
+    @BeforeEach
+    fun pointerOffTheFrame() {
+        NodeFrame.pointer = { Point2D(-1000.0, -1000.0) }
     }
 
     @AfterEach
