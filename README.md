@@ -4,9 +4,8 @@
 
 **Let your coding agent see, click and fix your JavaFX app.**
 
-FXLoop gives Claude Code, Cursor, Copilot, Codex, Gemini or any other MCP agent a running copy of your JavaFX app to
-look at and drive, explains why the UI looks the way it does, and live-reloads the fix. Java or Kotlin, Maven or
-Gradle.
+FXLoop gives your coding agent a running copy of your JavaFX app to look at and drive, explains why the UI looks the
+way it does, and live-reloads the fix. Works with any MCP agent, for Java or Kotlin, Maven or Gradle.
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 ![Java 17+](https://img.shields.io/badge/java-17%2B-orange.svg)
@@ -21,9 +20,10 @@ Gradle.
 
 ---
 
-When an agent builds a web app, it has a browser: it can look at the page, click it and read the console. When it
-builds a JavaFX app, it edits code blind and asks you what happened on screen. **FXLoop is the browser for JavaFX.**
-The agent gets screenshots, clicks, layout and CSS explanations, and live reload, so it can check its own work.
+When an agent builds a web app, it has a browser: the DOM, the console, screenshots, clicks. When it builds a JavaFX
+app, it writes code, compiles, and asks you what happened on screen. FXLoop closes that loop. It gives the agent a
+supervised copy of your app to look at and drive, and the explanations it needs to fix what it finds the first time,
+instead of guessing at CSS and layout.
 
 ```text
 You    The Save button in the contact dialog gets cut off when the window is small.
