@@ -110,26 +110,33 @@ class HumanInput(private val rt: AgentRuntime) {
     }
 
     private fun attach(w: Window) {
-        if (w.properties.putIfAbsent(WINDOW_KEY, true) == null) {
+        if (w.properties.put(WINDOW_KEY, this) !== this) {
             w.sceneProperty().addListener { _, _, s -> if (s != null) attachScene(s) }
         }
         w.scene?.let(::attachScene)
     }
 
     private fun attachScene(scene: Scene) {
-        if (scene.properties.putIfAbsent(SCENE_KEY, true) != null) return
-        scene.addEventFilter(MouseEvent.ANY, EventHandler<MouseEvent> { onMouse(scene, it) })
-        scene.addEventFilter(KeyEvent.ANY, EventHandler<KeyEvent> { onKey(scene, it) })
+        // The filters stay on a scene for good, so they go through whichever runtime attached last: tests start a
+        // fresh runtime per class on the same stage.
+        val previous = scene.properties.put(SCENE_KEY, this)
+        if (previous === this) return
+        (scene.focusOwner as? TextInputControl)?.let { edits[it] = EditState(it.text ?: "") }
+        if (previous != null) return
+        scene.addEventFilter(MouseEvent.ANY, EventHandler<MouseEvent> { owner(scene).onMouse(scene, it) })
+        scene.addEventFilter(KeyEvent.ANY, EventHandler<KeyEvent> { owner(scene).onKey(scene, it) })
         scene.addEventFilter(InputEvent.ANY, EventHandler<InputEvent> { e ->
             // scroll, touch, gestures, drag and drop; mouse and key events are handled above
-            if (e !is MouseEvent && e !is KeyEvent) blockIfLocked(scene, e) { it.robot }
+            if (e !is MouseEvent && e !is KeyEvent) owner(scene).blockIfLocked(scene, e) { it.robot }
         })
         scene.focusOwnerProperty().addListener { _, old, new ->
-            if (old is TextInputControl) commit(old, false)
-            if (new is TextInputControl) edits[new] = EditState(new.text ?: "")
+            val human = owner(scene)
+            if (old is TextInputControl) human.commit(old, false)
+            if (new is TextInputControl) human.edits[new] = EditState(new.text ?: "")
         }
-        (scene.focusOwner as? TextInputControl)?.let { edits[it] = EditState(it.text ?: "") }
     }
+
+    private fun owner(scene: Scene): HumanInput = scene.properties[SCENE_KEY] as HumanInput
 
     private fun isOverlay(scene: Scene): Boolean = scene.window?.let(Overlays::isOverlay) == true
 
@@ -219,6 +226,7 @@ class HumanInput(private val rt: AgentRuntime) {
         if (isOverlay(scene)) return
         if (!isHuman(type == MouseEvent.MOUSE_PRESSED) { it.expectsMouse(e) }) return
         lastHumanNanos = System.nanoTime()
+        if (type == MouseEvent.MOUSE_PRESSED) rt.pick.humanPress()
         if (type == MouseEvent.MOUSE_CLICKED && recordHuman && !pickActive()) {
             recordClick(e.target as? Node, e)
         }

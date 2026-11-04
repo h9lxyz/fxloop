@@ -20,9 +20,9 @@ the home directory except the server jar: `~/.fxloop/fxloop-server.jar` (`$HOME\
 PowerShell), plus the server's caches there.
 
 1. **Jar.** If `~/.fxloop/fxloop-server.jar` exists, run `java -jar <jar> --version`. It must report this file's
-   `fxloop-version` (for a `-SNAPSHOT` version, any `edge` build is fine). Otherwise download the matching release:
-   `https://github.com/h9lxyz/fxloop/releases/download/v<version>/fxloop-server-all.jar`, or `.../download/edge/...`
-   for a SNAPSHOT. Show the developer the URL and the SHA-256 of the file (`SHA256SUMS` is a release asset).
+   `fxloop-version` (for a `-SNAPSHOT` version, any version is fine). Otherwise download the matching release:
+   `https://github.com/h9lxyz/fxloop/releases/download/<version>/fxloop-server-all.jar`, or
+   `https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar` for a SNAPSHOT. Show the developer the URL and the SHA-256 of the file (`SHA256SUMS` is a release asset).
 
    ```sh
    mkdir -p ~/.fxloop && curl -fsSL -o ~/.fxloop/fxloop-server.jar <url>

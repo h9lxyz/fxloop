@@ -15,7 +15,7 @@ and nothing in their home directory except one jar. Two paths, clearly separated
 **Audience:** new developers (P2) and the agent running `fxloop-connect` (P1). Also contributors: the README's
 "build from source" moves to a contributor section and stops being the first thing a user sees.
 
-**Entry gate:** PRD 10 milestone 1 (the `edge` build and version-free asset names). Everything else here is
+**Entry gate:** PRD 10 (one tagged GitHub release with the version-free asset names). Everything else here is
 independent of publishing to Maven Central; Central makes path B's plugin step cheaper, not path A.
 
 ---
@@ -69,7 +69,6 @@ Invoke-WebRequest -OutFile "$HOME\.fxloop\fxloop-server.jar" `
   https://github.com/<owner>/fxloop/releases/latest/download/fxloop-server-all.jar
 ```
 
-Until the first numbered release exists the URL is `releases/download/edge/fxloop-server-all.jar` (PRD 10 §2.5).
 `java -jar ~/.fxloop/fxloop-server.jar --version` confirms the download and prints the JDK check (§6).
 
 Requirements, stated once above the commands: a JDK 17 or newer on `PATH` (a JDK, not a JRE), a JavaFX app built with
@@ -123,7 +122,7 @@ server carries the Maven plugin jar and POM and its own agent jar, and `java -ja
 writes them into `~/.m2/repository/dev/fxloop/…` with a `maven-metadata-local.xml`, so `mvn fxloop:run` works with
 the plugin in the POM, and Gradle with `mavenLocal()` in `pluginManagement`. `fxloop-connect` runs it when the plugin
 fails to resolve. The command and the bundled copies are removed in the first release after Central publishing works
-(PRD 10 A-R5). This replaces "clone and build FXLoop" as the only pre-Central option.
+(PRD 10 §7). This replaces "clone and build FXLoop" as the only pre-Central option.
 
 ## 5. Path B — the skills
 
@@ -139,7 +138,7 @@ Invoke-WebRequest -OutFile "$env:TEMP\fxloop-skills.zip" https://github.com/<own
 Expand-Archive -Force "$env:TEMP\fxloop-skills.zip" "$HOME\.claude\skills\"
 ```
 
-Other agents: the same zip into their skills directory. The zip is produced by the release (PRD 10 §2.4) from
+Other agents: the same zip into their skills directory. The zip is produced by the release (PRD 10 §3) from
 `fxloop-skills/skills/`, so nothing changes about how the skills are authored or tested.
 
 **Claude Code convenience (optional):** a plugin marketplace manifest in the repository (`.claude-plugin/`) that
@@ -155,7 +154,7 @@ Step 0 is rewritten; steps 1–7 stay.
 | | Today | v2 |
 |---|---|---|
 | Launcher | copy `FxloopBootstrap.java` to `~/.fxloop/`, run `--install` | none |
-| Server jar | `~/.m2` → `~/.fxloop` → jbang → wrapper fetch | `~/.fxloop/fxloop-server.jar` exists and `--version` reports the skill's `fxloop-version` (or any edge build for a SNAPSHOT); else download the release matching the version (`releases/download/v<version>/fxloop-server-all.jar`, `edge` for SNAPSHOT) with `curl`/`Invoke-WebRequest`, and show the URL and the checksum |
+| Server jar | `~/.m2` → `~/.fxloop` → jbang → wrapper fetch | `~/.fxloop/fxloop-server.jar` exists and `--version` reports the skill's `fxloop-version` (any version for a SNAPSHOT skill); else download the release matching the version (`releases/download/<version>/fxloop-server-all.jar`, `latest` for a SNAPSHOT skill) with `curl`/`Invoke-WebRequest`, and show the URL and the checksum |
 | MCP config | `java <home>/.fxloop/FxloopBootstrap.java` with client variables | `java -jar <absolute jar path>`; the report says the file is per machine. Claude Code may use `${HOME}`/`${USERPROFILE}` as today |
 | Order | config, then `fxloop.properties` if needed, sometimes two reloads | detect (step 1) → `fxloop.properties` (step 4) → MCP config → **one** reload |
 | JDK check | none | `java -jar … doctor` (§6) before writing anything; stops with the fix when the JDK is below 17 or a JRE |
@@ -196,8 +195,7 @@ two short sections:
 
 "Run the app yourself" stays as the third block and says it needs the build plugin (a link to the snippet). Build
 from source, jbang and the Gradle `publishToMavenLocal` move to a **Contributing** section at the end. The clone URL
-is fixed everywhere (README, `mkdocs.yml`, `docs/index.md`, the Gradle plugin metadata) once PRD 10's open question 1 is
-answered.
+is fixed everywhere (README, `mkdocs.yml`, `docs/index.md`, the Gradle plugin metadata) as PRD 10 §5 requires.
 
 ## 8. Acceptance
 
@@ -243,17 +241,15 @@ Projects: `fxloop-sample-app` (Maven, Java), `fxloop-sample-app-kotlin` (Gradle,
 
 ## 10. Milestones
 
-1. **Jar-only install** (§3, §4.1, §5.1, §5.2 without doctor, README §7): needs only the edge build. Removes the
+1. **Jar-only install** (§3, §4.1, §5.1, §5.2 without doctor, README §7): needs one tagged release. Removes the
    bootstrap and the clone. ~1–2 days.
 2. **Plugin-free prepare** (§4.2, the shared module, A-O4/A-O5). Makes path A true. ~3 days.
 3. **Doctor** (§6) and the seed command (§4.4). ~2 days.
-4. **Acceptance matrix** (§8) on three OSes against `1.0.0-rc.1`; then the marketplace manifest if wanted. ~1 day plus
+4. **Acceptance matrix** (§8) on three OSes against `1.0.0`; then the marketplace manifest if wanted. ~1 day plus
    calendar time.
 
 ## 11. Risks
 
-- **Rolling `edge` as the install source** means two users on "the same" edge can have different jars. The
-  `--version` output includes the commit; bug reports ask for it. Numbered releases fix this for everyone else.
 - **Moving detection out of the Maven plugin** touches working code. The plugin's tests stay; the shared module is
   extracted without behaviour change first (A-O5), and the server fallback is built on it second.
 - **Gradle init scripts** interact with the project's own `settings.gradle` plugin management and with configuration

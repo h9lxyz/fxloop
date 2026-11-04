@@ -9,21 +9,21 @@ import java.lang.ref.WeakReference
 import javafx.animation.PauseTransition
 import javafx.event.EventHandler
 import javafx.geometry.Bounds
+import javafx.geometry.Rectangle2D
 import javafx.scene.Node
 import javafx.scene.Scene
-import javafx.scene.control.Label
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseEvent
-import javafx.scene.layout.Region
-import javafx.stage.Popup
-import javafx.stage.Screen
 import javafx.stage.Window
 import javafx.util.Duration
 
 /**
  * E6 (PRD 07 §8): pick mode. While active, hover outlines the node under the pointer, a click is consumed and
  * selects the node (`humanPick` event), Escape leaves. The pick resolves `{"picked": true}` targets.
+ *
+ * The selection stays outlined afterwards, in whichever window has focus: a pick holds its node, and so does a click
+ * on a CSS inspector row ([hold]). It ends when another node is held or the developer presses in an app window.
  */
 class PickMode(private val rt: AgentRuntime) {
     @Volatile
@@ -37,7 +37,8 @@ class PickMode(private val rt: AgentRuntime) {
     private var selectedThisGesture = false
     private var pickedRef: WeakReference<Node>? = null
     private var pickedAt = 0L
-    private val outline by lazy { Outline() }
+    private var heldRef: WeakReference<Node>? = null
+    private val outline by lazy { NodeFrame("rgba(255,64,129,0.95)", ::label, ::humanPress) }
     private val swallowTimeout by lazy { PauseTransition(Duration.millis(600.0)).apply { setOnFinished { detach() } } }
 
     private val onMove = EventHandler<MouseEvent> { e -> hover(e) }
@@ -125,6 +126,40 @@ class PickMode(private val rt: AgentRuntime) {
         Json.obj().put("active", active)
     }
 
+    /** Keeps the outline on [n] until the next selection; an unrendered node ends the current one. FCP `highlight {hold}`. */
+    internal fun hold(n: Node): ObjectNode {
+        release()
+        NodeInfo.notShownReason(n)?.let { return Json.obj().put("shown", false).put("reason", "not rendered: $it") }
+        if (n.scene?.window?.isShowing != true || n.localToScreen(n.boundsInLocal) == null) return Json.obj().put("shown", false)
+        heldRef = WeakReference(n)
+        if (!active) restore()
+        return Json.obj().put("shown", true)
+    }
+
+    /** Ends the held selection. FCP `highlight {release}`. */
+    internal fun release() {
+        heldRef = null
+        if (!active) outline.hide()
+    }
+
+    /** The developer pressed in an app window. A press that belongs to a pick gesture is not a press on the app. */
+    internal fun humanPress() {
+        if (scene == null) release()
+    }
+
+    /** True while the outline is held on [n]. */
+    internal fun isHeld(n: Node): Boolean = heldRef?.get() === n
+
+    /** Puts the outline back on the held node, if any. */
+    private fun restore() {
+        val n = heldRef?.get()
+        val w = n?.scene?.window
+        if (n == null || w == null) outline.hide() else outline.show(w, n)
+    }
+
+    /** Screen rects of the pick outline popups, empty while no outline shows (tests). */
+    internal fun outlineRects(): List<Rectangle2D> = outline.rects()
+
     private fun box(b: Bounds): ObjectNode =
         Json.obj().put("x", b.minX).put("y", b.minY).put("w", b.width).put("h", b.height)
 
@@ -152,8 +187,8 @@ class PickMode(private val rt: AgentRuntime) {
         if (!active) return
         try {
             val n = nodeAt(e)
-            val b = n?.localToScreen(n.boundsInLocal)
-            if (n == null || b == null) outline.hide() else outline.show(scene!!.window, b, label(n))
+            if (n == null || n.localToScreen(n.boundsInLocal) == null) outline.hide()
+            else outline.show(scene!!.window, n)
         } catch (t: RuntimeException) {
             AgentLog.warn("pick hover failed", t)
             outline.hide()
@@ -165,6 +200,7 @@ class PickMode(private val rt: AgentRuntime) {
         selectedThisGesture = true
         pickedRef = WeakReference(n)
         pickedAt = clock()
+        heldRef = WeakReference(n)
         val t = Targets.summary(n)
         t.remove("h")
         val o = Json.obj().setNode("target", t).put("ts", pickedAt)
@@ -177,7 +213,7 @@ class PickMode(private val rt: AgentRuntime) {
     /** Leaves pick mode but keeps swallowing the rest of the current click so the app never sees it. */
     private fun leave() {
         active = false
-        outline.hide()
+        restore()
         if (selectedThisGesture) {
             swallowTimeout.playFromStart()
         } else {
@@ -193,61 +229,6 @@ class PickMode(private val rt: AgentRuntime) {
         s.removeEventFilter(MouseEvent.MOUSE_DRAGGED, onMove)
         s.removeEventFilter(KeyEvent.KEY_PRESSED, onKey)
         scene = null
-    }
-
-    /**
-     * Four thin edge popups just outside the node plus a label popup above or below it. Windows cannot be
-     * click-through, so nothing ever overlaps the node itself (the pointer stays on the app's scene).
-     */
-    private class Outline {
-        private val edges = List(4) { newPopup(Region().apply { style = "-fx-background-color: rgba(255,64,129,0.95);" }) }
-        private val text = Label().apply {
-            style = "-fx-background-color: rgba(40,40,40,0.92); -fx-text-fill: white; -fx-font-size: 11px; -fx-padding: 1 5 1 5;"
-        }
-        private val tag = newPopup(text)
-
-        private fun newPopup(content: Node): Popup = Popup().apply {
-            Overlays.mark(this)
-            isAutoHide = false
-            isAutoFix = false
-            content.isMouseTransparent = true
-            this.content.add(content)
-        }
-
-        fun show(owner: Window, b: Bounds, label: String) {
-            val t = 2.0
-            val rects = listOf(
-                doubleArrayOf(b.minX - t, b.minY - t, b.width + 2 * t, t),
-                doubleArrayOf(b.minX - t, b.maxY, b.width + 2 * t, t),
-                doubleArrayOf(b.minX - t, b.minY, t, b.height),
-                doubleArrayOf(b.maxX, b.minY, t, b.height),
-            )
-            for ((i, r) in rects.withIndex()) {
-                val region = edges[i].content[0] as Region
-                region.setPrefSize(r[2], r[3])
-                region.setMinSize(r[2], r[3])
-                region.setMaxSize(r[2], r[3])
-                place(edges[i], owner, r[0], r[1])
-            }
-            text.text = label
-            val h = text.prefHeight(-1.0).coerceAtLeast(16.0)
-            val above = Screen.getScreens().any { it.visualBounds.contains(b.minX, b.minY - t - h) }
-            place(tag, owner, b.minX - t, if (above) b.minY - t - h else b.maxY + t)
-        }
-
-        private fun place(p: Popup, owner: Window, x: Double, y: Double) {
-            if (p.isShowing) {
-                p.x = x
-                p.y = y
-            } else {
-                p.show(owner, x, y)
-            }
-        }
-
-        fun hide() {
-            edges.forEach { it.hide() }
-            tag.hide()
-        }
     }
 
     private companion object {

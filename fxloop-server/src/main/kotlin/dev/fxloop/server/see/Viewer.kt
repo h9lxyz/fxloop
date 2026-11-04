@@ -380,10 +380,14 @@ class Viewer(
                 method = Fcp.Method.HIGHLIGHT
                 val handles = p("handles")?.split(',')?.mapNotNull { it.trim().toIntOrNull() }?.take(MAX_HANDLES).orEmpty()
                 if (p("clear") in TRUE) params.put("clear", true)
+                else if (p("release") in TRUE) params.put("release", true)
                 else if (handles.isNotEmpty()) {
                     params.putArray("handles").also { a -> handles.forEach(a::add) }
                     if (p("labels") in TRUE) params.put("labels", true)
-                } else target()
+                } else {
+                    target()
+                    if (p("hold") in TRUE) params.put("hold", true)
+                }
             }
             "states" -> {
                 method = Fcp.Method.FORCE_STATES

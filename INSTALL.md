@@ -45,7 +45,7 @@ If `~/.fxloop/fxloop-server.jar` already exists, run the `--version` line below 
 ```sh
 # bash / zsh
 mkdir -p ~/.fxloop && curl -fsSL -o ~/.fxloop/fxloop-server.jar \
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-server-all.jar
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar
 java -jar ~/.fxloop/fxloop-server.jar --version
 ```
 
@@ -53,18 +53,17 @@ java -jar ~/.fxloop/fxloop-server.jar --version
 # PowerShell
 New-Item -Force -ItemType Directory "$HOME\.fxloop" | Out-Null
 Invoke-WebRequest -OutFile "$HOME\.fxloop\fxloop-server.jar" `
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-server-all.jar
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar
 java -jar "$HOME\.fxloop\fxloop-server.jar" --version
 ```
 
-`edge` is the rolling build of `main`. Once a numbered release exists, `releases/latest/download/fxloop-server-all.jar`
-is the same file name from the latest release. `--version` prints the version, the commit it was built from, and
+`releases/latest` is the newest tagged release; a specific one is `releases/download/<version>/fxloop-server-all.jar`.
+`--version` prints the version, the commit it was built from, and
 whether the JDK that runs it is usable. The jar's other commands are `doctor` (step 3) and `--seed-local-repo`
 (step 7); `--help` lists them; anything else starts the MCP server on stdin and stdout. In Windows PowerShell 5.1
 (not PowerShell 7) run `$ProgressPreference = 'SilentlyContinue'` first, or the download crawls.
 
-**If the download fails** (404 because no `edge` build has been published yet, a proxy, a firewall, antivirus
-quarantine), either of these works:
+**If the download fails** (a proxy, a firewall, antivirus quarantine), either of these works:
 
 - Build the jar from source (needs `git` and three to five minutes; the Gradle lines matter only for Gradle projects):
 
@@ -259,14 +258,14 @@ They are plain folders in the open skills format; the MCP tools work without the
 # bash / zsh: Claude Code, every project. Other agents: unzip into their skills directory instead.
 # Needs unzip (apt install unzip), or: python3 -m zipfile -e /tmp/fxloop-skills.zip ~/.claude/skills/
 curl -fsSL -o /tmp/fxloop-skills.zip \
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip \
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-skills.zip \
   && unzip -o /tmp/fxloop-skills.zip -d ~/.claude/skills/
 ```
 
 ```powershell
 # PowerShell
 Invoke-WebRequest -OutFile "$env:TEMP\fxloop-skills.zip" `
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-skills.zip
 Expand-Archive -Force "$env:TEMP\fxloop-skills.zip" "$HOME\.claude\skills\"
 ```
 

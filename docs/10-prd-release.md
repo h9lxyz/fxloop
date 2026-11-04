@@ -1,199 +1,112 @@
-# PRD 10 — Releases: one action, every artifact (Stage R)
+# PRD 10 — Releases: push a tag, get a GitHub release (Stage R)
 
-**Status:** proposed (2026-11-02).
+**Status:** implemented (2026-11-04); not yet exercised by a real tag.
 
-**Objective:** a release is one action that produces everything a user needs, in a form they can fetch without
-cloning or building: a GitHub release with the server jar and the skills, the Maven artifacts on Central, the Gradle
-plugin on the Plugin Portal, and release notes. `main` stays on a `-SNAPSHOT`, and a rolling **edge** build gives the
-onboarding path (PRD 11) a downloadable jar before the first numbered release exists.
+**Objective:** pushing a tag `<major>.<minor>.<patch>` produces a GitHub release with the server jar and the skills. The version
+comes from the tag at build time; the code stays on `1.0.0-SNAPSHOT` and no commit is made by the workflow. That is
+the whole release process. Maven Central and the Gradle Plugin Portal are a later, separate step.
 
-**Audience:** the maintainer cutting releases, and the onboarding path, which depends on predictable asset URLs.
-
-**Entry gate:** none. This PRD is the entry gate for PRD 06 §3.1 ("published artifacts") and PRD 11.
+**Audience:** the maintainer, and the onboarding path (PRD 11), which downloads the jar from the release.
 
 ---
 
 ## 1. Where we are
 
-`release.yml` runs on a `v*` tag push: `./mvnw -Prelease deploy` (Central, signed, sources, javadoc, SBOM), then the
-Gradle plugin's `publishPlugins`, then a GitHub release with `fxloop-server-*-all.jar` and the BOMs. It has never run:
-there is no tag in the repository. Reading it against what a release actually needs:
+`release.yml` runs on `v*` tags and has never run (no tag exists). It would build the committed `1.0.0-SNAPSHOT`,
+try to deploy it to Central (which rejects SNAPSHOTs and has no credentials yet), and stop before the GitHub release.
 
-| | Problem |
-|---|---|
-| **R1** | **The version is not connected to the tag.** The POMs say `1.0.0-SNAPSHOT`. Tagging `v1.0.0` would deploy a SNAPSHOT (Central rejects it) and attach `fxloop-server-1.0.0-SNAPSHOT-all.jar` to a release called 1.0.0. |
-| **R2** | **The version lives in many files.** Root and module POMs, the Gradle plugin build and README, the sample Gradle builds, `jbang-catalog.json`, the Maven plugin README, `security.md`, the README badge and status line, and the `fxloop-connect` frontmatter (`SkillsLayoutTest` ties it to the server). A bump by hand misses one. |
-| **R3** | **All or nothing.** If Central or the Plugin Portal step fails (a missing secret, the `dev.fxloop` namespace not verified, the portal's first-publish approval pending), the job stops and no GitHub release is created, although the jar is the artifact most users need. |
-| **R4** | **No tests before publishing.** `deploy` runs unit tests, but not the `samples` or `acceptance` profiles that CI runs, and nothing checks the tagged commit was green. |
-| **R5** | **Assets are incomplete and have no stable names.** No skills bundle, no checksums, no version-free asset name, so an installer cannot use `releases/latest/download/<name>`. |
-| **R6** | **Pre-releases are not distinguished.** A `1.0.0-rc.1` would be marked *latest*. |
-| **R7** | **The repository's home is ambiguous.** README, `mkdocs.yml`, `docs/index.md` and the Gradle plugin metadata point at `github.com/fxloop/fxloop`, which does not exist; the remote is `h9lxyz/fxloop`. Every release URL depends on this. |
-| **R8** | **Nothing to try before a release.** There is no way to get a current jar without building. |
+## 2. How it works
 
-## 2. Recommendation
-
-### 2.1 Trigger: `workflow_dispatch`, not a tag push
-
-The workflow is started by hand with inputs `version` (e.g. `1.0.0-rc.1`, `1.0.0`) and `next` (the following
-SNAPSHOT, defaulted from `version`). It writes the version everywhere (§2.3), commits `release: v<version>`, creates
-the tag, builds and tests, publishes, creates the GitHub release, then writes `next`, commits `back to <next>` and
-pushes both commits and the tag.
-
-Why not a tag push: the version must be committed before the build (R1, R2), so a tag-triggered workflow needs a
-manual bump commit first, which is exactly the error-prone part. The alternative of deriving the version from the tag
-at build time (`versions:set`, never committed) keeps `main` clean of bot commits but leaves the tagged commit saying
-SNAPSHOT, breaks `SkillsLayoutTest` unless the skill file is rewritten in the build too, and makes "which commit is
-1.0.0" a question. Dispatch with committed versions is boring and reproducible, which is what a release should be.
-
-A `v*` tag pushed by hand still runs the workflow in **re-release mode**: no version writes, build and test the tagged
-commit, and (re)create the GitHub release and the publish stages that are not done yet. This is the recovery path when
-a stage failed after the tag existed.
-
-### 2.2 Stages, each gated on its own
-
-| Stage | Runs when | Produces |
-|---|---|---|
-| **verify** | always | `./mvnw -B -Psamples install` on Linux JDK 21 plus the acceptance suite under Xvfb, and the Gradle plugin's `build`. The same commands as `ci.yml`, in one job, so a release can never ship what CI would reject. The full OS matrix is CI's job on `main`; the release job checks that the commit has a successful CI run (`gh run list --commit`) and fails if it has none. |
-| **github-release** | verify passed | The release with the assets in §2.4. Pre-release when the version contains a hyphen (`rc`, `beta`). Always runs, so the jar is there even when publishing fails. |
-| **maven-central** | verify passed **and** the Central secrets are set | `./mvnw -B -Prelease deploy -DskipTests`. The step reads the secrets into `env` and skips itself with a visible notice when they are empty (GitHub does not allow secrets in `if:` directly). |
-| **gradle-plugin-portal** | verify passed **and** the portal secrets are set | `publishPlugins`. Same gating. |
-| **docs** | github-release done | `mkdocs gh-deploy` of the tagged docs to GitHub Pages (a separate, tiny workflow that also runs on `main`). |
-| **post** | always, last | Writes `next`, commits, pushes. Opens a tracking issue when any publish stage was skipped or failed, listing what to re-run. |
-
-Stages that skip or fail never prevent the ones after them except as listed. The job summary shows one line per
-stage: done / skipped (why) / failed.
-
-### 2.3 One version, one script, one test
-
-`release/set-version.sh <version>` (bash; the workflow runs on Linux) rewrites every location in R2. A new
-`VersionConsistencyTest` in the server module reads the root POM version and asserts that every other location
-agrees, so a forgotten file fails `./mvnw install`, not the release. The list of locations lives in one place: the
-script, which the test calls with `--list`. The Gradle plugin and the sample Gradle builds keep literal versions (no
-cross-build file reading); the script handles them.
-
-Not chosen: Maven CI-friendly versions (`${revision}` + flatten plugin) would move the truth into `.mvn/maven.config`,
-but Gradle, jbang and the docs still need rewriting, so it removes one file from the list and adds a plugin.
-
-### 2.4 Assets and names
-
-| Asset | Name | Why |
-|---|---|---|
-| Server (shaded, bundles the agent) | `fxloop-server-<v>-all.jar` **and** a copy `fxloop-server-all.jar` | The versioned name for humans; the version-free one for `releases/latest/download/fxloop-server-all.jar` in installers (PRD 11) |
-| Skills | `fxloop-skills-<v>.zip` and `fxloop-skills.zip` | `fxloop-skills/skills/` zipped, so installing the skills does not need a clone |
-| Checksums | `SHA256SUMS` | For installers and humans |
-| SBOM | `fxloop-<v>-bom.json` (aggregate) | Already generated by the release profile |
-| Provenance | GitHub artifact attestation (`actions/attest-build-provenance`) on the jar | One step; makes the jar's origin verifiable |
-
-Release notes: `generate_release_notes: true` plus a fixed header with the tested matrix (JDKs, JavaFX versions, OSes
-from CI) and the install lines from the README.
-
-### 2.5 Edge builds (R8)
-
-A workflow on every push to `main` that builds the server jar and the skills zip and attaches them to a rolling
-pre-release tagged `edge` (assets replaced, tag moved to the commit, marked pre-release, never *latest*). The
-onboarding installer uses `releases/download/edge/fxloop-server-all.jar` until a numbered release exists, and "try
-the latest" users use it afterwards. Edge jars report their version as `<next>-SNAPSHOT+<short sha>` (from the
-manifest) so a bug report says which commit it was.
-
-A moving tag is unusual but common for this purpose (many CLIs do it); CI artifacts are not an alternative because
-downloading them needs a GitHub login, which an installer cannot assume.
-
-### 2.6 Version policy
-
-- First numbered release: **`1.0.0-rc.1`**. The tracking document says the 1.0 feature set is done and the open items
-  are publishing and the macOS/Windows lanes, which is what a release candidate is for. `1.0.0` follows once the
-  onboarding acceptance (PRD 11 §8) passes on all three OSes from the published artifacts.
-- Semantic versions; a hyphen marks a pre-release (GitHub pre-release flag, Central accepts them, the Plugin Portal
-  accepts them).
-- The skills pin an exact version (`fxloop-version` in `fxloop-connect`); the installer takes *latest*. The server
-  warns at startup when the skill version and its own differ by more than a patch.
-- Patch releases come from `release/<major.minor>.x` branches, dispatched from that ref; the workflow does not care
-  which branch it runs on.
-
-### 2.7 Prerequisites (outside the workflow)
-
-| Item | Status | Needed by |
-|---|---|---|
-| Decide the canonical repository (`h9lxyz/fxloop` or create the `fxloop` org) and fix every URL (R7) | open | everything |
-| Central Portal account, **namespace `dev.fxloop` verified** (DNS TXT on `fxloop.dev`, or use an `io.github.h9lxyz` namespace) | open | maven-central |
-| `MAVEN_CENTRAL_USERNAME` / `_PASSWORD` (portal user token), `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE` secrets | open | maven-central |
-| Gradle Plugin Portal account, `GRADLE_PUBLISH_KEY` / `_SECRET`; first publish of `dev.fxloop` needs portal approval | open | gradle-plugin-portal |
-| GitHub Pages enabled for the repository | open | docs |
-| Workflow permission to push to `main` (branch protection: allow the Actions bot, or a fine-grained PAT as `RELEASE_TOKEN`) | open | post |
-
-None of these blocks the GitHub release stage, which is the point of §2.2.
-
-## 3. Workflow sketch
-
-```yaml
-name: Release
-on:
-  workflow_dispatch:
-    inputs:
-      version: { description: "Version to release, e.g. 1.0.0-rc.1", required: true }
-      next:    { description: "Next development version; default bumps patch", required: false }
-      dry_run: { type: boolean, default: false, description: "Everything except push, publish and release" }
-  push:
-    tags: ["v*"]            # re-release mode
-
-jobs:
-  prepare:   # set version (dispatch only), commit, tag; outputs version, prerelease, mode
-  verify:    # needs prepare; samples + acceptance + gradle plugin build; checks CI status of the commit
-  github:    # needs verify; builds assets, SHA256SUMS, attestation; softprops/action-gh-release with prerelease flag
-  central:   # needs verify; if: env.HAVE_CENTRAL == 'true'; ./mvnw -B -Prelease deploy -DskipTests
-  portal:    # needs verify; if: env.HAVE_PORTAL == 'true'; gradlew publishPlugins
-  post:      # needs [github, central, portal]; if: always(); set next version, push; open issue on skipped/failed
+```
+git tag 0.0.1 && git push origin 0.0.1
 ```
 
-`dry_run` runs every stage with `publish`, `push` and `release` replaced by *would do*, and uploads the assets as a CI
-artifact so the output can be inspected. The first real use of the workflow is a dry run.
+The workflow, on `push: tags: ["[0-9]+.[0-9]+.[0-9]+"]` (only that shape; any other tag is ignored):
 
-## 4. Acceptance
+1. `VERSION=$GITHUB_REF_NAME`.
+2. `./mvnw -B -q versions:set -DnewVersion=$VERSION -DgenerateBackupPoms=false` — sets the version across the reactor
+   in the checkout only; nothing is committed. The server's `Versions.SERVER` reads the jar manifest, so the built
+   server reports `$VERSION` with no code change.
+3. `./mvnw -B -DskipTests install` — CI already tested this commit on push; the release does not test again.
+4. `./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin -PfxloopVersion=$VERSION publishToMavenLocal`, then
+   `./mvnw -B -q -DskipTests install -pl fxloop-server` — the plugin build reads `fxloopVersion` when given, else its
+   committed default, and the server is rebuilt so its jar bundles that plugin (PRD 11 §4.2).
+5. Zip `fxloop-skills/skills/` into `fxloop-skills-$VERSION.zip`, with `fxloop-version: $VERSION` substituted in
+   `fxloop-connect/SKILL.md` so the skill pins the release it ships with.
+6. `softprops/action-gh-release` with the changelog from §4 as the body and the assets below.
 
-- **A-R1 Dry run.** `dry_run=true` with `version=1.0.0-rc.1` passes end to end on `main`; the artifact contains the
-  renamed jar, the skills zip, `SHA256SUMS`, and the job summary shows every stage.
-- **A-R2 Consistency.** `set-version.sh 9.9.9` followed by `./mvnw -q -pl fxloop-server test -Dtest=VersionConsistencyTest`
-  passes; reverting one file by hand makes it fail with that file's name.
-- **A-R3 Edge.** A push to `main` updates the `edge` pre-release; `curl -L releases/download/edge/fxloop-server-all.jar`
-  from a machine with no clone runs `java -jar … --tool-reference` and prints the reference.
-- **A-R4 rc.1.** The real `1.0.0-rc.1` release exists with every asset; `java -jar fxloop-server-1.0.0-rc.1-all.jar`
-  launches the sample app through `fx_get_app_status` on a clean machine with no `~/.m2` entries for `dev.fxloop`.
-- **A-R5 Publish.** Once the prerequisites exist: `mvn fxloop:run` on the sample app resolves the plugin from Central
-  with an empty local repository; `id("dev.fxloop") version "1.0.0-rc.1"` resolves from the Plugin Portal.
-- **A-R6 Recovery.** With the portal secret removed, the workflow still produces the GitHub release, marks the portal
-  stage skipped, and opens the tracking issue; pushing the same tag again (re-release mode) with the secret restored
-  publishes the plugin and changes nothing else.
+## 3. Assets
 
-## 5. Milestones
+| Asset | Why |
+|---|---|
+| `fxloop-server-<v>-all.jar` | the server, bundling the agent |
+| `fxloop-server-all.jar` | same file, version-free name, so `releases/latest/download/fxloop-server-all.jar` is a stable URL for the README and the connect skill |
+| `fxloop-skills-<v>.zip`, `fxloop-skills.zip` | the skill folders, versioned and version-free |
+| `SHA256SUMS` | checksums of the above |
 
-1. **Edge + assets** (§2.4, §2.5): `edge.yml`, asset naming, checksums. Unblocks PRD 11 immediately. ~1 day.
-2. **Version script + test** (§2.3). ~half a day.
-3. **Release workflow** (§2.1–2.2, §3) with dry run; cut `1.0.0-rc.1` to GitHub only. ~1–2 days.
-4. **Publishing** (§2.7): namespace, accounts, secrets; re-release `rc.1` to Central and the Portal. Calendar time,
-   not work.
+## 4. Changelog
 
-## 6. Risks
+The release notes are generated from the commits between the previous tag and this one. GitHub's own
+`generate_release_notes` is not used: it lists merged pull requests only, and most of this repository's history is
+direct commits on `main` (97 of the last 100), which it would drop.
 
-- **Bot commits on `main`** need branch protection to allow them. If that is not wanted, the `post` stage opens a PR
-  for the `next` bump instead of pushing (one more click per release).
-- **Moving `edge` tag** confuses `git describe` on checkouts that fetched it; document `git fetch --no-tags` for
-  contributors who care, or name it `edge` only as a release and not as a git tag (`action-gh-release` needs a tag; keep
-  the tag).
-- **Central validation** rejects artifacts with missing javadoc for Kotlin modules in some setups; the release profile
-  already attaches javadoc jars with `doclint none`; the dry run through `-Prelease verify` (no deploy) catches the rest.
-- **Gradle plugin build** resolves `fxloop-protocol` from `mavenLocal()`; the release job's `verify` stage installs it
-  first, as CI does. Once on Central the plugin build can drop `mavenLocal()`.
+The commits already follow the conventional prefixes (`feat:`, `fix:`, `docs:`, `build:`, `ci:`, `test:`,
+`refactor:`), so a few lines of shell in the workflow group them:
 
-## 7. Non-goals
+```sh
+PREV=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null)   # empty on the first release
+RANGE=${PREV:+$PREV..}$GITHUB_REF_NAME
+section() { git log --no-merges --pretty='- %s (%h)' "$RANGE" | grep -E "^- $1(\(.*\))?!?: " | sed -E "s/^- $1(\(.*\))?!?: /- /"; }
+{
+  echo "## Features";  section feat
+  echo "## Fixes";     section fix
+  echo "## Docs";      section docs
+  echo "## Other";     git log --no-merges --pretty='- %s (%h)' "$RANGE" | grep -vE '^- (feat|fix|docs)(\(.*\))?!?: '
+  echo; echo "**Full changelog:** https://github.com/<owner>/fxloop/compare/$PREV...$GITHUB_REF_NAME"
+} > notes.md
+```
 
-Native installers or `jpackage` images; a Homebrew, Scoop or winget package (revisit after 1.0 when the install line
-in PRD 11 has been used for a while); automatic releases on a schedule; signing with Sigstore beyond GitHub's
-attestation.
+Empty sections are dropped; a scope in the prefix (`feat(inspector): …`) is kept in the line. A `!` after the
+prefix or a `BREAKING CHANGE:` footer puts the line under a **Breaking** heading at the top. No `CHANGELOG.md` is
+committed: the release page is the changelog, and `git log` between tags is the source of truth. If the grouping
+ever needs more than this (links to issues, contributors), `git-cliff` reads the same prefixes and replaces the
+script; not before.
 
-## 8. Open questions
+## 5. What this needs in the repository
 
-1. Repository home: keep `h9lxyz/fxloop` and fix the links, or create the `fxloop` organisation now, before any URL is
-   in a published artifact? (Recommendation: decide before milestone 1, since the edge URL goes into PRD 11's installer.)
-2. Namespace: `dev.fxloop` requires owning `fxloop.dev`; is the domain registered? If not, `io.github.h9lxyz` is
-   verifiable in minutes, at the cost of renaming the group id everywhere.
-3. Should the `post` stage push or open a PR? (Default: push, with the Actions bot allowed on `main`.)
+- `release.yml` rewritten to §2 (the Central and Plugin Portal steps removed).
+- `fxloop-gradle-plugin/build.gradle.kts`: `version = (findProperty("fxloopVersion") ?: "1.0.0-SNAPSHOT").toString()`
+  and the same for its `fxloop-protocol` and `fxloop-launch` dependencies.
+- Every URL that says `github.com/fxloop/fxloop` changed to the real repository, since the release URL goes into the
+  README and the skill.
+
+Nothing else changes. `SkillsLayoutTest` keeps tying the committed skill version to the committed server version
+(both SNAPSHOT); the substitution in step 5 happens in the zipped copy only.
+
+## 6. Known limitation
+
+A released server invokes `dev.fxloop:fxloop-maven-plugin:<v>:prepare`, which exists in no repository until Central
+publishing. Until then the server's plugin-free prepare (PRD 11 §4.2) or a locally installed plugin is what makes a
+release jar launch an app.
+
+## 7. Later: Maven Central and the Gradle Plugin Portal
+
+When the `dev.fxloop` namespace is verified and the secrets exist, a second workflow (or a `workflow_dispatch` input
+on this one) runs `./mvnw -B -Prelease deploy` and `publishPlugins` with the same on-the-fly version. It is deliberately
+not part of the tag workflow, so a publishing problem can never block the GitHub release.
+
+## 8. Acceptance
+
+- **A-R1.** Push `1.0.0`: the release exists, has the four assets and the checksums;
+  `java -jar fxloop-server-1.0.0-all.jar --version` prints `1.0.0`; `git status` on `main` is unchanged.
+- **A-R2.** `curl -L .../releases/latest/download/fxloop-server-all.jar` on a machine with no clone downloads the jar
+  and `--tool-reference` prints the reference.
+- **A-R3.** The skills zip's `fxloop-connect/SKILL.md` says `fxloop-version: 1.0.0`; the repository's copy still
+  says `1.0.0-SNAPSHOT`.
+- **A-R4.** The release body lists every non-merge commit since the previous tag under Features, Fixes, Docs or
+  Other, with the compare link; on the first release the range is the whole history.
+
+## 9. Non-goals
+
+Pre-releases (`rc`, `beta`) and `v`-prefixed tags, bot commits, version bumps in the code, a rolling edge build, native installers, package managers, signing beyond
+what Central will later require.

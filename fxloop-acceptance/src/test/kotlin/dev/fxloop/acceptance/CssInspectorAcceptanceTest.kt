@@ -304,6 +304,50 @@ class CssInspectorAcceptanceTest {
         assertThat(get("/inspect?t=$tok")).contains("<html")
     }
 
+    /** Blocks until an SSE `windows` block satisfying [want] arrives (10 s); the error names every block seen. */
+    private fun awaitWindowsEvent(events: LinkedBlockingQueue<String>, want: (String) -> Boolean) {
+        val seen = mutableListOf<String>()
+        val deadline = System.currentTimeMillis() + 10_000
+        while (System.currentTimeMillis() < deadline) {
+            val ev = events.poll(500, TimeUnit.MILLISECONDS) ?: continue
+            if (!ev.startsWith("event: windows")) continue
+            if (want(ev)) return
+            seen += ev
+        }
+        throw AssertionError("no SSE windows event with the expected window list among $seen")
+    }
+
+    @Test @Order(33)
+    fun `A-F4 a dialog opened after the page appears in the window list and as an SSE windows event`() {
+        selectTab("#dialogResult")
+        viewerUrl()
+        val events = LinkedBlockingQueue<String>()
+        val resp = http.send(HttpRequest.newBuilder(URI.create("$base/sse?t=$tok&from=inspect")).GET().build(), HttpResponse.BodyHandlers.ofInputStream())
+        val reader = Thread { readSse(resp.body(), events) }.apply { isDaemon = true; start() }
+        try {
+            assertThat(events.poll(5, TimeUnit.SECONDS)).describedAs("sse connected").isNotNull()
+            val main = Json.parse(get("/api/windows?t=$tok")).single()
+
+            h.ok("fx_click_node", args("query" to "#alertBtn", "effects" to false))
+            awaitWindowsEvent(events) { it.contains("Gauntlet Alert") }
+            val open = Json.parse(get("/api/windows?t=$tok"))
+            assertThat(open.size()).isEqualTo(2)
+            assertThat(open.first { it["title"].asText() == "Gauntlet Alert" }["type"].asText()).isEqualTo("DIALOG")
+
+            // a modal dialog does not block the agent: the tree of window 1 (the alert) is reachable
+            assertThat(get("/api/tree?t=$tok&window=1")).contains("DialogPane")
+
+            val ok = h.ok("fx_find_nodes", args("text" to "OK", "type" to "Button"))["items"]
+                .first { it["path"].asText().contains("DialogPane") }["path"].asText()
+            h.ok("fx_click_node", args("path" to ok, "effects" to false))
+            awaitWindowsEvent(events) { !it.contains("Gauntlet Alert") }
+            assertThat(Json.parse(get("/api/windows?t=$tok")).single()["id"]).isEqualTo(main["id"])
+        } finally {
+            resp.body().close()
+            reader.interrupt()
+        }
+    }
+
     // ---------------------------------------------------------------------------------------------- A-F5
 
     /** SHA-256 of every file under the project copy's src/, so "no source file modified" is checked, not assumed. */

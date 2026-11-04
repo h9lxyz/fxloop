@@ -65,7 +65,10 @@ object Fcp {
         /** How many nodes of the target's scene a selector matches (the inspector's *New rule* scope). */
         const val CSS_SELECTOR = "cssSelector"
 
-        /** Visual-only overlay: draws or clears a node highlight (agent-owned popup, invisible to tools). */
+        /**
+         * Visual-only overlay: draws or clears a node highlight (agent-owned popup, invisible to tools). `hold` makes
+         * the node the held selection instead, which outlasts `clear` and stays until the next one or `release`.
+         */
         const val HIGHLIGHT = "highlight"
 
         /** Arms pick mode on a window: the next click is consumed and reported as a [Event.HUMAN_PICK] event (PRD 07 pick mode). */
@@ -121,6 +124,12 @@ object Fcp {
 
         /** The developer clicked *Take over* on the dev bar while the agent held the input lock: `{via}`. */
         const val INPUT_LOCK_RELEASED = "inputLockReleased"
+
+        /**
+         * A window opened, closed or changed title (`{windows:[…]}`, the full `status` window list): an open inspector
+         * page refreshes its window picker, so a dialog that appeared after the page loaded is reachable too.
+         */
+        const val WINDOWS_CHANGED = "windowsChanged"
     }
 
     /** Machine-readable error codes carried in [FcpError.code]. */

@@ -322,6 +322,7 @@ class Ctx(val config: Config) {
                 publish("pick", payload) // an open inspector page selects the picked node
             }
             Fcp.Event.SCRATCH_CHANGED -> publish("scratch", payload)
+            Fcp.Event.WINDOWS_CHANGED -> publish("windows", payload) // an open inspector page refreshes its window picker
             Fcp.Event.INPUT_LOCK_RELEASED -> live.unlock("developer")
             Fcp.Event.INSPECTOR_REQUESTED -> inspector.open(payload.path("h").takeIf { it.isInt }?.asInt(), payload.path("path").asText(null))
             Fcp.Event.CONTROL_MODE_CHANGED -> {

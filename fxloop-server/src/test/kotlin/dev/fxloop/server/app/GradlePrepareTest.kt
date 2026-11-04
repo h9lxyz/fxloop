@@ -8,6 +8,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.ByteArrayInputStream
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.zip.ZipInputStream
 
 class GradlePrepareTest {
     private val jars = listOf(Path.of("/c/fxloop-gradle-plugin.jar"), Path.of("/c/with \"quote\$.jar"))
@@ -40,6 +41,20 @@ class GradlePrepareTest {
         assertThat(Files.readString(out[0])).isEqualTo("1:fxloop-gradle-plugin.jar")
         GradlePrepare.extract(dir, open("2"))
         assertThat(Files.readString(dir.resolve("fxloop-gradle-plugin.jar"))).isEqualTo("2:fxloop-gradle-plugin.jar")
+    }
+
+    @Test
+    fun runtimeJarHasThePluginDependenciesAndIsReproducible() {
+        val jar = GradlePrepare.runtimeJar()
+        val names = ZipInputStream(ByteArrayInputStream(jar)).use { z -> generateSequence { z.nextEntry?.name }.toList() }
+        assertThat(names).contains(
+            "dev/fxloop/protocol/LaunchDescriptor.class", "dev/fxloop/launch/MainClassResolver.class",
+            "org/objectweb/asm/ClassReader.class", "kotlin/Unit.class",
+            "com/fasterxml/jackson/databind/ObjectMapper.class", "com/fasterxml/jackson/core/JsonParser.class",
+            "com/fasterxml/jackson/annotation/JsonProperty.class",
+        )
+        assertThat(names).noneMatch { it.startsWith("dev/fxloop/server/") || it.startsWith("reactor/") }
+        assertThat(GradlePrepare.runtimeJar()).isEqualTo(jar)
     }
 
     @Test

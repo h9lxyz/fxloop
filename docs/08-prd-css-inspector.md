@@ -111,7 +111,7 @@ A page at `/inspect` on the existing viewer server (`FXLOOP_VIEWER`, loopback, t
 
 **App ↔ browser:**
 
-- **Highlight:** an agent-owned overlay popup that draws the node's bounds plus a label. It is invisible to the tools and screenshots, like the PRD 07 dev bar.
+- **Highlight:** an agent-owned overlay frame around the node's bounds plus a label, never drawn under the pointer (on Linux it can lie over the browser, and a popup under the pointer would take the hover from the row). It is invisible to the tools and screenshots, like the PRD 07 dev bar. Hovering a row previews it; clicking a row holds the pick outline (PRD 07 §8) on the node until the next selection or a press in the app (`/api/highlight?hold=1`, `release=1`).
 - **Pick:** pick mode (PRD 07 E6) selects the node in the browser. Picks arrive via the existing SSE stream as `pick` events.
 - **Live updates:** after a CSS reload (agent or watch mode), the open selection re-queries automatically (`reload` SSE event), so the developer sees the new cascade right after a save.
 

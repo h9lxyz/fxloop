@@ -11,7 +11,7 @@ import kotlin.io.path.readText
 /**
  * PRD 11 §7: INSTALL.md is the one page an agent (or a developer) follows from an empty machine to a first screenshot,
  * so it must stay in step with the server version, the `fxloop-connect` skill's snippets and client configs, the
- * README's install lines, and the assets the edge build publishes.
+ * README's install lines, and the assets the release workflow publishes.
  */
 class InstallGuideTest {
     private val repo: Path = generateSequence(Path.of("").toAbsolutePath()) { it.parent }.first { Files.isDirectory(it.resolve("fxloop-skills")) }
@@ -37,7 +37,7 @@ class InstallGuideTest {
     @Test
     fun `readme sends agents to the raw install guide and shares its download lines`() {
         assertThat(readme).contains("https://raw.githubusercontent.com/h9lxyz/fxloop/main/INSTALL.md").contains("](INSTALL.md")
-        for (asset in listOf("releases/download/edge/fxloop-server-all.jar", "releases/download/edge/fxloop-skills.zip")) {
+        for (asset in listOf("releases/latest/download/fxloop-server-all.jar", "releases/latest/download/fxloop-skills.zip")) {
             assertThat(readme).describedAs(asset).contains(asset)
             assertThat(guide).describedAs(asset).contains(asset)
         }
@@ -68,12 +68,9 @@ class InstallGuideTest {
     }
 
     @Test
-    fun `edge build publishes the asset names the docs download`() {
-        val script = repo.resolve("release/assemble-assets.sh").readText()
-        val workflow = repo.resolve(".github/workflows/edge.yml").readText()
-        assertThat(script).contains("fxloop-server-all.jar").contains("fxloop-skills.zip").contains("SHA256SUMS")
-        assertThat(workflow).contains("release/assemble-assets.sh").contains("tag_name: edge").contains("prerelease: true")
+    fun `release workflow publishes the asset names the docs download`() {
+        val workflow = repo.resolve(".github/workflows/release.yml").readText()
+        assertThat(workflow).contains("dist/fxloop-server-all.jar").contains("dist/fxloop-skills.zip").contains("SHA256SUMS")
             .contains("publishToMavenLocal").contains("-pl fxloop-server")
-        assertThat(Files.isExecutable(repo.resolve("release/assemble-assets.sh"))).describedAs("assemble-assets.sh is executable").isTrue()
     }
 }

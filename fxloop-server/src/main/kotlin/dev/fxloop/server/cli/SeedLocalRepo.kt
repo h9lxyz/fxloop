@@ -16,7 +16,7 @@ import javax.xml.parsers.DocumentBuilderFactory
  * bundles, and the jar itself, into the local Maven repository (`dev/fxloop/...` only) so `mvn fxloop:run`, Gradle
  * `mavenLocal()` and `gradle fxloopRun` resolve the build plugins, the agent and the server before they are on Central
  * and the Plugin Portal. Remove this file, the `bundle-seed` execution in pom.xml and the Main.kt hook in the first
- * release after Central publishing works (PRD 10 A-R5).
+ * release after Central publishing works (PRD 10 §7).
  */
 object SeedLocalRepo {
     /**
@@ -59,8 +59,12 @@ object SeedLocalRepo {
     fun selfJar(): Path? = runCatching { Path.of(SeedLocalRepo::class.java.protectionDomain.codeSource.location.toURI()) }
         .getOrNull()?.takeIf { Files.isRegularFile(it) && it.toString().endsWith(".jar") }
 
-    /** A bundled resource; the server's own POM and jar come from the running jar instead of a resource. */
-    fun bundled(name: String): InputStream? = SeedLocalRepo::class.java.getResourceAsStream(RES + name) ?: when (name) {
+    /**
+     * A bundled resource. The agent jar is the one the server launches apps with, so the jar carries it once, outside
+     * `seed/`; the server's own POM and jar come from the running jar.
+     */
+    fun bundled(name: String): InputStream? =
+        SeedLocalRepo::class.java.getResourceAsStream(if (name == "fxloop-agent.jar") "/dev/fxloop/server/$name" else RES + name) ?: when (name) {
         "fxloop-server.pom" -> selfJar()?.let { serverPom(Versions.SERVER).byteInputStream() }
         "fxloop-server.jar" -> selfJar()?.let { Files.newInputStream(it) }
         else -> null

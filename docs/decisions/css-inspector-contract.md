@@ -25,6 +25,7 @@ Shared shapes between the agent (`fxloop-agent`), the server (`fxloop-server`) a
 |---|---|---|
 | `INSPECTOR_REQUESTED` | `inspectorRequested` | `{path?, h?}` — node to preselect (the last pick in that window, else its focus owner) |
 | `SCRATCH_CHANGED` | `scratchChanged` | *Scratch JSON* — the dev bar's *Clear* removed the sheet; the server forwards it as SSE `scratch` |
+| `WINDOWS_CHANGED` | `windowsChanged` | `{windows:[…]}` (the full `status` window list) whenever a window opens, closes or changes title, and once when the server connects; the server forwards it as SSE `windows` |
 | `HUMAN_PICK` | `humanPick` | `{target, ts, path, window:int}` (PRD 07 payload plus `path`/`window` for the inspector page) |
 
 ## Agent options
@@ -139,7 +140,7 @@ Editing is on with `FXLOOP_INSPECTOR_EDIT`, or while the server is connected to 
 | Path | Proxies | Notes |
 |---|---|---|
 | `/inspect` | — | the page (static resource `dev/fxloop/server/inspect/inspect.html`, inline CSS/JS) |
-| `/api/windows` | `status` → `windows` | |
+| `/api/windows` | `status` → `windows` | Each entry carries `id`, which stays with the window while it lives (its `index` shifts when an earlier window closes): the page follows its window by `id` |
 | `/api/tree?window=&skin=` | `getSceneGraph` (maxDepth 64, maxNodes 3000) | |
 | `/api/styles?h=&path=` | `cssCascade` | `h` preferred, `path` fallback; adds `edit:true` with `FXLOOP_INSPECTOR_EDIT` |
 | `/api/layout?h=&path=` | `explainLayout` | |
@@ -154,7 +155,7 @@ Editing is on with `FXLOOP_INSPECTOR_EDIT`, or while the server is connected to 
 | `GET /api/sheet-map/suggest?url=` | — | only with the flag. `{url, resource?, suggestions:[abs path]}`: existing files the sheet is likely built from, best first (next to an existing mapping's source root, `src/main/resources` of the module behind a `target/classes`-style build copy, of this project, its parent folder and their subprojects); at most 5 |
 | `POST /api/sheet-map` | — | only with the flag; JSON `{url, file}` (absolute, project-relative or `~/…`; `null`/blank removes) → `{url, file}`; `BAD_REQUEST` for a missing or non-`.css` file, a build copy, or a URL that is not `jar:`/`jrt:`/`file:`. Pushed as SSE `sheetMap`; `423` while locked |
 | `POST /api/lock/release` | — | ends the agent's input lock (`fx_lock_input`); `{locked:false}` |
-| `/sse` | — | adds events `reload` (`{files:[…]}` after a CSS/FXML reload), `pick` (`{path,h,window}`), `scratch` (*Scratch JSON*) and `sheetMap` (`{url, file}` after a mapping change) next to `frame` |
+| `/sse` | — | adds events `reload` (`{files:[…]}` after a CSS/FXML reload), `pick` (`{path,h,window}`), `windows` (`{windows:[…]}` when a window opens, closes or changes title — the header's window list refreshes, so a dialog opened after the page is reachable; only the page's own window closing or changing index reloads the view), `scratch` (*Scratch JSON*) and `sheetMap` (`{url, file}` after a mapping change) next to `frame` |
 
 Errors: HTTP 200 with `{"error":{"code","message"}}` when the agent call fails; 503 `{"error":{"code":"NO_APP"}}`
 when no app is connected; 423 `{"error":{"code":"LOCKED"}}` from the `scratch/*` and `sheet-map` POSTs while the agent

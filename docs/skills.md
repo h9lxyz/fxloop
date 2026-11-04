@@ -12,14 +12,14 @@ They are for **your** app, Java or Kotlin, Maven or Gradle, FXML or code-built.
 ```sh
 # bash / zsh
 curl -fsSL -o /tmp/fxloop-skills.zip \
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip \
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-skills.zip \
   && unzip -o /tmp/fxloop-skills.zip -d ~/.claude/skills/     # Claude Code; other agents: their skills directory
 ```
 
 ```powershell
 # PowerShell
 Invoke-WebRequest -OutFile "$env:TEMP\fxloop-skills.zip" `
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-skills.zip
 Expand-Archive -Force "$env:TEMP\fxloop-skills.zip" "$HOME\.claude\skills\"
 ```
 

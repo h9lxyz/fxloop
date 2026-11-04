@@ -65,7 +65,7 @@
       </exclusions>
     </dependency>
 
-    <!-- TEMPORARY (removed after Central publishing, PRD 10 A-R5): bundled for the seed-local-repo command; ordering only. -->
+    <!-- TEMPORARY (removed after Central publishing, PRD 10 §7): bundled for the seed-local-repo command; ordering only. -->
     <dependency>
       <groupId>dev.fxloop</groupId>
       <artifactId>fxloop-maven-plugin</artifactId>
@@ -121,21 +121,7 @@
               <overWriteSnapshots>true</overWriteSnapshots>
             </configuration>
           </execution>
-          <!-- BEGIN plugin-free Gradle prepare (PRD 11 4.2): runtime jars of the bundled Gradle plugin -->
-          <execution>
-            <id>bundle-gradle-plugin-deps</id>
-            <phase>generate-resources</phase>
-            <goals>
-              <goal>copy-dependencies</goal>
-            </goals>
-            <configuration>
-              <includeArtifactIds>fxloop-protocol,fxloop-launch,asm,kotlin-stdlib,jackson-databind,jackson-core,jackson-annotations</includeArtifactIds>
-              <stripVersion>true</stripVersion>
-              <outputDirectory>${project.build.outputDirectory}/dev/fxloop/server/gradle</outputDirectory>
-            </configuration>
-          </execution>
-          <!-- END plugin-free Gradle prepare -->
-          <!-- TEMPORARY (PRD 10 A-R5): artifacts for the seed-local-repo command, see SeedLocalRepo.kt. -->
+          <!-- TEMPORARY (PRD 10 §7): artifacts for the seed-local-repo command, see SeedLocalRepo.kt. -->
           <execution>
             <id>bundle-seed</id>
             <phase>generate-resources</phase>
@@ -188,13 +174,6 @@
                 </artifactItem>
                 <artifactItem>
                   <groupId>dev.fxloop</groupId>
-                  <artifactId>fxloop-agent</artifactId>
-                  <version>${project.version}</version>
-                  <type>jar</type>
-                  <destFileName>fxloop-agent.jar</destFileName>
-                </artifactItem>
-                <artifactItem>
-                  <groupId>dev.fxloop</groupId>
                   <artifactId>fxloop-maven-plugin</artifactId>
                   <version>${project.version}</version>
                   <type>pom</type>
@@ -214,7 +193,7 @@
           </execution>
         </executions>
       </plugin>
-      <!-- BEGIN plugin-free Gradle prepare (PRD 11 4.2): the Gradle plugin jar itself (runtime jars: see maven-dependency-plugin above).
+      <!-- BEGIN plugin-free Gradle prepare (PRD 11 4.2): the Gradle plugin jar (its runtime jar is built at prepare time, see GradlePrepare.kt).
            BUILD ORDER: the Gradle plugin is built by Gradle, so for it to be inside this jar run
              ./mvnw install -DskipTests && ./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin publishToMavenLocal
            and THEN build this module again. If the plugin jar is absent the build still succeeds; the server then
@@ -324,6 +303,19 @@
                     <exclude>META-INF/*.RSA</exclude>
                     <exclude>module-info.class</exclude>
                     <exclude>META-INF/versions/*/module-info.class</exclude>
+                  </excludes>
+                </filter>
+                <!-- directory-watcher loads JNA on macOS only (JDK WatchService elsewhere): keep the darwin-* natives. -->
+                <filter>
+                  <artifact>net.java.dev.jna:jna</artifact>
+                  <excludes>
+                    <exclude>com/sun/jna/aix-*/**</exclude>
+                    <exclude>com/sun/jna/dragonflybsd-*/**</exclude>
+                    <exclude>com/sun/jna/freebsd-*/**</exclude>
+                    <exclude>com/sun/jna/linux-*/**</exclude>
+                    <exclude>com/sun/jna/openbsd-*/**</exclude>
+                    <exclude>com/sun/jna/sunos-*/**</exclude>
+                    <exclude>com/sun/jna/win32-*/**</exclude>
                   </excludes>
                 </filter>
               </filters>

@@ -13,8 +13,14 @@ import javafx.stage.Window
 
 /** Window enumeration and addressing. Must be called on the FX thread. */
 internal object Windows {
+    private const val ID_KEY = "fxloop.windowId"
+    private var nextId = 0
+
     /** Showing app windows; agent overlays (dev bar, pick outline) are never part of any tool's view. */
     fun showing(): List<Window> = Window.getWindows().filter { it.isShowing && it.scene != null && !Overlays.isOverlay(it) }
+
+    /** Stays with [w] for as long as it lives, unlike its index or title. */
+    fun id(w: Window): Int = w.properties.getOrPut(ID_KEY) { ++nextId } as Int
 
     fun type(w: Window): String {
         if (w is PopupWindow) return "POPUP"
@@ -84,6 +90,7 @@ internal object Windows {
     fun describe(w: Window, index: Int): ObjectNode {
         val o = Json.obj()
         o.put("index", index)
+        o.put("id", id(w))
         o.put("segment", segment(w))
         if (w is Stage) o.put("title", w.title)
         o.put("type", type(w))

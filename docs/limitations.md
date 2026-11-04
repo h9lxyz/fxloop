@@ -81,7 +81,7 @@ Existing instances keep their state; code in constructors or static initialisers
 
 ## Dev bar and overlays
 
-The dev bar, the highlight outline and the pick outline are agent-owned popups. They are marked `fxloop.overlay` and excluded from window lists, screenshots, paths and the scene graph, so tools never see them. Their real-display behavior (focus, stacking, multi-monitor, HiDPI, Windows and macOS) is verified only by the Linux headless tests; treat it as unverified until checked on a desktop. The bar leaves at least 140 px of the title bar free for the window's own buttons when it docks there (right end, left on macOS); a window manager that puts them elsewhere, or a wider button set, can still end up partly covered. Its rounded corners need a compositing window manager; without one they show as black.
+The dev bar, the highlight outline and the pick outline are agent-owned popups, except the dev bar on Linux, which is an owned transparent stage so the window manager stacks it with its app (it appears in window lists and task switchers there, as "FXLoop dev bar"). They are marked `fxloop.overlay` and excluded from window lists, screenshots, paths and the scene graph, so tools never see them. Their real-display behavior (focus, stacking, multi-monitor, HiDPI, Windows and macOS) is verified only by the Linux headless tests; treat it as unverified until checked on a desktop. The bar leaves at least 140 px of the title bar free for the window's own buttons when it docks there (right end, left on macOS); a window manager that puts them elsewhere, or a wider button set, can still end up partly covered. Its rounded corners need a compositing window manager; without one they show as black.
 
 ## Headless
 

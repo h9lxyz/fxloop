@@ -102,7 +102,7 @@ fun main(args: Array<String>) {
         if (code != 0) exitProcess(code)
         return
     }
-    // TEMPORARY pre-Central bridge, removed after Central publishing (PRD 10 A-R5).
+    // TEMPORARY pre-Central bridge, removed after Central publishing (PRD 10 §7).
     if (args.any { it == "--seed-local-repo" }) exitProcess(dev.fxloop.server.cli.SeedLocalRepo.run(args))
     val config = Config.load(System.getenv(), args)
     if (args.any { it == "--tool-reference" }) {
