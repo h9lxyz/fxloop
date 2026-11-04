@@ -288,6 +288,8 @@ function clear(n){ while (n.firstChild) n.removeChild(n.firstChild); }
 
 var state = {
   win: Q.get('window') ? parseInt(Q.get('window'),10) : 0,
+  winKey: null,                     // id of the window the page is on: indices shift under an open window, this does not
+  winKeys: {},                      // index -> id of the latest window list
   skin: false,
   root: null,
   expanded: Object.create(null),
@@ -413,30 +415,49 @@ function copy(text, msg){
 
 // ---------- windows ----------
 function normWindows(j){ return Array.isArray(j) ? j : ((j && j.windows) || []); }
-/** Rebuilds the window dropdown; true when the window the page is on is still in the list. */
+/** Rebuilds the window dropdown; returns the index the page's window now has, -1 when it is gone. */
 function renderWindows(list){
-  var s = $('win'); clear(s);
+  var s = $('win'), at = -1; clear(s);
+  state.winKeys = {};
   list.forEach(function(w, i){
     var idx = (w.index != null) ? w.index : i;
+    var key = (w.id != null) ? w.id : idx;
     var o = el('option', null, (w.title || w.type || 'window') + ' [' + idx + ']');
     o.value = String(idx);
     s.appendChild(o);
+    state.winKeys[idx] = key;
+    if (key === state.winKey) at = idx;
   });
   if (!list.length) { var o = el('option', null, 'no windows'); o.value = '0'; s.appendChild(o); }
-  s.value = String(state.win);
-  if (s.value !== String(state.win) && s.options.length) { s.selectedIndex = 0; state.win = parseInt(s.value, 10) || 0; }
-  return s.value === String(state.win);
+  return at;
+}
+/** Puts the page on window index v without reloading anything; -1 as key: not listed, so the next list moves the page. */
+function setWin(v){
+  state.win = v;
+  state.winKey = (v in state.winKeys) ? state.winKeys[v] : -1;
+  $('win').value = String(v);
+}
+/** Applies a window list. Only a change to the page's own window touches the view, so a window appearing never does. */
+function applyWindows(list){
+  var first = state.winKey == null, at = renderWindows(list), head = parseInt($('win').options[0].value, 10) || 0;
+  if (first) setWin((state.win in state.winKeys) ? state.win : head);
+  else if (at < 0) switchWin(head);             // its window closed: fall back like a manual switch
+  else {
+    var moved = at !== state.win;
+    setWin(at);
+    if (moved && !state.editing) reloadAll();   // same window, new index: node paths changed, the selection stays
+  }
 }
 function loadWindows(){
   return api('/api/windows').then(function(j){
-    renderWindows(normWindows(j));
+    applyWindows(normWindows(j));
     showBanner(null);
   }).catch(function(e){ showBanner(e); });
 }
 /** Moves the whole page to another window, as the dropdown does on change. */
 function switchWin(v){
   clearForced().then(function(){
-    state.win = v; state.sel = null; state.styles = null; state.handlersKey = null;
+    setWin(v); state.sel = null; state.styles = null; state.handlersKey = null;
     api('/api/highlight', { release: 1 }, 'POST').catch(function(){});
     resetSheets(); clearSearch(false); thumbImg.style.display = 'none';
     loadTree().then(loadStyles);
@@ -2408,7 +2429,7 @@ function gotoMatch(i){
   S.idx = i; setSearchUi();
   var node = { h: m.h != null ? m.h : null, path: m.path || null };
   var otherWin = m.window != null && m.window !== state.win;
-  if (otherWin) { state.win = m.window; $('win').value = String(m.window); resetSheets(); }
+  if (otherWin) { setWin(m.window); resetSheets(); }
   var pre = Promise.resolve();
   if (otherWin || !state.root || !findPath(state.root, node, [])) {
     state.sel = node;
@@ -2833,7 +2854,12 @@ function flash(){
 function connect(){
   if (typeof EventSource === 'undefined') return;
   var es = new EventSource('/sse?t=' + encodeURIComponent(TOKEN) + '&from=inspect');
-  es.onopen = function(){ $('dot').className = 'on'; $('stxt').textContent = 'server connected'; };
+  var opened = false;
+  es.onopen = function(){
+    $('dot').className = 'on'; $('stxt').textContent = 'server connected';
+    if (opened) loadWindows();    // back after a dropped connection: `windows` events sent meanwhile never arrived
+    opened = true;
+  };
   es.onerror = function(){ $('dot').className = ''; $('stxt').textContent = 'server disconnected'; };
   es.addEventListener('reload', function(){ flash(); reloadAll(); });
   es.addEventListener('status', function(ev){
@@ -2845,15 +2871,10 @@ function connect(){
     if (was !== !!state.lock) { closePlan(); state.lplan = null; renderStyles(); }
   });
   es.addEventListener('status', retryApp);
-  // The app opened or closed a window (a dialog, usually): refresh the dropdown. A window merely appearing must not
-  // yank the view away, but the page's own window closing — or indices shifting under it — falls back like a switch.
+  // The app opened, closed or retitled a window (a dialog, usually).
   es.addEventListener('windows', function(ev){
     var j; try { j = JSON.parse(ev.data); } catch(e){ return; }
-    var s = $('win');
-    var was = s.selectedIndex >= 0 ? s.options[s.selectedIndex].textContent : null;
-    var kept = renderWindows(normWindows(j));
-    var now = s.selectedIndex >= 0 ? s.options[s.selectedIndex].textContent : null;
-    if (was != null && (!kept || now !== was)) switchWin(state.win);
+    applyWindows(normWindows(j));
   });
   es.addEventListener('sheetMap', function(){ if (!state.editing) loadStyles(); });
   es.addEventListener('scratch', function(ev){
@@ -2885,7 +2906,7 @@ function connect(){
   es.addEventListener('pick', function(ev){
     var j; try { j = JSON.parse(ev.data); } catch(e){ return; }
     setPicking(false);
-    if (j.window != null && j.window !== state.win) { state.win = j.window; $('win').value = String(j.window); }
+    if (j.window != null && j.window !== state.win) setWin(j.window);
     state.sel = { h: j.h != null ? j.h : null, path: j.path || null };
     state.askAbout = null;
     state.suggest = Object.create(null);

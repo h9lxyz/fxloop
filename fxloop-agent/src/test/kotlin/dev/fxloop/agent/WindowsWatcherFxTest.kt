@@ -34,6 +34,8 @@ class WindowsWatcherFxTest {
 
     private fun titles(): List<String> = events.last().path("windows").map { it.path("title").asText("") }
 
+    private fun app(): Stage = Windows.showing().first() as Stage
+
     private fun until(cond: () -> Boolean) {
         val deadline = System.currentTimeMillis() + 5000
         while (!cond()) {
@@ -82,15 +84,47 @@ class WindowsWatcherFxTest {
     }
 
     @Test
+    fun `a title change is emitted under the same id`() {
+        val before = Fx.call { Windows.id(app()) }
+        Platform.runLater { app().title = "Renamed" }
+        until { events.isNotEmpty() && titles().contains("Renamed") }
+        assertThat(events.last().path("windows").first().path("id").asInt()).isEqualTo(before)
+    }
+
+    @Test
+    fun `a window keeps its id when an earlier one closes and its index shifts`() {
+        val first = arrayOfNulls<Stage>(1)
+        val second = arrayOfNulls<Stage>(1)
+        try {
+            Fx.call {
+                first[0] = Stage().apply { scene = Scene(VBox()); show() }
+                second[0] = Stage().apply { scene = Scene(VBox()); show() }
+            }
+            val (id, index) = Fx.call { Windows.id(second[0]!!) to Windows.indexOf(second[0]!!) }
+            Fx.call { first[0]!!.hide() }
+            val shifted = Fx.call { Windows.describeAll() }.first { it.path("id").asInt() == id }
+            assertThat(shifted.path("index").asInt()).isEqualTo(index - 1)
+        } finally {
+            Fx.call { first[0]?.hide(); second[0]?.hide() }
+        }
+    }
+
+    @Test
     fun `agent overlays never emit`() {
         events.clear()
-        Platform.runLater {
-            val s = Stage()
-            Overlays.mark(s)
-            s.scene = Scene(VBox())
-            s.show()
+        val shown = arrayOfNulls<Stage>(1)
+        try {
+            Platform.runLater {
+                val s = Stage()
+                Overlays.mark(s)
+                s.scene = Scene(VBox())
+                s.show()
+                shown[0] = s
+            }
+            WaitForAsyncUtils.waitForFxEvents()
+            assertThat(events).isEmpty()
+        } finally {
+            Platform.runLater { shown[0]?.hide() }
         }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertThat(events).isEmpty()
     }
 }

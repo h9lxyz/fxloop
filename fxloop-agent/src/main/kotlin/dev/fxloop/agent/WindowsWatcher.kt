@@ -4,26 +4,27 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import dev.fxloop.protocol.Fcp
 import dev.fxloop.protocol.Json
 import javafx.application.Platform
+import javafx.beans.InvalidationListener
 import javafx.collections.ListChangeListener
+import javafx.stage.Stage
 import javafx.stage.Window
 
 /**
- * Emits [Fcp.Event.WINDOWS_CHANGED] whenever an app window opens or closes, so an inspector page opened earlier can
- * list — and switch to — a dialog that appeared later. Changes within one pulse coalesce into one event; agent
- * overlays never count. Must be used on the FX thread only.
+ * Emits [Fcp.Event.WINDOWS_CHANGED] whenever an app window opens, closes or changes title, so an inspector page opened
+ * earlier can list — and switch to — a dialog that appeared later, under its current title. Changes queued together
+ * coalesce into one event; agent overlays never count. Must be used on the FX thread only.
  */
 internal class WindowsWatcher(private val emit: (String, ObjectNode) -> Unit) {
     private var installed = false
     private var queued = false
+    private var titled = emptySet<Stage>()
+    private val onTitle = InvalidationListener { schedule() }
 
     fun install() {
         if (installed) return
         installed = true
-        Window.getWindows().addListener(ListChangeListener { c ->
-            var app = false
-            while (c.next()) app = app || (c.addedSubList + c.removed).any { !Overlays.isOverlay(it) }
-            if (app) schedule()
-        })
+        Window.getWindows().addListener(ListChangeListener { c -> if (Overlays.appChanged(c)) schedule() })
+        trackTitles()
     }
 
     /** The full current window list, e.g. for a server that just (re)connected and has not seen this app yet. */
@@ -36,7 +37,15 @@ internal class WindowsWatcher(private val emit: (String, ObjectNode) -> Unit) {
         queued = true
         Platform.runLater {
             queued = false
+            trackTitles()
             emitNow()
         }
+    }
+
+    private fun trackTitles() {
+        val now = Windows.showing().filterIsInstance<Stage>().toSet()
+        (titled - now).forEach { it.titleProperty().removeListener(onTitle) }
+        (now - titled).forEach { it.titleProperty().addListener(onTitle) }
+        titled = now
     }
 }

@@ -326,7 +326,7 @@ class CssInspectorAcceptanceTest {
         val reader = Thread { readSse(resp.body(), events) }.apply { isDaemon = true; start() }
         try {
             assertThat(events.poll(5, TimeUnit.SECONDS)).describedAs("sse connected").isNotNull()
-            assertThat(Json.parse(get("/api/windows?t=$tok")).size()).isEqualTo(1)
+            val main = Json.parse(get("/api/windows?t=$tok")).single()
 
             h.ok("fx_click_node", args("query" to "#alertBtn", "effects" to false))
             awaitWindowsEvent(events) { it.contains("Gauntlet Alert") }
@@ -341,7 +341,7 @@ class CssInspectorAcceptanceTest {
                 .first { it["path"].asText().contains("DialogPane") }["path"].asText()
             h.ok("fx_click_node", args("path" to ok, "effects" to false))
             awaitWindowsEvent(events) { !it.contains("Gauntlet Alert") }
-            assertThat(Json.parse(get("/api/windows?t=$tok")).size()).isEqualTo(1)
+            assertThat(Json.parse(get("/api/windows?t=$tok")).single()["id"]).isEqualTo(main["id"])
         } finally {
             resp.body().close()
             reader.interrupt()
