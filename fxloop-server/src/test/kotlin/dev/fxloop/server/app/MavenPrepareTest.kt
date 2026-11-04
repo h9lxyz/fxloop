@@ -18,6 +18,9 @@ class MavenPrepareTest {
            <plugins>$body</plugins>$extraBuild</build></project>""",
     )
 
+    /** [path] as the descriptor carries it: absolute, with the OS's own separators. */
+    private fun abs(path: String) = Path.of(path).toAbsolutePath().toString()
+
     private fun layout(dir: Path): Path {
         Files.createDirectories(dir.resolve("src/main/java"))
         Files.createDirectories(dir.resolve("src/main/resources"))
@@ -34,14 +37,14 @@ class MavenPrepareTest {
         assertThat(d.buildTool).isEqualTo("maven")
         assertThat(d.mainClass).isEqualTo("p.Main")
         assertThat(d.mainModule).isNull()
-        assertThat(d.classpath).containsExactly("/r/org/openjfx/javafx-base/21/javafx-base-21-linux.jar", "/r/x.jar")
+        assertThat(d.classpath).containsExactly(abs("/r/org/openjfx/javafx-base/21/javafx-base-21-linux.jar"), abs("/r/x.jar"))
         assertThat(d.modulePath).isEmpty()
         assertThat(d.jvmArgs).containsExactly("-Dx=1")
         assertThat(d.appArgs).containsExactly("a", "b")
         assertThat(d.release).isEqualTo("17")
-        assertThat(d.outputDir).isEqualTo("$dir/target/classes")
-        assertThat(d.sourceRoots).containsExactly("$dir/src/main/java")
-        assertThat(d.resourceRoots).containsExactly("$dir/src/main/resources")
+        assertThat(d.outputDir).isEqualTo(abs("$dir/target/classes"))
+        assertThat(d.sourceRoots).containsExactly(abs("$dir/src/main/java"))
+        assertThat(d.resourceRoots).containsExactly(abs("$dir/src/main/resources"))
         assertThat(d.annotationProcessors).isFalse()
     }
 
@@ -58,7 +61,7 @@ class MavenPrepareTest {
         val d = MavenPrepare.describe(dir, pom(dir, fxPlugin), listOf("/r/org/openjfx/javafx-base/21/javafx-base-21.jar"), null)
         assertThat(d.mainModule).isEqualTo("my.app")
         assertThat(d.classpath).isEmpty()
-        assertThat(d.modulePath).containsExactly("$dir/target/classes", "/r/org/openjfx/javafx-base/21/javafx-base-21.jar")
+        assertThat(d.modulePath).containsExactly(abs("$dir/target/classes"), abs("/r/org/openjfx/javafx-base/21/javafx-base-21.jar"))
     }
 
     @Test
@@ -66,7 +69,7 @@ class MavenPrepareTest {
         layout(dir)
         val d = MavenPrepare.describe(dir, pom(dir, fxPlugin), listOf("/r/org/openjfx/javafx-controls/21/javafx-controls-21-linux.jar", "/r/org/openjfx/javafx-controls/21/javafx-controls-21.jar", "/r/lib.jar"), null, launchMode = "modulepath")
         assertThat(d.modulePath).hasSize(2)
-        assertThat(d.classpath).containsExactly("/r/lib.jar")
+        assertThat(d.classpath).containsExactly(abs("/r/lib.jar"))
         assertThat(d.addModules).containsExactly("javafx.controls")
     }
 

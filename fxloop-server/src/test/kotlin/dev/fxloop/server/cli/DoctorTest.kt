@@ -161,25 +161,26 @@ class DoctorTest {
         assertThat(none.fix).contains(".mcp.json")
 
         val jar = Files.writeString(dir.resolve("fxloop-server.jar"), "x")
+        val json = { p: Path -> p.toString().replace("\\", "\\\\") } // Windows backslashes in a JSON string
         Files.createDirectories(dir.resolve(".cursor"))
         Files.writeString(dir.resolve(".cursor/mcp.json"), """{"mcpServers":{"other":{"command":"x"}}}""")
         val cursorOnly = run(dir, env(dir, jar = jar))["mcp-client"]!!
         assertThat(cursorOnly.summary).contains("Cursor").contains("without an fxloop entry")
         @Suppress("UNCHECKED_CAST") val snips = cursorOnly.data!!["snippets"] as List<Map<String, String>>
         assertThat(snips.map { it["client"] }).containsExactly("cursor")
-        assertThat(snips[0]["content"]).contains("-jar").contains(jar.toString())
+        assertThat(snips[0]["content"]).contains("-jar").contains(json(jar))
 
-        Files.writeString(dir.resolve(".mcp.json"), """{"mcpServers":{"fxloop":{"command":"java","args":["-jar","$jar"]}}}""")
+        Files.writeString(dir.resolve(".mcp.json"), """{"mcpServers":{"fxloop":{"command":"java","args":["-jar","${json(jar)}"]}}}""")
         val ok = run(dir, env(dir, jar = jar))["mcp-client"]!!
         assertThat(ok.status).isEqualTo(DoctorStatus.ok)
         assertThat(ok.summary).contains("Claude Code")
 
-        Files.writeString(dir.resolve(".mcp.json"), """{"mcpServers":{"fxloop":{"command":"java","args":["-jar","${dir.resolve("gone.jar")}"]}}}""")
+        Files.writeString(dir.resolve(".mcp.json"), """{"mcpServers":{"fxloop":{"command":"java","args":["-jar","${json(dir.resolve("gone.jar"))}"]}}}""")
         val broken = run(dir, env(dir, jar = jar))["mcp-client"]!!
         assertThat(broken.status).isEqualTo(DoctorStatus.fail)
         assertThat(broken.summary).contains("gone.jar")
 
-        Files.writeString(dir.resolve(".mcp.json"), """{"mcpServers":{"fxloop":{"command":"java","args":["-jar","$jar"]}}}""")
+        Files.writeString(dir.resolve(".mcp.json"), """{"mcpServers":{"fxloop":{"command":"java","args":["-jar","${json(jar)}"]}}}""")
         val all = run(dir, env(dir, jar = jar), client = "all")["mcp-client"]!!
         @Suppress("UNCHECKED_CAST") val allSnips = all.data!!["snippets"] as List<Map<String, String>>
         assertThat(allSnips.map { it["client"] }).containsExactly("claude-code", "cursor", "vscode", "gemini", "codex")

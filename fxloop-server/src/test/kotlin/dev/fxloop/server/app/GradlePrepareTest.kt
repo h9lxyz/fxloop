@@ -11,15 +11,20 @@ import java.nio.file.Path
 import java.util.zip.ZipInputStream
 
 class GradlePrepareTest {
-    private val jars = listOf(Path.of("/c/fxloop-gradle-plugin.jar"), Path.of("/c/with \"quote\$.jar"))
+    private val jars = listOf(Path.of("/c/fxloop-gradle-plugin.jar"), Path.of("/c/with\$dollar.jar"))
 
     @Test
     fun initScriptPutsJarsOnTheInitscriptClasspathAndAppliesThePlugin() {
         val s = GradlePrepare.initScript(jars)
-        assertThat(s).contains("initscript {", "classpath(files(", "\"/c/fxloop-gradle-plugin.jar\"")
+        assertThat(s).contains("initscript {", "classpath(files(", "/c/fxloop-gradle-plugin.jar\"")
             .contains("dev.fxloop.gradle.FxloopPlugin::class.java", "withPlugin(\"application\")", "withPlugin(\"org.openjfx.javafxplugin\")")
             .contains("hasPlugin(\"dev.fxloop\")")
-            .contains("with \\\"quote\\\$.jar") // quotes and dollars escaped for Kotlin DSL
+            .contains("with\\\$dollar.jar") // dollars escaped for Kotlin DSL
+    }
+
+    @Test
+    fun pathsAreEscapedForKotlinDsl() { // a string: Windows has no path with a quote in it
+        assertThat(GradlePrepare.kts("C:\\c\\with \"quote\$.jar")).isEqualTo("C:/c/with \\\"quote\\\$.jar")
     }
 
     @Test

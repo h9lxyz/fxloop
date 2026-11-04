@@ -170,5 +170,5 @@ object GradlePrepare {
         return file
     }
 
-    private fun kts(s: String): String = s.replace('\\', '/').replace("\"", "\\\"").replace("$", "\\$")
+    internal fun kts(s: String): String = s.replace('\\', '/').replace("\"", "\\\"").replace("$", "\\$")
 }
