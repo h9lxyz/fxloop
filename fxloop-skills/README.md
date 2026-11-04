@@ -7,19 +7,19 @@ aren't for developing FXLoop itself. What each skill does and returns: [skills o
 ## Install
 
 Unzip the skill folders into your agent's skills directory. Each folder is self-contained, so you can also keep only
-the ones you want. The zip is a release asset (the `edge` pre-release until a numbered release exists).
+the ones you want. The zip is a release asset.
 
 ```sh
 # bash / zsh
 curl -fsSL -o /tmp/fxloop-skills.zip \
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip \
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-skills.zip \
   && unzip -o /tmp/fxloop-skills.zip -d ~/.claude/skills/      # Claude Code, all projects
 ```
 
 ```powershell
 # PowerShell
 Invoke-WebRequest -OutFile "$env:TEMP\fxloop-skills.zip" `
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-skills.zip
 Expand-Archive -Force "$env:TEMP\fxloop-skills.zip" "$HOME\.claude\skills\"
 ```
 

@@ -14,7 +14,7 @@ import javax.xml.parsers.DocumentBuilderFactory
  * TEMPORARY pre-Central bridge (PRD 11 section 4.4): `--seed-local-repo` writes the FXLoop Maven artifacts that this jar
  * bundles into the local Maven repository (`dev/fxloop/...` only) so `mvn fxloop:run` and Gradle `mavenLocal()` resolve
  * the plugin and the agent before they are on Central. Remove this file, the `bundle-seed` execution in pom.xml and the
- * Main.kt hook in the first release after Central publishing works (PRD 10 A-R5).
+ * Main.kt hook in the first release after Central publishing works (PRD 10 §7).
  */
 object SeedLocalRepo {
     /** One bundled artifact: resources `seed/<artifactId>.pom` and, when [jar], `seed/<artifactId>.jar`. */

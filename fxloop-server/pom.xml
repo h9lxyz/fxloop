@@ -65,7 +65,7 @@
       </exclusions>
     </dependency>
 
-    <!-- TEMPORARY (removed after Central publishing, PRD 10 A-R5): bundled for the seed-local-repo command; ordering only. -->
+    <!-- TEMPORARY (removed after Central publishing, PRD 10 §7): bundled for the seed-local-repo command; ordering only. -->
     <dependency>
       <groupId>dev.fxloop</groupId>
       <artifactId>fxloop-maven-plugin</artifactId>
@@ -121,7 +121,7 @@
               <overWriteSnapshots>true</overWriteSnapshots>
             </configuration>
           </execution>
-          <!-- TEMPORARY (PRD 10 A-R5): artifacts for the seed-local-repo command, see SeedLocalRepo.kt. -->
+          <!-- TEMPORARY (PRD 10 §7): artifacts for the seed-local-repo command, see SeedLocalRepo.kt. -->
           <execution>
             <id>bundle-seed</id>
             <phase>generate-resources</phase>

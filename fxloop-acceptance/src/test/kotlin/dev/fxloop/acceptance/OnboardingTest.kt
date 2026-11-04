@@ -76,7 +76,7 @@ class OnboardingTest {
         val http = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         var server: Process? = null
         try {
-            http.createContext("/h9lxyz/fxloop/releases/download/edge/fxloop-server-all.jar") { ex ->
+            http.createContext("/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar") { ex ->
                 val bytes = Files.readAllBytes(jar)
                 ex.responseHeaders.add("Content-Type", "application/java-archive")
                 ex.sendResponseHeaders(200, bytes.size.toLong())
@@ -90,7 +90,7 @@ class OnboardingTest {
                 .find(repo.resolve("README.md").readText())?.groupValues?.get(1)
                 ?: error("README Install bash block not found")
             val script = installLine.replace("https://github.com", host)
-            assertThat(script).contains("releases/download/edge/fxloop-server-all.jar").doesNotContain("github.com")
+            assertThat(script).contains("releases/latest/download/fxloop-server-all.jar").doesNotContain("github.com")
             val (code, out) = runProcess(listOf("bash", "-c", script), home)
             assertThat(code).describedAs("install line output:\n$out").isZero()
             assertThat(home.resolve(".fxloop/fxloop-server.jar")).exists()
