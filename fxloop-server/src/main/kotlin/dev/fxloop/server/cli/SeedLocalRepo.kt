@@ -34,7 +34,9 @@ object SeedLocalRepo {
 
     fun defaultRepo(): Path = Path.of(System.getProperty("user.home"), ".m2", "repository")
 
-    fun bundled(name: String): InputStream? = SeedLocalRepo::class.java.getResourceAsStream(RES + name)
+    /** The agent jar is the one the server launches apps with, so the jar carries it once, outside `seed/`. */
+    fun bundled(name: String): InputStream? =
+        SeedLocalRepo::class.java.getResourceAsStream(if (name == "fxloop-agent.jar") "/dev/fxloop/server/$name" else RES + name)
 
     /** Writes [coords] from [source] below `<repo>/dev/fxloop`; returns the files written. */
     fun seed(repo: Path, coords: List<Coord> = COORDS, source: (String) -> InputStream? = ::bundled): List<Path> {

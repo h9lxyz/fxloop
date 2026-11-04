@@ -125,8 +125,10 @@ object Fcp {
         /** The developer clicked *Take over* on the dev bar while the agent held the input lock: `{via}`. */
         const val INPUT_LOCK_RELEASED = "inputLockReleased"
 
-        /** A window opened or closed (`{windows:[…]}`, the full `status` window list): an open inspector page refreshes
-         *  its window picker, so a dialog that appeared after the page loaded is reachable too. */
+        /**
+         * A window opened, closed or changed title (`{windows:[…]}`, the full `status` window list): an open inspector
+         * page refreshes its window picker, so a dialog that appeared after the page loaded is reachable too.
+         */
         const val WINDOWS_CHANGED = "windowsChanged"
     }
 
