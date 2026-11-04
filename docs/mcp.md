@@ -193,7 +193,7 @@ production guard, and launches the app. To do it by hand, point your client at t
 ```sh
 # bash / zsh
 mkdir -p ~/.fxloop && curl -fsSL -o ~/.fxloop/fxloop-server.jar \
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-server-all.jar
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar
 claude mcp add fxloop -- java -jar ~/.fxloop/fxloop-server.jar
 ```
 
@@ -201,12 +201,11 @@ claude mcp add fxloop -- java -jar ~/.fxloop/fxloop-server.jar
 # PowerShell
 New-Item -Force -ItemType Directory "$HOME\.fxloop" | Out-Null
 Invoke-WebRequest -OutFile "$HOME\.fxloop\fxloop-server.jar" `
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-server-all.jar
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar
 claude mcp add fxloop -- java -jar "$HOME\.fxloop\fxloop-server.jar"
 ```
 
-(`releases/latest/download/...` once a numbered release exists. Behind a proxy: put the jar at that path any way you
-can.) The server runs in the client's working directory; add `-e FXLOOP_PROJECT_DIR=/abs/path/to/your-app` when the
+(Behind a proxy: put the jar at that path any way you can.) The server runs in the client's working directory; add `-e FXLOOP_PROJECT_DIR=/abs/path/to/your-app` when the
 app is elsewhere. If something doesn't work, run `java -jar ~/.fxloop/fxloop-server.jar doctor` in the project.
 
 Config snippets for Cursor, VS Code, Codex CLI, Gemini CLI and generic stdio clients are in the

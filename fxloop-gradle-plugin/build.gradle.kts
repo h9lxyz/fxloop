@@ -6,7 +6,9 @@ plugins {
 }
 
 group = "dev.fxloop"
-version = "1.0.0-SNAPSHOT"
+// The release passes -PfxloopVersion=<tag> (PRD 10); the committed default is the development version.
+val fxloopVersion = (findProperty("fxloopVersion") ?: "1.0.0-SNAPSHOT").toString()
+version = fxloopVersion
 
 repositories {
     // fxloop-protocol and fxloop-launch are installed by the Maven build (`./mvnw install`); not yet on Central.
@@ -49,8 +51,8 @@ kotlin {
 }
 
 dependencies {
-    implementation("dev.fxloop:fxloop-protocol:1.0.0-SNAPSHOT")
-    implementation("dev.fxloop:fxloop-launch:1.0.0-SNAPSHOT")
+    implementation("dev.fxloop:fxloop-protocol:$fxloopVersion")
+    implementation("dev.fxloop:fxloop-launch:$fxloopVersion")
 
     testImplementation(gradleTestKit())
     testImplementation(kotlin("test-junit5"))

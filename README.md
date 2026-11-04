@@ -11,7 +11,7 @@ through it, explain why it looks the way it does, and live-reload the fix, for J
 ![Java 17+](https://img.shields.io/badge/java-17%2B-orange.svg)
 ![Kotlin and Java apps](https://img.shields.io/badge/apps-Java%20%7C%20Kotlin-7f52ff.svg)
 ![MCP](https://img.shields.io/badge/MCP-stdio%20server-black.svg)
-![Status: 1.0.0-SNAPSHOT](https://img.shields.io/badge/status-1.0.0--SNAPSHOT-yellow.svg)
+![Latest release](https://img.shields.io/github/v/release/h9lxyz/fxloop)
 
 [What it does](#what-it-does) · [Quickstart](#quickstart) · [MCP server](docs/mcp.md) ·
 [Agent skills](docs/skills.md) · [Docs](#documentation)
@@ -90,13 +90,12 @@ and every fix comes with evidence you can check: before/after frames, measured v
 
 ### Install
 
-One jar in `~/.fxloop/`. No clone, no build. Until the first numbered release exists, it comes from the rolling `edge`
-pre-release.
+One jar in `~/.fxloop/`. No clone, no build. It comes from the latest GitHub release.
 
 ```sh
 # bash / zsh
 mkdir -p ~/.fxloop && curl -fsSL -o ~/.fxloop/fxloop-server.jar \
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-server-all.jar
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar
 java -jar ~/.fxloop/fxloop-server.jar --version
 ```
 
@@ -104,11 +103,10 @@ java -jar ~/.fxloop/fxloop-server.jar --version
 # PowerShell
 New-Item -Force -ItemType Directory "$HOME\.fxloop" | Out-Null
 Invoke-WebRequest -OutFile "$HOME\.fxloop\fxloop-server.jar" `
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-server-all.jar
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar
 java -jar "$HOME\.fxloop\fxloop-server.jar" --version
 ```
 
-Once a numbered release exists, use `releases/latest/download/fxloop-server-all.jar` instead (same file name).
 `--version` prints the version and checks your JDK.
 
 **No access to GitHub (proxy, firewall, antivirus quarantine)?** Get `fxloop-server-all.jar` any way you can and put it
@@ -145,14 +143,14 @@ Path A plus the skill folders. `fxloop-connect` adds the build plugin, a product
 ```sh
 # bash / zsh
 curl -fsSL -o /tmp/fxloop-skills.zip \
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip \
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-skills.zip \
   && unzip -o /tmp/fxloop-skills.zip -d ~/.claude/skills/     # Claude Code; other agents: their skills directory
 ```
 
 ```powershell
 # PowerShell
 Invoke-WebRequest -OutFile "$env:TEMP\fxloop-skills.zip" `
-  https://github.com/h9lxyz/fxloop/releases/download/edge/fxloop-skills.zip
+  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-skills.zip
 Expand-Archive -Force "$env:TEMP\fxloop-skills.zip" "$HOME\.claude\skills\"
 ```
 
@@ -204,7 +202,7 @@ back. Diffing, compiling, journaling and test generation happen in the server.
 
 ## Status
 
-FXLoop is `1.0.0-SNAPSHOT`; install from the `edge` build. Per-feature status is in the
+FXLoop is at its first `0.0.x` releases. Per-feature status is in the
 [implementation tracking](docs/05-implementation-tracking.md). Still open: publishing to Maven Central and the Gradle
 Plugin Portal, and CI runs on macOS and Windows (configured, not yet run). Know the edges before you rely on it:
 [limitations](docs/limitations.md).
