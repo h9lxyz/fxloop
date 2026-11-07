@@ -23,6 +23,9 @@ class DoctorTest {
 
     private fun run(dir: Path, env: DoctorEnv = env(dir), client: String? = null) = Doctor.run(cfg(dir), env, client).associateBy { it.id }
 
+    /** [p] as it reads inside a JSON or TOML string, where Windows backslashes are escaped. */
+    private fun json(p: Path) = p.toString().replace("\\", "\\\\")
+
     private fun pom(dir: Path, extra: String = "") {
         Files.writeString(dir.resolve("pom.xml"), """
             <project><modelVersion>4.0.0</modelVersion><groupId>x</groupId><artifactId>app</artifactId><version>1</version>
@@ -168,15 +171,15 @@ class DoctorTest {
         assertThat(snips["claude-code"]).contains("\"\${HOME}/.fxloop/fxloop-server.jar\"")
         assertThat(snips["cursor"]).contains("\"\${userHome}/.fxloop/fxloop-server.jar\"")
         assertThat(snips["vscode"]).contains("\"\${userHome}/.fxloop/fxloop-server.jar\"")
-        assertThat(snips["gemini"]).contains(jar.toString())
-        assertThat(snips["codex"]).contains(jar.toString())
+        assertThat(snips["gemini"]).contains(json(jar))
+        assertThat(snips["codex"]).contains(json(jar))
         val win = run(dir, env(dir, os = "Windows 11", jar = jar), client = "claude-code")["mcp-client"]!!
         @Suppress("UNCHECKED_CAST") val winSnip = (win.data!!["snippets"] as List<Map<String, String>>).single()["content"]!!
         assertThat(winSnip).contains("\${USERPROFILE}/.fxloop/fxloop-server.jar")
         // a jar outside the home directory stays absolute
         val elsewhere = Files.writeString(dir.resolve("fxloop-server.jar"), "x")
         @Suppress("UNCHECKED_CAST") val abs = (run(dir, env(dir, jar = elsewhere), client = "claude-code")["mcp-client"]!!.data!!["snippets"] as List<Map<String, String>>).single()["content"]!!
-        assertThat(abs).contains(elsewhere.toString())
+        assertThat(abs).contains(json(elsewhere))
     }
 
     @Test
@@ -197,7 +200,6 @@ class DoctorTest {
         assertThat(none.fix).contains(".mcp.json")
 
         val jar = Files.writeString(dir.resolve("fxloop-server.jar"), "x")
-        val json = { p: Path -> p.toString().replace("\\", "\\\\") } // Windows backslashes in a JSON string
         Files.createDirectories(dir.resolve(".cursor"))
         Files.writeString(dir.resolve(".cursor/mcp.json"), """{"mcpServers":{"other":{"command":"x"}}}""")
         val cursorOnly = run(dir, env(dir, jar = jar))["mcp-client"]!!
@@ -230,22 +232,22 @@ class DoctorTest {
         pom(dir)
         val jar = Files.writeString(dir.resolve("fxloop-server.jar"), "x")
         val home = Files.createDirectories(dir.resolve("home"))
-        val ws = dir.toAbsolutePath().normalize().toString().replace("\\", "\\\\")
-        Files.writeString(home.resolve(".claude.json"), """{"projects":{"$ws":{"mcpServers":{"fxloop":{"type":"stdio","command":"java","args":["-jar","$jar"]}}}}}""")
+        val ws = json(dir.toAbsolutePath().normalize())
+        Files.writeString(home.resolve(".claude.json"), """{"projects":{"$ws":{"mcpServers":{"fxloop":{"type":"stdio","command":"java","args":["-jar","${json(jar)}"]}}}}}""")
         val local = run(dir, env(dir, jar = jar))["mcp-client"]!!
         assertThat(local.status).isEqualTo(DoctorStatus.ok)
         assertThat(local.summary).contains("Claude Code (~/.claude.json, local scope)")
         assertThat(local.fix).isNull()
 
-        Files.writeString(home.resolve(".claude.json"), """{"mcpServers":{"fxloop":{"type":"stdio","command":"java","args":["-jar","$jar"]}},"projects":{}}""")
+        Files.writeString(home.resolve(".claude.json"), """{"mcpServers":{"fxloop":{"type":"stdio","command":"java","args":["-jar","${json(jar)}"]}},"projects":{}}""")
         val user = run(dir, env(dir, jar = jar))["mcp-client"]!!
         assertThat(user.status).isEqualTo(DoctorStatus.ok)
         assertThat(user.summary).contains("user scope")
 
         // another directory's local entry does not count, and a stale jar path in the user file is reported
-        Files.writeString(home.resolve(".claude.json"), """{"projects":{"/elsewhere":{"mcpServers":{"fxloop":{"command":"java","args":["-jar","$jar"]}}}}}""")
+        Files.writeString(home.resolve(".claude.json"), """{"projects":{"/elsewhere":{"mcpServers":{"fxloop":{"command":"java","args":["-jar","${json(jar)}"]}}}}}""")
         assertThat(run(dir, env(dir, jar = jar))["mcp-client"]!!.status).isEqualTo(DoctorStatus.warn)
-        Files.writeString(home.resolve(".claude.json"), """{"mcpServers":{"fxloop":{"command":"java","args":["-jar","${dir.resolve("gone.jar")}"]}}}""")
+        Files.writeString(home.resolve(".claude.json"), """{"mcpServers":{"fxloop":{"command":"java","args":["-jar","${json(dir.resolve("gone.jar"))}"]}}}""")
         val broken = run(dir, env(dir, jar = jar))["mcp-client"]!!
         assertThat(broken.status).isEqualTo(DoctorStatus.fail)
         assertThat(broken.summary).contains("gone.jar").contains(".claude.json")

@@ -173,6 +173,9 @@ class LiveDevAcceptanceTest {
         Harness(app = gauntlet, configure = { it.copy(bar = "on") }).use { h ->
             h.ok("fx_get_app_status")
             await("bar rendered") { h.ok("fx_test_get_bar_state")["rendered"].asInt() >= 1 }
+            // On Linux the bar is a stage: it takes focus as it shows and hands it straight back. A focused button's bounds
+            // include its focus ring, so for a moment after showing they differ from the bar-off run without moving the layout.
+            runCatching { await("the focus ring back after the bar's focus hand-back", 5_000) { layout(h) == off } }
             assertThat(layout(h)).describedAs("layout of the freshly launched app, bar on vs off").isEqualTo(off)
             val bar = h.ok("fx_test_get_bar_state")
             assertThat(bar["rendered"].asInt()).isGreaterThanOrEqualTo(1)
