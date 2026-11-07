@@ -21,6 +21,16 @@
   },
   {
     "skill": "fxloop-connect",
+    "query": "I want to run the app myself with the fxloop dev bar",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-connect",
+    "query": "add the FXLoop build plugin so I can use mvn fxloop:run",
+    "should_trigger": true
+  },
+  {
+    "skill": "fxloop-connect",
     "query": "how do I add JavaFX to my Maven project?",
     "should_trigger": false
   },

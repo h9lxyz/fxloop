@@ -5,19 +5,20 @@
       "id": 1,
       "setup": "sample-apps/fxloop-showcase-app (Kotlin/Maven Ticket Desk, unconnected; never show ISSUES.md to the agent)",
       "prompt": "connect FXLoop to this project and show me the app",
-      "expected_output": "Adds fxloop-maven-plugin and the enforcer guard to pom.xml, launches MainKt, shows a screenshot, writes a CLAUDE.md FXLoop section, reports the Kotlin reload note.",
+      "expected_output": "Registers the MCP server and launches MainKt without touching pom.xml (prepare: server), shows a screenshot, writes a CLAUDE.md FXLoop section, reports the Kotlin reload note and offers the build plugin for running the app yourself.",
       "files": [],
       "expectations": [
-        "pom.xml declares dev.fxloop:fxloop-maven-plugin with the plugin version and no executions",
-        "pom.xml has a maven-enforcer bannedDependencies rule excluding dev.fxloop compile/runtime scopes",
+        "pom.xml is unchanged: no dev.fxloop plugin and no enforcer guard were added",
+        "fx_get_app_status reports prepare: server, and nothing was written to ~/.m2/repository/dev/fxloop/",
         "the main class is dev.fxloop.showcase.MainKt (pinned or resolved via javafx-maven-plugin) and the app starts",
         "a screenshot labeled connect-first-look exists under target/fxloop/screens and its path is cited",
-        "CLAUDE.md contains a '## FXLoop' section mentioning the main class and screenshot directory",
+        "CLAUDE.md contains a '## FXLoop' section mentioning the main class and screenshot directory, without the run-it-yourself and guard lines",
         "the report says .kt edits compile through the build tool (or external-compile) and lists what was added and how to undo",
         "no FxloopBootstrap.java or other source file was written to ~/.fxloop/; only fxloop-server.jar and server caches",
         "java -jar <jar> doctor was run before any file was written",
         "the MCP entry is java -jar with an absolute jar path, fxloop.properties (if needed) was written before it, and exactly one reload was requested",
-        "the report's undo section lists the MCP entry, the build-file hunks and ~/.fxloop/",
+        "the report's undo section lists the MCP entry and ~/.fxloop/ and says the build files are unchanged",
+        "the report offers \"I want to run the app myself\" to add the build plugin",
         "no git commit was created; edits are unstaged"
       ]
     },
@@ -36,12 +37,11 @@
       "id": 3,
       "setup": "sample-apps/fxloop-sample-app-kotlin (Gradle Kotlin DSL) with the dev.fxloop plugin and settings mavenLocal removed",
       "prompt": "set up fxloop for this app",
-      "expected_output": "Adds id(\"dev.fxloop\") with the version, pluginManagement mavenLocal for SNAPSHOT, the fxloopGuard task, and launches MainKt.",
+      "expected_output": "Launches MainKt through the server's Gradle init script, with build.gradle.kts and settings.gradle.kts unchanged.",
       "files": [],
       "expectations": [
-        "build.gradle.kts has id(\"dev.fxloop\") version matching the fxloop-connect skill",
-        "settings.gradle.kts pluginManagement includes mavenLocal() (SNAPSHOT version), after --seed-local-repo was run",
-        "fxloopGuard task registered and wired before jar",
+        "build.gradle.kts and settings.gradle.kts are unchanged: no dev.fxloop plugin, no mavenLocal(), no fxloopGuard task",
+        "fx_get_app_status reports prepare: server (the init-script route)",
         "the app launches and a screenshot is cited"
       ]
     },
@@ -54,7 +54,23 @@
       "expectations": [
         "fxloop.properties at the workspace root contains project-dir=app",
         "fxloop.properties was written before the MCP config, so one reload is requested before launching",
-        "only app/pom.xml gets the fxloop plugin, not the aggregator"
+        "neither app/pom.xml nor the aggregator pom.xml is changed"
+      ]
+    },
+    {
+      "id": 5,
+      "setup": "sample-apps/fxloop-showcase-app after eval 1: connected, MCP server loaded, no build plugin (never show ISSUES.md to the agent)",
+      "prompt": "I want to run the app myself with the dev bar",
+      "expected_output": "Seeds the local repository, adds fxloop-maven-plugin at the jar's version and the enforcer guard to pom.xml, checks that the plugin resolves, and reports ./mvnw fxloop:run.",
+      "files": [],
+      "expectations": [
+        "java -jar <jar> --seed-local-repo ran before pom.xml was edited",
+        "pom.xml declares dev.fxloop:fxloop-maven-plugin with no executions, at the version java -jar <jar> --version reports",
+        "pom.xml has a maven-enforcer bannedDependencies rule excluding dev.fxloop compile/runtime scopes",
+        "./mvnw -q compile fxloop:prepare (or an equivalent check) succeeded",
+        "the CLAUDE.md FXLoop section gained the run-it-yourself and guard lines",
+        "the report gives ./mvnw fxloop:run, says teammates and CI need the seed line until Maven Central, and lists ~/.m2/repository/dev/fxloop/ in the undo",
+        "the MCP config was not touched and no reload was requested"
       ]
     }
   ]

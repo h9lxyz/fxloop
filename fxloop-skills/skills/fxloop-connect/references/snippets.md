@@ -1,6 +1,7 @@
 # Connect snippets
 
-Replace `<version>` with `fxloop-version` from the skill's frontmatter.
+The build plugin and guard snippets are for step 6 only, when the developer asks to run the app themselves. Replace
+`<version>` with the version the server jar reports (first line of `java -jar <jar> --version`).
 
 ## Maven: build plugin
 
@@ -14,9 +15,8 @@ Replace `<version>` with `fxloop-version` from the skill's frontmatter.
 </plugin>
 ```
 
-For a `-SNAPSHOT` version, run `java -jar ~/.fxloop/fxloop-server.jar --seed-local-repo` once first (PowerShell:
-`java -jar "$HOME\.fxloop\fxloop-server.jar" --seed-local-repo`); it writes the plugin into `~/.m2` until the
-artifacts are on Maven Central.
+Run `java -jar "$HOME/.fxloop/fxloop-server.jar" --seed-local-repo` once first; it writes the plugin into `~/.m2` until
+the artifacts are on Maven Central.
 
 No executions: the server runs `compile dev.fxloop:fxloop-maven-plugin:<version>:prepare` itself, which writes
 `target/fxloop/launch.json`. Other parameters: `launchMode` (`auto|classpath|modulepath`), `jvmArgs`, `appArgs`.
@@ -69,9 +69,9 @@ plugins {
 // fxloop { mainClass = "com.acme.MainKt" }
 ```
 
-For a `-SNAPSHOT` version, run `java -jar ~/.fxloop/fxloop-server.jar --seed-local-repo` once (it writes the plugin,
-the agent and the server into `~/.m2`), and add `mavenLocal()` to both repository blocks of `settings.gradle.kts`
-(merge with existing blocks; a project that declares `repositories {}` in the build file adds `mavenLocal()` there):
+Run `java -jar "$HOME/.fxloop/fxloop-server.jar" --seed-local-repo` once (it writes the plugin, the agent and the server
+into `~/.m2`), and add `mavenLocal()` to both repository blocks of `settings.gradle.kts` (merge with existing blocks; a
+project that declares `repositories {}` in the build file adds `mavenLocal()` there):
 
 ```kotlin
 pluginManagement {
@@ -133,6 +133,8 @@ app-args=--seed
 ```
 
 ## Agent instructions section (`AGENTS.md` / `CLAUDE.md`)
+
+Leave out the "Run it yourself" and "Guard" lines until step 6 adds the build plugin.
 
 ```markdown
 ## FXLoop
