@@ -9,64 +9,78 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Newest JavaFX, which needs JDK 25+. The gradle job's plain build keeps the release floor compiling: JDK 21, --release 17, JavaFX 21.
+  JAVAFX: 27.0.1
+
 jobs:
   build:
-    name: build (${{ matrix.os }}, JDK ${{ matrix.java }}, JavaFX ${{ matrix.javafx || '21' }})
+    name: build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        # Latest JDK/JavaFX on every OS, so removed or sealed API shows up here (JavaFX 27 needs JDK 25+).
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        java: [25]
-        javafx: [27.0.1]
-        # Floor: releases compile against JavaFX 21 (provided scope) with --release 17; one Linux lane is enough.
+        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
-          - { os: ubuntu-latest, java: 17, javafx: '' }
+          # The agent's suite runs on Monocle, so it never reaches macOS's window system, and takes four times as long there.
+          # Linux and Windows run it; macOS still runs every other module, where paths and process launching differ.
+          - os: macos-latest
+            skip-agent-tests: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: ${{ matrix.java }}
+          java-version: 25
           cache: maven
+      # What users run: everything built as released (against JavaFX 21), tested on the newest JavaFX.
       # Sample/gauntlet apps (profile `samples`) run their tests headless on Monocle (no display needed).
-      # On newer JavaFX the agent's tests are skipped here; the next step runs them on what users run.
-      - run: ./mvnw -B -Psamples install ${{ matrix.javafx && format('-Djavafx.version={0} -Dfxloop.agent.skipTests=true', matrix.javafx) || '' }}
+      - run: ./mvnw -B -Psamples install -DskipTests
         shell: bash
-      # What users run: the agent compiled against JavaFX 21, tested on the newer runtime.
-      - name: agent built for JavaFX 21, tested on JavaFX ${{ matrix.javafx }}
-        if: matrix.javafx
-        run: |
-          ./mvnw -B -pl fxloop-agent clean test-compile
-          ./mvnw -B -pl fxloop-agent surefire:test -Djavafx.version=${{ matrix.javafx }}
+      - run: ./mvnw -B -Psamples surefire:test -Djavafx.version=$JAVAFX -Dfxloop.agent.skipTests=${{ matrix.skip-agent-tests || false }}
         shell: bash
+      # Removed or sealed API shows up here; the compilers see the same API on every OS, so one is enough.
+      # `package`, not `test-compile`: the server bundles the packaged agent jar.
+      - name: compile against JavaFX ${{ env.JAVAFX }}
+        if: runner.os == 'Linux'
+        run: ./mvnw -B -Psamples clean package -DskipTests -Djavafx.version=$JAVAFX
 
   acceptance:
-    name: acceptance (Linux, Xvfb)
+    name: acceptance ${{ matrix.shard }}/2 (Linux, Xvfb)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # Two jobs of about 3 minutes of tests each, not surefire forks: the leak guard after each class sees every app of its
+        # run, and these tests are timing-sensitive. The second one is "all the rest", so a new test class cannot fall through.
+        include:
+          - { shard: 1, tests: 'KotlinLaneTest,LiveDevAcceptanceTest,PluginFreePrepareTest,GradleLaneTest' }
+          - { shard: 2, tests: '!KotlinLaneTest,!LiveDevAcceptanceTest,!PluginFreePrepareTest,!GradleLaneTest' }
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 25
           cache: maven
       - name: Install Xvfb
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - uses: gradle/actions/setup-gradle@v6
-      - run: ./mvnw -B install -DskipTests
-      # The Gradle and Kotlin lane tests resolve the dev.fxloop plugin from mavenLocal.
+      # The Gradle and Kotlin lane tests resolve the dev.fxloop plugin from mavenLocal, and the server bundles it
+      # (plugin-free Gradle prepare, PRD 11 4.2), so: what the plugin depends on, the plugin, then everything else.
+      - run: ./mvnw -B -q install -DskipTests -pl fxloop-protocol,fxloop-launch -am
       - run: ./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin publishToMavenLocal
-      # Rebuild the server so it bundles the Gradle plugin just published (plugin-free Gradle prepare, PRD 11 4.2).
-      - run: ./mvnw -B -q install -DskipTests -pl fxloop-server
-      - run: ./mvnw -B -Pacceptance verify -pl fxloop-acceptance  # the harness starts its own xvfb-run per launch
+      - run: ./mvnw -B install -DskipTests
+      # The harness starts its own xvfb-run per launch. MAVEN_ARGS also reaches the mvnw builds of the sample apps it launches.
+      - run: ./mvnw -B -Pacceptance verify -pl fxloop-acceptance '-Dtest=${{ matrix.tests }}'
+        env:
+          MAVEN_ARGS: -Djavafx.version=${{ env.JAVAFX }}
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: acceptance-reports
+          name: acceptance-reports-${{ matrix.shard }}
           path: |
             fxloop-acceptance/target/surefire-reports
             fxloop-acceptance/target/failsafe-reports
