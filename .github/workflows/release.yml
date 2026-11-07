@@ -37,16 +37,16 @@ jobs:
           ./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin -PfxloopVersion="$VERSION" publishToMavenLocal
           ./mvnw -B -q -DskipTests install -pl fxloop-server
 
+      # Version-free names only: `releases/latest/download/<name>` needs a name that stays the same from release to
+      # release, and `releases/download/<version>/<name>` already pins one. A versioned copy would be the same bytes twice.
       - name: Collect the assets
         run: |
           mkdir dist
-          cp "fxloop-server/target/fxloop-server-$VERSION-all.jar" dist/
-          cp "dist/fxloop-server-$VERSION-all.jar" dist/fxloop-server-all.jar
+          cp "fxloop-server/target/fxloop-server-$VERSION-all.jar" dist/fxloop-server-all.jar
           skills="$RUNNER_TEMP/skills"
           cp -r fxloop-skills/skills "$skills"
           sed -i "s/^  fxloop-version: .*/  fxloop-version: $VERSION/" "$skills/fxloop-connect/SKILL.md"
-          (cd "$skills" && zip -qr "$GITHUB_WORKSPACE/dist/fxloop-skills-$VERSION.zip" .)
-          cp "dist/fxloop-skills-$VERSION.zip" dist/fxloop-skills.zip
+          (cd "$skills" && zip -qr "$GITHUB_WORKSPACE/dist/fxloop-skills.zip" .)
           (cd dist && sha256sum -- * > SHA256SUMS.tmp && mv SHA256SUMS.tmp SHA256SUMS)
 
       - name: Release notes

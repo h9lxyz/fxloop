@@ -83,5 +83,7 @@ class InstallGuideTest {
         val workflow = repo.resolve(".github/workflows/release.yml").readText()
         assertThat(workflow).contains("dist/fxloop-server-all.jar").contains("dist/fxloop-skills.zip").contains("SHA256SUMS")
             .contains("publishToMavenLocal").contains("-pl fxloop-server")
+            .describedAs("each asset is published once, under its version-free name")
+            .doesNotContain("dist/fxloop-server-\$VERSION").doesNotContain("dist/fxloop-skills-\$VERSION")
     }
 }
