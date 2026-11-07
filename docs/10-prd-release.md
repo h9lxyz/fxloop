@@ -31,7 +31,7 @@ The workflow, on `push: tags: ["[0-9]+.[0-9]+.[0-9]+"]` (only that shape; any ot
 4. `./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin -PfxloopVersion=$VERSION publishToMavenLocal`, then
    `./mvnw -B -q -DskipTests install -pl fxloop-server` — the plugin build reads `fxloopVersion` when given, else its
    committed default, and the server is rebuilt so its jar bundles that plugin (PRD 11 §4.2).
-5. Zip `fxloop-skills/skills/` into `fxloop-skills-$VERSION.zip`, with `fxloop-version: $VERSION` substituted in
+5. Zip `fxloop-skills/skills/` into `fxloop-skills.zip`, with `fxloop-version: $VERSION` substituted in
    `fxloop-connect/SKILL.md` so the skill pins the release it ships with.
 6. `softprops/action-gh-release` with the changelog from §4 as the body and the assets below.
 
@@ -39,10 +39,13 @@ The workflow, on `push: tags: ["[0-9]+.[0-9]+.[0-9]+"]` (only that shape; any ot
 
 | Asset | Why |
 |---|---|
-| `fxloop-server-<v>-all.jar` | the server, bundling the agent |
-| `fxloop-server-all.jar` | same file, version-free name, so `releases/latest/download/fxloop-server-all.jar` is a stable URL for the README and the connect skill |
-| `fxloop-skills-<v>.zip`, `fxloop-skills.zip` | the skill folders, versioned and version-free |
+| `fxloop-server-all.jar` | the server, bundling the agent |
+| `fxloop-skills.zip` | the skill folders |
 | `SHA256SUMS` | checksums of the above |
+
+The names carry no version, and each file is published once. `releases/latest/download/fxloop-server-all.jar` is then a
+stable URL for the install guide and the connect skill, and `releases/download/<version>/fxloop-server-all.jar` pins a
+release; the jar's `--version` says which one a downloaded file is.
 
 ## 4. Changelog
 
@@ -97,8 +100,8 @@ not part of the tag workflow, so a publishing problem can never block the GitHub
 
 ## 8. Acceptance
 
-- **A-R1.** Push `1.0.0`: the release exists, has the four assets and the checksums;
-  `java -jar fxloop-server-1.0.0-all.jar --version` prints `1.0.0`; `git status` on `main` is unchanged.
+- **A-R1.** Push `1.0.0`: the release exists, has the two assets and the checksums;
+  `java -jar fxloop-server-all.jar --version` prints `1.0.0`; `git status` on `main` is unchanged.
 - **A-R2.** `curl -L .../releases/latest/download/fxloop-server-all.jar` on a machine with no clone downloads the jar
   and `--tool-reference` prints the reference.
 - **A-R3.** The skills zip's `fxloop-connect/SKILL.md` says `fxloop-version: 1.0.0`; the repository's copy still
