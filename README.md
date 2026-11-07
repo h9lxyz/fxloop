@@ -86,7 +86,7 @@ Once FXLoop is connected, talk to your agent the way you would talk to a colleag
 | 🔍 **Catch** | Visual lint for truncated text, overlaps, off-screen and zero-size nodes, and low contrast. FXML checked against your controllers before launch. UI-thread exceptions and logs |
 | ⚡ **Reload live** | CSS in milliseconds, FXML swapped in place with state kept, method bodies hot-swapped (Java and Kotlin). Bigger changes restart the app and click back to the same screen |
 | 🧪 **Lock in** | Turns what was clicked into a JUnit 5 + TestFX test that runs headless |
-| 🤝 **Work alongside you** | A dev bar on the app window shows what the agent is doing. Click **Pick** on a node and ask "why is *this* grey?", or open a DevTools-style CSS inspector in your browser |
+| 🤝 **Work alongside you** | A dev bar on the app window shows what the agent is doing. Click **Pick** on a node and ask "why is *this* grey?", or open a [DevTools-style CSS inspector](#run-the-app-yourself) in your browser |
 | 🔒 **Stay out of production** | Nothing is added to your app or its build. The agent attaches only at dev launch and listens on localhost with a per-run token. If you add the build plugin, a guard fails the package if FXLoop ever leaks in |
 
 There are nearly forty `fx_*` tools; the [MCP server overview](docs/mcp.md) groups them by job, and the
@@ -104,6 +104,13 @@ It adds the FXLoop build plugin and a guard that keeps FXLoop out of your releas
 Click around, **Pick** the node that bothers you and ask your agent about it. The agent connects to your window instead
 of launching a second copy, and it leaves your mouse alone. The [configuration guide](docs/configuration.md#running-the-app-yourself)
 has the details, and [INSTALL.md](INSTALL.md#7-add-the-build-plugin-and-the-guard-optional) adds the plugin by hand.
+
+**Open CSS inspector** on the FXLoop bar opens a DevTools-style inspector in your browser. Try CSS on the running app,
+then save it into your stylesheet:
+
+<p align="center">
+  <img src="docs/assets/fxloop-inspector-explainer.svg" width="840" alt="Animated diagram: the FXLoop bar on your JavaFX app opens a CSS inspector in your browser. You pick the grey Save button and see that a setStyle() call in code beats your .primary rule in app.css. You choose an override scope from the suggested ones with their node counts, the button turns blue live, and Apply to file saves it into the existing rule. Then the Computed tab with :hover forced, and the Layout tab with the box model and where each size is set.">
+</p>
 
 ## Troubleshooting
 

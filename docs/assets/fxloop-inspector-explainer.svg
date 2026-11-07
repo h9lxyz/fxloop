@@ -1,0 +1,492 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="400" viewBox="0 0 840 400" role="img" aria-labelledby="title desc">
+<title id="title">FXLoop's CSS inspector: DevTools for your running JavaFX app</title>
+<desc id="desc">On the FXLoop bar over your JavaFX app's title bar you click Open CSS inspector, and the inspector opens in your browser. You pick the grey Save button. The inspector shows why it is grey: a setStyle() call in code beats the .primary rule in app.css line 42. You add an override, and the inspector suggests scopes with how many nodes each one hits: only this node, the 2 .primary buttons, or all 5 buttons. You choose .primary, and Save turns blue in the app at once. Apply to file writes the change into the existing .primary rule in app.css. On the Computed tab you force :hover on the button and see which values change and which rule sets them. The Layout tab shows its bounds, box model, parent constraints, and that its preferred width is set in form.fxml line 41.</desc>
+<!--
+  Hand-written, no build step. Same look and rules as fxloop-explainer.svg.
+  The loop is 32 s, so 1 s = 3.125 % in every @keyframes below.
+
+     0.6 -  4.0  Open      Open CSS inspector on the FXLoop bar; the browser opens
+     4.0 -  7.4  Pick      Pick, then Save; the inspector selects Button#save
+     7.4 - 11.4  Explain   the inline style from setStyle() wins, the .primary rule in app.css:42 is struck through
+    11.4 - 16.6  Override  + New rule offers scopes with node counts; .primary (2 nodes) wins with !important; Save turns blue
+    16.6 - 20.6  Apply     Apply to file merges it into the existing .primary rule in app.css:42
+    20.6 - 25.0  States    Computed tab; :hover forced on and off again; -fx-effect comes from .primary:hover
+    25.0 - 28.8  Layout    Layout tab: bounds, box model, parent constraints, prefWidth from form.fxml:41
+    28.8 - 32.0  back on Styles, the summary caption
+
+  The plain style of every element is its look in the last frame, and the keyframes only take it away earlier.
+  So with animation off (reduced motion, a viewer without CSS animation) this is a complete static diagram.
+  An img-embedded SVG cannot load fonts, so text uses GitHub's own font stacks. Leave room for wider fallback fonts.
+-->
+<style>
+  text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif}
+  .mono,.mono text{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace}
+
+  .canvas{fill:#0e1319;stroke:#2a3340}
+  .label{font-size:14px;font-weight:600;fill:#9aa7b4}
+
+  .wire{fill:none;stroke:#4a5768;stroke-width:1.5}
+  .head{fill:#4a5768}
+  .wire-label{font-size:12px;fill:#8493a3;text-anchor:middle}
+  .pulse{fill:#79c0ff}
+  .halo{fill:#79c0ff;opacity:.25}
+
+  /* Your JavaFX app: the same light wireframe as the first explainer, with the FXLoop bar docked on its title bar. */
+  .win{fill:#f5f6f8}
+  .titlebar{fill:#e4e8ed}
+  .close{fill:none;stroke:#8a939e;stroke-width:1.5;stroke-linecap:round}
+  .btn{fill:#fff;stroke:#b4bcc6}
+  .btn-text{font-size:12px;fill:#2b3138;text-anchor:middle}
+  .primary{fill:#1f7ae0}
+  .primary-text{font-size:12px;font-weight:600;fill:#fff;text-anchor:middle}
+  .field{fill:#fff;stroke:#c3cad3}
+  .bar{fill:#d8dde4}
+  .sep{stroke:#e1e5ea;stroke-width:1.5}
+  .form-label{font-size:12.5px;fill:#5b6672}
+  .devbar{fill:#1c2129}
+  .devdot{fill:#3fb950}
+  .devbrand{font-size:12px;font-weight:700;fill:#f2f5f8}
+  .devbtn{fill:#2d3540;stroke:#5a6878}
+  .devbtn-text{font-size:11px;fill:#e8edf2;text-anchor:middle}
+  .pick-on{fill:#1f6feb;stroke:#1f6feb;opacity:0}
+  .save-grey{fill:#9aa3ad;opacity:0}
+  .finder{fill:#1f7ae0;fill-opacity:.1;stroke:#1f7ae0;stroke-width:2;opacity:0}
+  .glow{fill:none;stroke:#1f7ae0;stroke-width:2.5;opacity:0}
+  .ripple{fill:none;stroke:#1f7ae0;stroke-width:2.5;opacity:0}
+  .ripple-dark{stroke:#79c0ff}
+  .rip-oci{transform-origin:159px 59px}
+  .rip-pick{transform-origin:245px 59px}
+  .rip-save{transform-origin:269px 285px}
+  .rip-new{transform-origin:526px 231px}
+  .rip-opt{transform-origin:562px 270px}
+  .rip-apply{transform-origin:687px 296px}
+  .cursor{fill:#1f7ae0;stroke:#fff;stroke-width:1.25;stroke-linejoin:round;opacity:0}
+
+  /* Your browser: the inspector page, in its own colors. */
+  .browser{transform-origin:591px 181px}
+  .page{fill:#151b23}
+  .chrome{fill:#212a35}
+  .tab{fill:#151b23}
+  .tab-text{font-size:12px;fill:#c9d3dd}
+  .bctl{fill:#4a5768}
+  .frame{fill:none;stroke:#4a5768;stroke-width:1.5}
+  .rule-line{stroke:#2a3340;stroke-width:1.5}
+  .search{fill:#0e1319;stroke:#2a3340}
+  .hint{font-size:11px;fill:#6e7b8a}
+  .tw{fill:#6e7b8a}
+  .tree{font-size:11px}
+  .sel-row{fill:#1f3a5f}
+  .ty{fill:#d2a8ff}.id{fill:#ffa657}.cl{fill:#79c0ff}
+  .tabs{fill:#1b2330}
+  .tab-on{font-size:12.5px;font-weight:600;fill:#e8edf2}
+  .tab-off{font-size:12.5px;fill:#8493a3}
+  .tab-mark{fill:#79c0ff}
+  .empty{font-size:12.5px;fill:#6e7b8a;text-anchor:middle;opacity:0}
+  .node{font-size:12px}
+  .css{font-size:11px}
+  .inline{fill:#c9d3dd}
+  .code{font-size:11.5px;fill:#e3b341;text-anchor:end}
+  .p{fill:#9cdcfe}.v{fill:#ce9178}.imp{fill:#ff7b72}
+  .loc{fill:#79c0ff;text-anchor:end}
+  .loc-line{stroke:#79c0ff;stroke-width:1;stroke-dasharray:1.5 2}
+  .lost,.lost tspan{fill:#6e7b8a}
+  .strike{fill:none;stroke:#8493a3;stroke-width:1.25;stroke-dasharray:100 100}
+  .swatch{stroke:#8493a3;stroke-width:.75}
+  .sw-blue{fill:#1f7ae0}.sw-grey{fill:#9aa3ad}
+  .link{font-size:11.5px;fill:#79c0ff}
+  .input{fill:#0e1319;stroke:#79c0ff;stroke-width:1.25}
+  .count{font-size:11px;fill:#8493a3}
+  .count-one{fill:#56d364}
+  .scratch-tag{font-size:11px;fill:#8493a3;text-anchor:end}
+  .menu{fill:#1b2330;stroke:#4a5768}
+  .menu-hi{fill:#1f3a5f;opacity:0}
+  .menu-count{font-size:11px;fill:#8493a3;text-anchor:end}
+  .menu-foot{font-size:10px;fill:#6e7b8a}
+  .scope-a{opacity:0}
+  .mark{fill:none;stroke:#79c0ff;stroke-width:1.5;opacity:0}
+  .mark-warn{stroke:#e3b341}
+  .scratch{fill:#1b2330}
+  .scratch-text{font-size:12px;fill:#c9d3dd;opacity:0}
+  .apply{fill:#1f6feb}
+  .apply-text{font-size:12px;font-weight:600;fill:#fff;text-anchor:middle}
+  .ask{fill:#212a35;stroke:#4a5768}
+  .ask-text{font-size:12px;fill:#e8edf2;text-anchor:middle}
+  .check{fill:none;stroke:#56d364;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .saved{font-size:12px;fill:#56d364}
+  .old,.form,.menu-g,.scratch-btns{opacity:0}
+  .tab-s-off,.tab-c,.tab-l,.computed-view,.layout-view,.hover-on,.lay-on{opacity:0}
+  .rip-tabc{transform-origin:594px 91px}
+  .rip-chip{transform-origin:606px 143px}
+  .rip-tabl{transform-origin:664px 91px}
+  .rip-tabs{transform-origin:526px 91px}
+  .state{fill:none;stroke:#4a5768}
+  .state-text{font-size:11px;fill:#8493a3;text-anchor:middle}
+  .state-on{fill:#e3b341}
+  .state-on-text{font-size:11px;font-weight:600;fill:#1e1f22;text-anchor:middle}
+  .th{font-size:10.5px;fill:#6e7b8a}
+  .th-r{text-anchor:end}
+  .row-hi{fill:#e3b341;fill-opacity:.14}
+  .lib{fill:#8493a3;text-anchor:end}
+  .kv{font-size:11.5px;fill:#8493a3}
+  .kv-b{font-weight:600;fill:#e8edf2}
+  .kv-s{font-size:11px}
+  .mb-pad{fill:#3f5a36}
+  .mb-content{fill:#2f4d66}
+  .mb-lab{font-size:9.5px;fill:#c9d3dd}
+  .mb-num{font-size:10.5px;fill:#eee;text-anchor:middle}
+  .shadow{fill:#1f7ae0}
+  .overlay{fill:none;stroke:#e3b341;stroke-width:2}
+  .overlay-tag{fill:#1c2129}
+  .overlay-text{font-size:11px;fill:#f2f5f8;text-anchor:middle}
+
+  .cap{font-size:20px;fill:#e8edf2;text-anchor:middle;opacity:0}
+  .verb{font-weight:700;fill:#79c0ff}
+
+  /* Last frame: the one caption that stays. */
+  .c8{opacity:1}
+
+  /* Open */
+  @keyframes cur-app{
+    0%,1.875%{opacity:0;transform:translate(-108px,-86px)}2.188%{opacity:1;transform:translate(-108px,-86px)}
+    5%,13.125%{opacity:1;transform:translate(-108px,-228px)}14.375%,15.313%{opacity:1;transform:translate(-26px,-228px)}
+    18.125%,19.688%{opacity:1;transform:translate(0,0)}20.312%,100%{opacity:0;transform:translate(0,0)}
+  }
+  @keyframes rip-oci{0%,5.625%{opacity:0;transform:scale(.4)}5.938%{opacity:1;transform:scale(.6)}7.187%,100%{opacity:0;transform:scale(1.5)}}
+  @keyframes browser{0%,5.938%{opacity:0;transform:scale(.94)}7.5%,98%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
+  @keyframes link{0%,7.5%{opacity:0}8.125%,98%{opacity:1}100%{opacity:0}}
+  @keyframes empty{0%,7.5%{opacity:0}7.812%,21.25%{opacity:1}21.562%,100%{opacity:0}}
+
+  /* Pick */
+  @keyframes pick-on{0%,15%{opacity:0}15.313%,19.062%{opacity:1}19.688%,100%{opacity:0}}
+  @keyframes rip-pick{0%,15%{opacity:0;transform:scale(.4)}15.313%{opacity:1;transform:scale(.6)}16.562%,100%{opacity:0;transform:scale(1.5)}}
+  @keyframes finder{0%,17.812%{opacity:0}18.125%,23.438%{opacity:1}24.062%,100%{opacity:0}}
+  @keyframes rip-save{0%,18.75%{opacity:0;transform:scale(.4)}19.062%{opacity:1;transform:scale(.6)}20.312%,100%{opacity:0;transform:scale(1.5)}}
+  @keyframes req{0%,19.062%{transform:translateX(0)}21.562%{transform:translateX(76px)}21.57%,100%{transform:translateX(0)}}
+  @keyframes picked{0%,21.562%{opacity:0}21.875%,98%{opacity:1}100%{opacity:0}}
+
+  /* Explain */
+  @keyframes r1{0%,24.375%{opacity:0}25%,98%{opacity:1}100%{opacity:0}}
+  @keyframes r2{0%,26.25%{opacity:0}26.875%,98%{opacity:1}100%{opacity:0}}
+  @keyframes strike{0%,27.812%{stroke-dasharray:0 100}29.688%,100%{stroke-dasharray:100 100}}
+  @keyframes mark-code{0%,30.469%{opacity:0}30.781%,35.156%{opacity:1}35.625%,100%{opacity:0}}
+
+  /* Override */
+  @keyframes cur-br{
+    0%,35.938%{opacity:0;transform:translate(32px,-36px)}36.25%{opacity:1;transform:translate(32px,-36px)}
+    38.125%,38.906%{opacity:1;transform:translate(-164px,-64px)}41.563%,43.438%{opacity:1;transform:translate(-128px,-27px)}
+    45%,52.188%{opacity:1;transform:translate(80px,-148px)}53.75%,62.5%{opacity:1;transform:translate(0,0)}
+    65%,65.625%{opacity:1;transform:translate(-96px,-206px)}68.125%,68.75%{opacity:1;transform:translate(-86px,-153px)}
+    70.625%,74.375%{opacity:1;transform:translate(58px,-32px)}75.625%,76.25%{opacity:1;transform:translate(-86px,-153px)}
+    78.125%,78.75%{opacity:1;transform:translate(-26px,-206px)}80.625%,88.125%{opacity:1;transform:translate(80px,-14px)}
+    89.375%,90%{opacity:1;transform:translate(-164px,-206px)}91.25%,100%{opacity:0;transform:translate(-164px,-206px)}
+  }
+  @keyframes rip-new{0%,38.75%{opacity:0;transform:scale(.4)}39.062%{opacity:1;transform:scale(.6)}40.312%,100%{opacity:0;transform:scale(1.5)}}
+  @keyframes new-link{0%,26.25%{opacity:0}26.875%,38.906%{opacity:1}39.219%,56.875%{opacity:0}57.5%,98%{opacity:1}100%{opacity:0}}
+  @keyframes form{
+    0%,39.219%{opacity:0;transform:translateY(0)}39.531%,55%{opacity:1;transform:translateY(0)}
+    56.875%,100%{opacity:0;transform:translateY(-34px)}
+  }
+  @keyframes menu{0%,39.219%{opacity:0}39.531%,43.594%{opacity:1}43.906%,100%{opacity:0}}
+  @keyframes menu-hi{0%,41.406%{opacity:0}41.719%,43.594%{opacity:1}43.906%,100%{opacity:0}}
+  @keyframes rip-opt{0%,43.125%{opacity:0;transform:scale(.4)}43.438%{opacity:1;transform:scale(.6)}44.688%,100%{opacity:0;transform:scale(1.5)}}
+  @keyframes scope-a{0%,43.281%{opacity:1}43.438%,100%{opacity:0}}
+  @keyframes scope-b{0%,43.281%{opacity:0}43.438%,100%{opacity:1}}
+  @keyframes form-decl{0%,44.688%{opacity:0}45%,100%{opacity:1}}
+  @keyframes rep{0%,45.625%{transform:translateX(0)}48.125%{transform:translateX(-76px)}48.133%,100%{transform:translateX(0)}}
+  @keyframes save-grey{0%,48.125%{opacity:1}48.75%,98%{opacity:0}100%{opacity:1}}
+  @keyframes glow{0%,48.438%{opacity:0}48.75%{opacity:1}50.938%,100%{opacity:0}}
+  @keyframes strike-code{0%,48.438%{stroke-dasharray:0 100}50%,100%{stroke-dasharray:100 100}}
+  @keyframes scratch{0%,48.75%{opacity:0}49.375%,98%{opacity:1}100%{opacity:0}}
+  @keyframes scratch-btns{0%,48.75%{opacity:0}49.375%,56.875%{opacity:1}57.188%,100%{opacity:0}}
+  @keyframes scratch-text{0%,48.75%{opacity:0}49.375%,54.688%{opacity:1}55%,100%{opacity:0}}
+
+  /* Apply */
+  @keyframes rip-apply{0%,54.375%{opacity:0;transform:scale(.4)}54.688%{opacity:1;transform:scale(.6)}55.937%,100%{opacity:0;transform:scale(1.5)}}
+  @keyframes old{0%,56.563%{opacity:1}56.875%,98%{opacity:0}100%{opacity:1}}
+  @keyframes new{0%,56.563%{opacity:0}56.875%,98%{opacity:1}100%{opacity:0}}
+  @keyframes mark-file{0%,56.875%{opacity:0}57.188%,63.75%{opacity:1}64.219%,100%{opacity:0}}
+  @keyframes saved{0%,57.188%{opacity:0}57.5%,98%{opacity:1}100%{opacity:0}}
+
+  @keyframes c1{0%,2.188%{opacity:0}2.812%,12.188%{opacity:1}12.656%,100%{opacity:0}}
+  @keyframes c2{0%,12.812%{opacity:0}13.438%,22.812%{opacity:1}23.281%,100%{opacity:0}}
+  @keyframes c3{0%,23.438%{opacity:0}24.062%,35.312%{opacity:1}35.781%,100%{opacity:0}}
+  @keyframes c4{0%,35.938%{opacity:0}36.562%,51.562%{opacity:1}52.031%,100%{opacity:0}}
+  @keyframes c5{0%,52.188%{opacity:0}52.812%,64.062%{opacity:1}64.531%,100%{opacity:0}}
+
+  /* States and Layout: the tab switches (Computed at 21.0 s, Layout at 25.2 s, back to Styles at 28.8 s) */
+  @keyframes view-s{0%,65.7%{opacity:1}65.9%,90.1%{opacity:0}90.3%,100%{opacity:1}}
+  @keyframes view-s-off{0%,65.7%{opacity:0}65.9%,90.1%{opacity:1}90.3%,100%{opacity:0}}
+  @keyframes view-c{0%,65.7%{opacity:0}65.9%,78.8%{opacity:1}79%,100%{opacity:0}}
+  @keyframes view-c-off{0%,65.7%{opacity:1}65.9%,78.8%{opacity:0}79%,100%{opacity:1}}
+  @keyframes view-l{0%,78.8%{opacity:0}79%,90.1%{opacity:1}90.3%,100%{opacity:0}}
+  @keyframes view-l-off{0%,78.8%{opacity:1}79%,90.1%{opacity:0}90.3%,100%{opacity:1}}
+  @keyframes hover-on{0%,68.8%{opacity:0}69.2%,76.2%{opacity:1}76.6%,100%{opacity:0}}
+  @keyframes hover-off{0%,68.8%{opacity:1}69.2%,76.2%{opacity:0}76.6%,100%{opacity:1}}
+  @keyframes lay-on{0%,79%{opacity:0}79.4%,90%{opacity:1}90.4%,100%{opacity:0}}
+  @keyframes mark-fxml{0%,81%{opacity:0}81.4%,88.8%{opacity:1}89.4%,100%{opacity:0}}
+  @keyframes rip-tabc{0%,65.625%{opacity:0;transform:scale(.4)}66%{opacity:1;transform:scale(.6)}67.5%,100%{opacity:0;transform:scale(1.5)}}
+  @keyframes rip-chip{
+    0%,68.75%{opacity:0;transform:scale(.4)}69.1%{opacity:1;transform:scale(.6)}70.6%,76.25%{opacity:0;transform:scale(1.5)}
+    76.26%{opacity:0;transform:scale(.4)}76.6%{opacity:1;transform:scale(.6)}78.1%,100%{opacity:0;transform:scale(1.5)}
+  }
+  @keyframes rip-tabl{0%,78.75%{opacity:0;transform:scale(.4)}79.1%{opacity:1;transform:scale(.6)}80.6%,100%{opacity:0;transform:scale(1.5)}}
+  @keyframes rip-tabs{0%,90%{opacity:0;transform:scale(.4)}90.4%{opacity:1;transform:scale(.6)}91.9%,100%{opacity:0;transform:scale(1.5)}}
+
+  @keyframes c6{0%,64.6%{opacity:0}65.3%,77.5%{opacity:1}78.1%,100%{opacity:0}}
+  @keyframes c7{0%,78.4%{opacity:0}79%,89.6%{opacity:1}90.2%,100%{opacity:0}}
+  @keyframes c8{0%,90.6%{opacity:0}91.3%,98%{opacity:1}100%{opacity:0}}
+
+  @media (prefers-reduced-motion:no-preference){
+    svg *{animation-duration:32s;animation-iteration-count:infinite;animation-timing-function:linear}
+    .cur-app{animation-name:cur-app;animation-timing-function:ease-in-out}.rip-oci{animation-name:rip-oci}
+    .browser{animation-name:browser}.link-g{animation-name:link}.empty{animation-name:empty}
+    .pick-on{animation-name:pick-on}.rip-pick{animation-name:rip-pick}.finder{animation-name:finder}.rip-save{animation-name:rip-save}
+    .req{animation-name:req}.picked{animation-name:picked}
+    .r1{animation-name:r1}.r2{animation-name:r2}.strike{animation-name:strike}.mark-code{animation-name:mark-code}
+    .cur-br{animation-name:cur-br;animation-timing-function:ease-in-out}.rip-new{animation-name:rip-new}.new-link{animation-name:new-link}
+    .form{animation-name:form}.menu-g{animation-name:menu}.menu-hi{animation-name:menu-hi}.rip-opt{animation-name:rip-opt}
+    .scope-a{animation-name:scope-a}.scope-b{animation-name:scope-b}.form-decl{animation-name:form-decl}
+    .rep{animation-name:rep}.save-grey{animation-name:save-grey}.glow{animation-name:glow}
+    .strike.strike-code{animation-name:strike-code}
+    .scratch{animation-name:scratch}.scratch-btns{animation-name:scratch-btns}.scratch-text{animation-name:scratch-text}
+    .rip-apply{animation-name:rip-apply}.old{animation-name:old}.new{animation-name:new}.mark-file{animation-name:mark-file}
+    .saved-row{animation-name:saved}
+    .c1{animation-name:c1}.c2{animation-name:c2}.c3{animation-name:c3}.c4{animation-name:c4}.c5{animation-name:c5}
+    .tab-s,.styles-view{animation-name:view-s}.tab-s-off{animation-name:view-s-off}
+    .tab-c,.computed-view{animation-name:view-c}.tab-c-off{animation-name:view-c-off}
+    .tab-l,.layout-view{animation-name:view-l}.tab-l-off{animation-name:view-l-off}
+    .hover-on{animation-name:hover-on}.hover-off{animation-name:hover-off}.lay-on{animation-name:lay-on}.mark-fxml{animation-name:mark-fxml}
+    .rip-tabc{animation-name:rip-tabc}.rip-chip{animation-name:rip-chip}.rip-tabl{animation-name:rip-tabl}.rip-tabs{animation-name:rip-tabs}
+    .c6{animation-name:c6}.c7{animation-name:c7}.c8{animation-name:c8}
+  }
+</style>
+
+<rect class="canvas" x=".5" y=".5" width="839" height="399" rx="14"/>
+<text class="label" x="24" y="32">Your JavaFX app</text>
+<text class="label" x="366" y="32">Your browser</text>
+
+<!-- Wires and pulses sit below the windows: a window hides a pulse as it enters it. They appear with the browser. -->
+<g class="link-g">
+  <path class="wire" d="M310 166H359M366 186H317"/>
+  <path class="head" d="M358 161.5l8 4.5-8 4.5zM318 181.5l-8 4.5 8 4.5z"/>
+  <text class="wire-label" x="338" y="150">FXLoop</text>
+  <g class="req"><circle class="halo" cx="300" cy="166" r="9"/><circle class="pulse" cx="300" cy="166" r="4.5"/></g>
+  <g class="rep"><circle class="halo" cx="376" cy="186" r="9"/><circle class="pulse" cx="376" cy="186" r="4.5"/></g>
+</g>
+
+<!-- Your JavaFX app. The FXLoop bar covers the title, and leaves the window's close button clear. -->
+<rect class="win" x="24" y="46" width="286" height="270" rx="8"/>
+<path class="titlebar" d="M32 46H302a8 8 0 0 1 8 8V72H24V54a8 8 0 0 1 8-8Z"/>
+<path class="close" d="M288 55l8 8M296 55l-8 8"/>
+<path class="devbar" d="M32 46H272V72H24V54a8 8 0 0 1 8-8Z"/>
+<circle class="devdot" cx="37" cy="59" r="4"/>
+<text class="devbrand" x="46" y="63.5">FXLoop</text>
+<rect class="devbtn" x="99" y="50" width="122" height="18" rx="9"/>
+<text class="devbtn-text" x="160" y="63">Open CSS inspector</text>
+<rect class="devbtn" x="225" y="50" width="40" height="18" rx="9"/>
+<rect class="pick-on" x="225" y="50" width="40" height="18" rx="9"/>
+<text class="devbtn-text" x="245" y="63">Pick</text>
+
+<rect class="primary" x="36" y="82" width="52" height="22" rx="4"/><text class="primary-text" x="62" y="97.5">New</text>
+<rect class="btn" x="94" y="82" width="48" height="22" rx="4"/><text class="btn-text" x="118" y="97.5">Edit</text>
+<rect class="btn" x="148" y="82" width="58" height="22" rx="4"/><text class="btn-text" x="177" y="97.5">Delete</text>
+<path class="sep" d="M24 114H310"/>
+<text class="form-label" x="40" y="140">Name</text>
+<rect class="field" x="92" y="125" width="206" height="22" rx="3"/><rect class="bar" x="100" y="133" width="80" height="6" rx="3"/>
+<text class="form-label" x="40" y="176">Email</text>
+<rect class="field" x="92" y="161" width="206" height="22" rx="3"/><rect class="bar" x="100" y="169" width="112" height="6" rx="3"/>
+<text class="form-label" x="40" y="212">Phone</text>
+<rect class="field" x="92" y="197" width="206" height="22" rx="3"/>
+<rect class="btn" x="170" y="272" width="62" height="26" rx="4"/><text class="btn-text" x="201" y="289.5">Cancel</text>
+<g class="hover-on"><rect class="shadow" x="231" y="266" width="76" height="38" rx="11" opacity=".14"/><rect class="shadow" x="234" y="268" width="70" height="34" rx="8" opacity=".24"/></g>
+<rect class="primary" x="238" y="272" width="62" height="26" rx="4"/>
+<rect class="save-grey" x="238" y="272" width="62" height="26" rx="4"/>
+<text class="primary-text" x="269" y="289.5">Save</text>
+<rect class="finder" x="233" y="267" width="72" height="36" rx="7"/>
+<rect class="glow" x="233" y="267" width="72" height="36" rx="7"/>
+<rect class="glow" x="31" y="77" width="62" height="32" rx="7"/>
+<g class="lay-on">
+  <rect class="overlay" x="237" y="271" width="64" height="28" rx="2"/>
+  <rect class="overlay-tag" x="202" y="248" width="98" height="18" rx="4"/>
+  <text class="mono overlay-text" x="251" y="261">#save 62 × 26</text>
+</g>
+<circle class="ripple rip-oci" cx="159" cy="59" r="14"/>
+<circle class="ripple rip-pick" cx="245" cy="59" r="14"/>
+<circle class="ripple rip-save" cx="269" cy="285" r="20"/>
+
+<!-- Your browser: the inspector. Tree on the left, the selected node's styles on the right. -->
+<g class="browser">
+  <rect class="page" x="366" y="46" width="450" height="270" rx="8"/>
+  <path class="chrome" d="M374 46H808a8 8 0 0 1 8 8V74H366V54a8 8 0 0 1 8-8Z"/>
+  <path class="tab" d="M378 74V60a6 6 0 0 1 6-6H552a6 6 0 0 1 6 6V74Z"/>
+  <circle class="devdot" cx="392" cy="64" r="4"/>
+  <text class="tab-text" x="402" y="68">FXLoop CSS inspector</text>
+  <circle class="bctl" cx="776" cy="60" r="4"/><circle class="bctl" cx="790" cy="60" r="4"/><circle class="bctl" cx="804" cy="60" r="4"/>
+
+  <rect class="search" x="374" y="82" width="114" height="20" rx="4"/>
+  <text class="hint" x="381" y="96">Find #id .class</text>
+  <rect class="sel-row picked" x="368" y="204" width="127" height="18"/>
+  <g class="mono tree">
+    <path class="tw" d="M374 115h7l-3.5 5z"/>
+    <text x="384" y="122"><tspan class="ty">VBox</tspan><tspan class="cl">.form</tspan></text>
+    <path class="tw" d="M386 134l5 3.5-5 3.5z"/>
+    <text x="394" y="141"><tspan class="ty">ToolBar</tspan></text>
+    <path class="tw" d="M386 153l5 3.5-5 3.5z"/>
+    <text x="394" y="160"><tspan class="ty">GridPane</tspan></text>
+    <path class="tw" d="M385 172h7l-3.5 5z"/>
+    <text x="394" y="179"><tspan class="ty">HBox</tspan><tspan class="cl">.buttons</tspan></text>
+    <text x="404" y="198"><tspan class="ty">Button</tspan><tspan class="id">#cancel</tspan></text>
+    <text x="404" y="217"><tspan class="ty">Button</tspan><tspan class="id">#save</tspan></text>
+  </g>
+  <path class="rule-line" d="M496 74V316"/>
+
+  <rect class="tabs" x="497" y="74" width="318" height="24"/>
+  <g class="tab-s"><text class="tab-on" x="508" y="91">Styles</text><rect class="tab-mark" x="506" y="95" width="42" height="3" rx="1.5"/></g>
+  <text class="tab-off tab-s-off" x="508" y="91">Styles</text>
+  <text class="tab-off tab-c-off" x="564" y="91">Computed</text>
+  <g class="tab-c"><text class="tab-on" x="564" y="91">Computed</text><rect class="tab-mark" x="562" y="95" width="62" height="3" rx="1.5"/></g>
+  <text class="tab-off tab-l-off" x="644" y="91">Layout</text>
+  <g class="tab-l"><text class="tab-on" x="644" y="91">Layout</text><rect class="tab-mark" x="642" y="95" width="44" height="3" rx="1.5"/></g>
+  <text class="tab-off" x="704" y="91">Sheets</text>
+  <path class="rule-line" d="M496 98H816"/>
+  <text class="empty" x="656" y="200">Pick a node in your app</text>
+
+  <g class="picked">
+    <text class="mono node" x="506" y="117"><tspan class="ty">Button</tspan><tspan class="id">#save</tspan> <tspan class="cl">.button</tspan> <tspan class="cl">.primary</tspan></text>
+    <path class="rule-line" d="M496 127H816"/>
+  </g>
+
+  <g class="styles-view">
+  <!-- The winner at first: an inline style from setStyle() in code. -->
+  <g class="mono css r1">
+    <text class="inline" x="506" y="145">inline style</text>
+    <text class="code" x="804" y="145">setStyle() in code</text>
+    <text class="p" x="516" y="163">-fx-background-color:</text>
+    <rect class="swatch sw-grey" x="665" y="155" width="9" height="9" rx="2"/>
+    <text class="v" x="679" y="163">#9aa3ad;</text>
+    <path class="strike strike-code" pathLength="100" d="M516 159H733"/>
+  </g>
+  <rect class="mark mark-warn mark-code" x="674" y="133" width="136" height="17" rx="5"/>
+
+  <!-- Your own rule in app.css:42: beaten by the inline style until the fix is saved into it. -->
+  <g class="mono css r2">
+    <text class="cl" x="506" y="187">.primary</text>
+    <text class="loc" x="804" y="187">app.css:42</text>
+    <path class="loc-line" d="M738 190.5H804"/>
+    <g class="old">
+      <text class="lost" x="516" y="205">-fx-background-color:</text>
+      <rect class="swatch sw-blue" x="665" y="197" width="9" height="9" rx="2" opacity=".5"/>
+      <text class="lost" x="679" y="205">#1f7ae0;</text>
+      <path class="strike" pathLength="100" d="M516 201H733"/>
+    </g>
+    <g class="new">
+      <text class="p" x="516" y="205">-fx-background-color:</text>
+      <rect class="swatch sw-blue" x="665" y="197" width="9" height="9" rx="2"/>
+      <text class="v" x="679" y="205">#1f7ae0 <tspan class="imp">!important</tspan>;</text>
+    </g>
+  </g>
+  <rect class="mark mark-file" x="733" y="176" width="77" height="17" rx="5"/>
+
+  <text class="link new-link" x="506" y="234">+ New rule</text>
+
+  <!-- The new rule: its selector starts at the narrowest scope, and the menu offers wider ones with their counts. -->
+  <g class="form mono css">
+    <rect class="input" x="504" y="222" width="104" height="18" rx="3"/>
+    <g class="scope-a"><text class="id" x="510" y="235">#save</text><text class="count count-one" x="616" y="235">only this node</text></g>
+    <g class="scope-b"><text class="cl" x="510" y="235">.primary</text><text class="count" x="616" y="235">2 nodes</text></g>
+    <text class="scratch-tag" x="804" y="235">scratch</text>
+    <g class="form-decl">
+      <text class="p" x="516" y="256">-fx-background-color:</text>
+      <rect class="swatch sw-blue" x="665" y="248" width="9" height="9" rx="2"/>
+      <text class="v" x="679" y="256">#1f7ae0 <tspan class="imp">!important</tspan>;</text>
+    </g>
+  </g>
+  <g class="menu-g">
+    <rect class="menu" x="504" y="242" width="214" height="70" rx="4"/>
+    <rect class="menu-hi" x="506" y="262" width="210" height="16" rx="3"/>
+    <text class="mono css id" x="513" y="257">#save</text><text class="menu-count" x="710" y="257">only this node</text>
+    <text class="mono css cl" x="513" y="274">.primary</text><text class="menu-count" x="710" y="274">2 nodes</text>
+    <text class="mono css cl" x="513" y="291">.button</text><text class="menu-count" x="710" y="291">5 nodes</text>
+    <text class="menu-foot" x="513" y="306">narrowest first · type any selector</text>
+  </g>
+  </g>
+
+  <!-- Computed, with :hover forced: the -fx-effect row changes, and says which rule now sets it. -->
+  <g class="computed-view">
+    <text class="kv kv-s" x="506" y="146">Force state</text>
+    <rect class="state" x="578" y="135" width="56" height="16" rx="8"/><text class="mono state-text" x="606" y="146.5">:hover</text>
+    <g class="hover-on"><rect class="state-on" x="578" y="135" width="56" height="16" rx="8"/><text class="mono state-on-text" x="606" y="146.5">:hover</text></g>
+    <rect class="state" x="640" y="135" width="70" height="16" rx="8"/><text class="mono state-text" x="675" y="146.5">:focused</text>
+    <rect class="state" x="716" y="135" width="70" height="16" rx="8"/><text class="mono state-text" x="751" y="146.5">:pressed</text>
+    <path class="rule-line" d="M496 158H816"/>
+    <text class="th" x="506" y="175">Property</text><text class="th" x="648" y="175">Value</text><text class="th th-r" x="804" y="175">Set by</text>
+    <rect class="row-hi hover-on" x="497" y="201" width="318" height="17"/>
+    <g class="mono css">
+      <text class="p" x="506" y="194">-fx-background-color</text>
+      <rect class="swatch sw-blue" x="648" y="186" width="9" height="9" rx="2"/><text class="v" x="662" y="194">#1f7ae0</text>
+      <text class="loc" x="804" y="194">app.css:42</text>
+      <text class="p" x="506" y="213">-fx-effect</text>
+      <g class="hover-off"><text class="lost" x="648" y="213">none</text><text class="lib" x="804" y="213">default</text></g>
+      <g class="hover-on"><text class="v" x="648" y="213">dropshadow…</text><text class="loc" x="804" y="213">app.css:47</text></g>
+      <text class="p" x="506" y="232">-fx-text-fill</text><text class="v" x="648" y="232">white</text><text class="loc" x="804" y="232">app.css:43</text>
+      <text class="p" x="506" y="251">-fx-padding</text><text class="v" x="648" y="251">4 12</text><text class="lib" x="804" y="251">modena.css</text>
+    </g>
+  </g>
+
+  <!-- Layout: why it has its size and place, each value with where it is set. -->
+  <g class="layout-view">
+    <text class="kv" x="506" y="146">Layout bounds <tspan class="kv-b">62 × 26</tspan> at 214, 0</text>
+    <rect class="mb-pad" x="506" y="156" width="140" height="58" rx="3"/>
+    <text class="mb-lab" x="510" y="165">padding</text>
+    <text class="mb-num" x="576" y="166">4</text><text class="mb-num" x="576" y="210">4</text>
+    <text class="mb-num" x="518" y="189">12</text><text class="mb-num" x="634" y="189">12</text>
+    <rect class="mb-content" x="530" y="171" width="92" height="28" rx="2"/>
+    <text class="mb-num" x="576" y="189">38 × 18</text>
+    <text class="kv" x="660" y="168">Parent <tspan class="kv-b">HBox</tspan></text>
+    <text class="mono css" x="660" y="187"><tspan class="p">HBox.hgrow</tspan> <tspan class="v">NEVER</tspan></text>
+    <text class="mono css" x="660" y="205"><tspan class="p">HBox.margin</tspan> <tspan class="v">0</tspan></text>
+    <path class="rule-line" d="M496 225H816"/>
+    <g class="mono css">
+      <text class="p" x="506" y="243">prefWidth</text><text class="v" x="590" y="243">62</text><text class="loc" x="804" y="243">form.fxml:41</text>
+      <path class="loc-line" d="M725 246.5H804"/>
+      <text class="p" x="506" y="262">prefHeight</text><text class="v" x="590" y="262">26</text><text class="lib" x="804" y="262">computed</text>
+    </g>
+  </g>
+  <rect class="mark mark-fxml" x="720" y="232" width="90" height="17" rx="5"/>
+
+  <path class="scratch" d="M497 278H815V308a7 7 0 0 1-7 7H497Z"/>
+  <g class="scratch-btns">
+    <rect class="apply" x="642" y="285" width="90" height="22" rx="4"/>
+    <text class="apply-text" x="687" y="300">Apply to file</text>
+    <rect class="ask" x="738" y="285" width="72" height="22" rx="4"/>
+    <text class="ask-text" x="774" y="300">Ask agent</text>
+  </g>
+  <text class="scratch-text" x="506" y="300">Scratch: 1 rule</text>
+  <g class="saved-row">
+    <path class="check" d="M507 295.5l3.5 3.5 6-7"/>
+    <text class="saved" x="521" y="300">Saved into app.css:42</text>
+  </g>
+  <circle class="ripple ripple-dark rip-new" cx="526" cy="231" r="12"/>
+  <circle class="ripple ripple-dark rip-opt" cx="562" cy="270" r="12"/>
+  <circle class="ripple ripple-dark rip-apply" cx="687" cy="296" r="14"/>
+  <circle class="ripple ripple-dark rip-tabc" cx="594" cy="91" r="12"/>
+  <circle class="ripple ripple-dark rip-chip" cx="606" cy="143" r="12"/>
+  <circle class="ripple ripple-dark rip-tabl" cx="664" cy="91" r="12"/>
+  <circle class="ripple ripple-dark rip-tabs" cx="526" cy="91" r="12"/>
+  <rect class="frame" x="366" y="46" width="450" height="270" rx="8"/>
+</g>
+
+<!-- Cursors last, so they are on top. Each rests where it last clicks. -->
+<g transform="translate(270 290)"><path class="cursor cur-app" d="M0 0V16.5L4 12.8 6.7 19l2.8-1.2-2.7-6.1H13Z"/></g>
+<g transform="translate(690 298)"><path class="cursor cur-br" d="M0 0V16.5L4 12.8 6.7 19l2.8-1.2-2.7-6.1H13Z"/></g>
+
+<!-- One caption at a time. -->
+<text class="cap c1" x="420" y="364"><tspan class="verb">Open</tspan><tspan dx="10">One click on the FXLoop bar opens it in your browser.</tspan></text>
+<text class="cap c2" x="420" y="364"><tspan class="verb">Pick</tspan><tspan dx="10">Click any control in your running app.</tspan></text>
+<text class="cap c3" x="420" y="364"><tspan class="verb">Explain</tspan><tspan dx="10">A setStyle() in your code beats your app.css rule.</tspan></text>
+<text class="cap c4" x="420" y="364"><tspan class="verb">Override</tspan><tspan dx="10">Choose a scope: it shows how many nodes each one hits.</tspan></text>
+<text class="cap c5" x="420" y="364"><tspan class="verb">Apply</tspan><tspan dx="10">The fix goes into the rule already in your app.css.</tspan></text>
+<text class="cap c6" x="420" y="364"><tspan class="verb">States</tspan><tspan dx="10">Hold :hover or :pressed, and see what changes and why.</tspan></text>
+<text class="cap c7" x="420" y="364"><tspan class="verb">Layout</tspan><tspan dx="10">Its size, padding and parent rules, with where each is set.</tspan></text>
+<text class="cap c8" x="420" y="364">Like browser DevTools, for your running JavaFX app.</text>
+</svg>
