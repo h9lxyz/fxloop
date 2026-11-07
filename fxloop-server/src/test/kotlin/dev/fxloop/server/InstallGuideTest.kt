@@ -11,13 +11,14 @@ import kotlin.io.path.readText
 /**
  * PRD 11 §7: INSTALL.md is the one page an agent (or a developer) follows from an empty machine to a first screenshot,
  * so it must stay in step with the server version, the `fxloop-connect` skill's snippets and client configs, the
- * README's install lines, and the assets the release workflow publishes.
+ * README's one-liner, and the assets the release workflow publishes.
  */
 class InstallGuideTest {
     private val repo: Path = generateSequence(Path.of("").toAbsolutePath()) { it.parent }.first { Files.isDirectory(it.resolve("fxloop-skills")) }
     private val guide = repo.resolve("INSTALL.md").readText()
     private val readme = repo.resolve("README.md").readText()
     private val connect = repo.resolve("fxloop-skills/skills/fxloop-connect/references")
+    private val skillsOneLiner = "npx skills add h9lxyz/fxloop -g -y"
 
     /** Fenced code blocks of [md] whose language is in [langs], as their verbatim bodies. */
     private fun blocks(md: String, vararg langs: String): List<String> =
@@ -35,11 +36,21 @@ class InstallGuideTest {
     }
 
     @Test
-    fun `readme sends agents to the raw install guide and shares its download lines`() {
-        assertThat(readme).contains("https://raw.githubusercontent.com/h9lxyz/fxloop/main/INSTALL.md").contains("](INSTALL.md")
+    fun `readme starts from the skills one-liner and leaves the downloads to the install guide`() {
+        assertThat(readme).contains(skillsOneLiner)
+            .contains("https://raw.githubusercontent.com/h9lxyz/fxloop/main/INSTALL.md").contains("](INSTALL.md")
+        assertThat(guide).contains(skillsOneLiner)
         for (asset in listOf("releases/latest/download/fxloop-server-all.jar", "releases/latest/download/fxloop-skills.zip")) {
-            assertThat(readme).describedAs(asset).contains(asset)
             assertThat(guide).describedAs(asset).contains(asset)
+        }
+    }
+
+    @Test
+    fun `getting started docs give one command per step, not one per shell`() {
+        val docs = listOf("README.md", "INSTALL.md", "CONTRIBUTING.md", "docs/mcp.md", "docs/skills.md", "docs/troubleshooting.md",
+            "fxloop-skills/README.md", "fxloop-skills/skills/fxloop-connect/SKILL.md", "fxloop-skills/skills/fxloop-connect/references/snippets.md")
+        for (doc in docs) {
+            assertThat(repo.resolve(doc).readText()).describedAs(doc).doesNotContain("```powershell").doesNotContain("Invoke-WebRequest")
         }
     }
 

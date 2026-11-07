@@ -18,7 +18,7 @@ import kotlin.io.path.readText
 
 /**
  * PRD 11 section 8, "Scripted" bullet (A-O1 assertions on the Linux lane, plus A-O6): a local HTTP server stands in for
- * GitHub and serves the built server jar at the release URL path; the README's bash install line runs against it in a
+ * GitHub and serves the built server jar at the release URL path; INSTALL.md's download block runs against it in a
  * throwaway HOME; the jar installed there is registered exactly as section 4.1 does (`java -jar <jar>`, cwd = project)
  * and driven over stdio MCP on a copy of the sample app that has no FXLoop plugin or guard.
  *
@@ -63,7 +63,7 @@ class OnboardingTest {
     }
 
     @Test
-    fun `readme install then fx_get_app_status launches a plugin-free app and takes a screenshot`() {
+    fun `install guide download then fx_get_app_status launches a plugin-free app and takes a screenshot`() {
         assumeFalse(System.getProperty("os.name").lowercase().contains("win"), "bash install line: Linux/macOS lane only")
         assumeTrue(runCatching { ProcessBuilder("curl", "--version").redirectErrorStream(true).start().waitFor() == 0 }.getOrDefault(false), "curl not installed")
         val started = System.nanoTime()
@@ -85,10 +85,10 @@ class OnboardingTest {
             http.start()
             val host = "http://127.0.0.1:${http.address.port}"
 
-            // 1. README "Install", bash block, verbatim except the host.
-            val installLine = Regex("```sh\\n# bash / zsh\\n(.*?)```", RegexOption.DOT_MATCHES_ALL)
-                .find(repo.resolve("README.md").readText())?.groupValues?.get(1)
-                ?: error("README Install bash block not found")
+            // 1. INSTALL.md step 2, verbatim except the host.
+            val installLine = Regex("```sh\\n(curl [^\\n]*fxloop-server-all\\.jar\\n.*?)```", RegexOption.DOT_MATCHES_ALL)
+                .find(repo.resolve("INSTALL.md").readText())?.groupValues?.get(1)
+                ?: error("INSTALL.md download block not found")
             val script = installLine.replace("https://github.com", host)
             assertThat(script).contains("releases/latest/download/fxloop-server-all.jar").doesNotContain("github.com")
             val (code, out) = runProcess(listOf("bash", "-c", script), home)

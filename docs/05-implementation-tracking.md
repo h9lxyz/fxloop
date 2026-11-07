@@ -180,6 +180,8 @@ suite is left out. Since JavaFX 25 the
 | O7 | `OnboardingTest`: local HTTP server serves the jar at the release path, install lines run, `fx_get_app_status` on a plugin-less sample | 11 §8 | acceptance | ✅ | Runs the README install line against a local server, then `fx_get_app_status` + screenshot with `prepare: server` |
 | O8 | OS matrix on Windows 11, macOS, Ubuntu against a release candidate | 11 §8 | manual | ⬜ | A-O1–A-O7, manual checklist |
 | O9 | Claude Code marketplace manifest (`.claude-plugin/`) | 11 §5.1, §13 Q2 | skills | ⏭️ | Deferred until after 1.0.0 |
+| O10 | `npx skills add h9lxyz/fxloop -g -y` quickstart, one command per step in the docs, build coordinates taken from the installed jar | [decision](decisions/skills-packaging.md) | docs, skills | ⚠️ | CLI discovery checked by reading its source, not by running it. The shared one-line commands are not yet run on Windows (O8) |
+| O11 | `fxloop-connect` leaves the build files alone; build plugin and guard only on request | [decision](decisions/skills-packaging.md) | skills, docs | ⚠️ | Connect evals rewritten (plugin-free default, opt-in eval 5) but not yet run against an agent |
 
 ## Items requiring external resources (cannot be completed in this local session)
 

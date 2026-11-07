@@ -39,17 +39,18 @@ Program arguments, or `-Dfxloop.showcase.args="..."`:
 
 ## Running a demo
 
-Once per machine: install the server jar and the skills as the [README quickstart](../../README.md#quickstart) says
-(from a clone, the skills are `cp -r fxloop-skills/skills/fxloop-* ~/.claude/skills/` for Claude Code).
+Once per machine: install the skills as the [README quickstart](../../README.md#quickstart) says.
 
-Per demo, work on a copy. Connecting edits `pom.xml` and adds an MCP config, and the copy leaves the answer key behind:
+Per demo, work on a copy. Connecting adds an MCP config and a `CLAUDE.md` note, and the copy leaves the answer key
+behind:
 
     rm -rf ~/demo/ticket-desk && mkdir -p ~/demo && cp -r sample-apps/fxloop-showcase-app ~/demo/ticket-desk && rm ~/demo/ticket-desk/ISSUES.md
 
 Open the agent in `~/demo/ticket-desk`, ask the S0 prompt below, reload the MCP servers when it asks, say "continue",
 then work down the table. Score the run against [ISSUES.md](ISSUES.md) here.
 
-To explore first and bring the agent in later, connect once (above), then run the app yourself:
+To explore first and bring the agent in later, connect once (above) and ask "I want to run the app myself", which
+adds the build plugin to `pom.xml`. Then run the app yourself:
 
     ./mvnw fxloop:run                          # add -Dfxloop.appArgs=--de for German
 

@@ -187,28 +187,19 @@ Headless runs make FXLoop usable in devcontainers, over SSH and in CI. There the
 
 ## Setup
 
-The [`fxloop-connect` skill](skills.md#fxloop-connect) registers the server for your agent, adds the build plugin and a
-production guard, and launches the app. The complete setup for any client, written so that an agent can follow it
+The [`fxloop-connect` skill](skills.md#fxloop-connect) registers the server for your agent and launches the app,
+without changing your build files. The complete setup for any client, written so that an agent can follow it
 from its raw URL, is [INSTALL.md](https://github.com/h9lxyz/fxloop/blob/main/INSTALL.md). To do it by hand, point your
 client at the server jar and your project:
 
 ```sh
-# bash / zsh
-mkdir -p ~/.fxloop && curl -fsSL -o ~/.fxloop/fxloop-server.jar \
-  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar
-claude mcp add fxloop -- java -jar ~/.fxloop/fxloop-server.jar
+curl -fsSL --create-dirs -o "$HOME/.fxloop/fxloop-server.jar" https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar
+claude mcp add fxloop -- java -jar "$HOME/.fxloop/fxloop-server.jar"
 ```
 
-```powershell
-# PowerShell
-New-Item -Force -ItemType Directory "$HOME\.fxloop" | Out-Null
-Invoke-WebRequest -OutFile "$HOME\.fxloop\fxloop-server.jar" `
-  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar
-claude mcp add fxloop -- java -jar "$HOME\.fxloop\fxloop-server.jar"
-```
-
-(Behind a proxy: put the jar at that path any way you can.) The server runs in the client's working directory; add `-e FXLOOP_PROJECT_DIR=/abs/path/to/your-app` when the
-app is elsewhere. If something doesn't work, run `java -jar ~/.fxloop/fxloop-server.jar doctor` in the project.
+On Windows, use PowerShell and type `curl.exe`. Behind a proxy, put the jar at that path any way you can. The server
+runs in the client's working directory; add `-e FXLOOP_PROJECT_DIR=/abs/path/to/your-app` when the app is elsewhere. If
+something doesn't work, run `java -jar "$HOME/.fxloop/fxloop-server.jar" doctor` in the project.
 
 Config snippets for Cursor, VS Code, Codex CLI, Gemini CLI and generic stdio clients are in the
 [MCP clients reference](../fxloop-skills/skills/fxloop-connect/references/mcp-clients.md). No build plugin is
@@ -233,5 +224,6 @@ Common knobs, all optional (full list in [configuration](configuration.md)):
 FXLoop is a local developer tool for one trusted user. The app-side agent listens on loopback only and requires a
 random per-run token. Tool file paths are confined to the project directory, `fx_eval_js` is off by default, `fx_attach`
 is audit-logged, and there is no telemetry. The agent is a no-op without its launch arguments, and
-`-Dfxloop.enabled=false` disables it outright. Keep `fxloop-dev` out of shipped artifacts; the connect skill adds a
-guard that fails the production build if it leaks. Details: [security](security.md).
+`-Dfxloop.enabled=false` disables it outright. Keep `fxloop-dev` out of shipped artifacts: the guard in
+[INSTALL.md step 7](https://github.com/h9lxyz/fxloop/blob/main/INSTALL.md#7-add-the-build-plugin-and-the-guard-optional)
+fails the production build if it leaks, and the connect skill adds it along with the build plugin. Details: [security](security.md).

@@ -10,18 +10,13 @@ They are for **your** app, Java or Kotlin, Maven or Gradle, FXML or code-built.
 ## Install
 
 ```sh
-# bash / zsh
-curl -fsSL -o /tmp/fxloop-skills.zip \
-  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-skills.zip \
-  && unzip -o /tmp/fxloop-skills.zip -d ~/.claude/skills/     # Claude Code; other agents: their skills directory
+npx skills add h9lxyz/fxloop -g -y
 ```
 
-```powershell
-# PowerShell
-Invoke-WebRequest -OutFile "$env:TEMP\fxloop-skills.zip" `
-  https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-skills.zip
-Expand-Archive -Force "$env:TEMP\fxloop-skills.zip" "$HOME\.claude\skills\"
-```
+This runs the [`skills` CLI](https://github.com/vercel-labs/skills), which needs Node.js 22.20 or newer and `git`. It
+installs all ten skills for every project, into each agent it finds on your machine, and `npx skills update -g` brings
+them up to date. Without Node.js, unzip `fxloop-skills.zip` from the
+[latest release](https://github.com/h9lxyz/fxloop/releases/latest) into your agent's skills directory.
 
 Then, in your app's project: **"connect FXLoop to this project and show me the app"**. The skill downloads the server
 jar itself. Without the skills, the same setup is [INSTALL.md](https://github.com/h9lxyz/fxloop/blob/main/INSTALL.md),
@@ -32,7 +27,7 @@ which any agent can follow from its raw URL. Install details and the layout for 
 
 | Skill | Ask it... | You get |
 |---|---|---|
-| [fxloop-connect](#fxloop-connect) | "connect FXLoop and show me the app" | MCP server registered, build plugin and production guard added, app launched, first screenshot |
+| [fxloop-connect](#fxloop-connect) | "connect FXLoop and show me the app" | MCP server registered, app launched, first screenshot, build files untouched. On request, the build plugin and a production guard |
 | [fxloop-ui-review](#fxloop-ui-review) | "review this screen, what looks off?" | Ranked findings keyed by node, each with evidence and a suggested fix |
 | [fxloop-fix-layout](#fxloop-fix-layout) | "the panel doesn't resize", "the buttons are squashed" | Root cause from the layout values, the fix, before/after frames |
 | [fxloop-style](#fxloop-style) | "make it look modern", "add dark mode", "fix the hover state" | A restyled app with a palette in `.root` variables, state strips and visual diffs |
@@ -63,17 +58,18 @@ without something you can check.
 ### fxloop-connect
 
 [SKILL.md](../fxloop-skills/skills/fxloop-connect/SKILL.md) · From "never used FXLoop" to a screenshot of your app,
-with no manual edits.
+with no manual edits and no change to your build files.
 
 - Detects the build tool, app module, language, JavaFX setup, main class and demo-data flags such as `--seed`.
 - Registers the MCP server for the agent it runs in: Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI or any
-  stdio client ([configs](../fxloop-skills/skills/fxloop-connect/references/mcp-clients.md)). The config runs a
-  small launcher it copies to `~/.fxloop/`, which finds the server jar, so the MCP entry never needs editing again.
-  Project settings that the launch needs (the app module, demo flags, headless) go in a `fxloop.properties` at the
-  workspace root.
-- Adds the FXLoop Maven or Gradle plugin and a production guard that fails the package build if FXLoop leaks onto the
-  runtime classpath, and leaves a short `## FXLoop` section in `AGENTS.md` or `CLAUDE.md`.
-- Asks you to reload the agent's MCP servers once, then launches the app and shows it.
+  stdio client ([configs](../fxloop-skills/skills/fxloop-connect/references/mcp-clients.md)). The config runs
+  `java -jar` on the server jar it downloads to `~/.fxloop/`. Project settings that the launch needs (the app module,
+  an ambiguous main class, headless) go in a `fxloop.properties` at the workspace root.
+- Leaves a short `## FXLoop` section in `AGENTS.md` or `CLAUDE.md`.
+- Asks you to reload the agent's MCP servers once, then launches the app and shows it. The server compiles your
+  project and works out the launch itself, so no build plugin is needed.
+- On request ("I want to run the app myself"), adds the FXLoop Maven or Gradle plugin for `fxloop:run` / `fxloopRun`,
+  and a production guard that fails the package build if FXLoop leaks onto the runtime classpath.
 
 Idempotent: re-running it changes nothing that is already in place. Other skills fall back to it when they find no
 working setup.
