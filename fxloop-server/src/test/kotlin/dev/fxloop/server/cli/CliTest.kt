@@ -10,7 +10,7 @@ class CliTest {
     @Test
     fun jdkCheckVerdicts() {
         assertThat(JdkCheck.problem(21, true)).isNull()
-        assertThat(JdkCheck.problem(17, true)).isNull()
+        assertThat(JdkCheck.problem(17, true)).contains("too old")
         assertThat(JdkCheck.problem(11, true)).contains("too old")
         assertThat(JdkCheck.problem(21, false)).contains("JRE")
     }

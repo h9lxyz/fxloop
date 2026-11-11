@@ -25,7 +25,7 @@ data class ActionNeeded(val kind: String, val reason: String, val next: String, 
 /**
  * Server-side live-session state (PRD 07 §6–7): control mode, the developer's activity, the action-needed list and
  * the last reload. It is the single source of truth for the dev bar: every change is pushed to the agent as a full
- * `setBarState` and to the live viewer as an SSE `status` event. See docs/decisions/live-dev-loop.md.
+ * `setBarState` and to the live viewer as an SSE `status` event. See docs/design/decisions/live-dev-loop.md.
  */
 class LiveState(private val config: Config, private val session: AppSession) {
     enum class Control { AGENT, SHARED }

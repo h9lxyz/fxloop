@@ -1,7 +1,7 @@
 # PRD 06 — FXLoop Skills for JavaFX Developers (Stage D)
 **Objective:** give JavaFX developers (Java and Kotlin) a set of agent skills that use FXLoop to **improve the UI and UX of their own application** — review a screen, fix a layout, restyle, make it accessible, polish a flow, and lock the result in as a test — with onboarding that takes one command and no manual build-file edits.
 
-**Packaging update (2026-10-31):** the skills ship as plain skill folders (`fxloop-skills/skills/fxloop-*`), not a Claude Code plugin, and `fxloop-connect` registers the MCP server itself. This supersedes the plugin, marketplace and `.mcp.json` parts of §3.1 and §7; see [decisions/skills-packaging.md](decisions/skills-packaging.md).
+**Packaging update (2026-10-31):** the skills ship as plain skill folders (`fxloop-skills/skills/fxloop-*`), not a Claude Code plugin, and `fxloop-connect` registers the MCP server itself. This supersedes the plugin, marketplace and `.mcp.json` parts of §3.1 and §7; see [decisions/skills-packaging.md](../decisions/skills-packaging.md).
 
 **Audience:** developers who *use* FXLoop. These skills are **not** for developing the FXLoop toolset itself (that remains the concern of PRDs 00–05).
 

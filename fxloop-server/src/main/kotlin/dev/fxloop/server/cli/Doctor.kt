@@ -168,7 +168,7 @@ object Doctor {
         if (a != null && b != null && a != b) return DoctorCheck("jdk", DoctorStatus.warn,
             "$name; JAVA_HOME ($a) differs from the java on PATH ($b)",
             "make them the same JDK: export JAVA_HOME=$b (or put \$JAVA_HOME/bin first on PATH)", data)
-        return DoctorCheck("jdk", DoctorStatus.ok, name, data = data)
+        return DoctorCheck("jdk", DoctorStatus.ok, name + if (j.javaHomeEnv == null) "; JAVA_HOME unset, builds use this JDK" else "", data = data)
     }
 
     private fun realOf(s: String): String = runCatching { Path.of(s).toRealPath().toString() }.getOrDefault(s)
@@ -344,7 +344,8 @@ object Doctor {
             if (configured.isNotEmpty()) emptyList()
             else states.filter { it.file != null }.map { it.client }.ifEmpty { listOf(McpClient.CLAUDE_CODE) }
         }
-        val snippets = snippetFor.map { cl -> mapOf("client" to cl.id, "file" to cl.file, "content" to McpClients.snippet(cl, jar, dir, env.home, env.windows)) }
+        val java = javaCommand(env)
+        val snippets = snippetFor.map { cl -> mapOf("client" to cl.id, "file" to cl.file, "content" to McpClients.snippet(cl, jar, dir, env.home, env.windows, java)) }
         val data = mapOf(
             "clients" to states.map { mapOf("client" to it.client.id, "file" to it.file?.toString(), "hasFxloop" to it.hasFxloop, "missingPaths" to it.missingPaths, "scope" to it.scope) },
             "snippets" to snippets,
@@ -364,6 +365,16 @@ object Doctor {
             if (existing.isEmpty()) "no MCP client config in the workspace (looked for ${McpClient.entries.joinToString(", ") { it.file }})"
             else "${existing.joinToString(", ") { it.client.label }} config found, but without an fxloop entry",
             "add the snippet below to " + snippetFor.joinToString(" / ") { it.file } + " (--client=all for every client)", data)
+    }
+
+    /**
+     * `java` when the first `java` on PATH is the JDK running doctor; otherwise its absolute path, since a JDK from
+     * mise/SDKMAN/asdf is often missing from the PATH the agent starts the server with.
+     */
+    internal fun javaCommand(env: DoctorEnv): String {
+        val j = env.jdk
+        if (j.pathJavaHome != null && realOf(j.pathJavaHome) == realOf(j.runningHome)) return "java"
+        return Path.of(j.runningHome, "bin", if (env.windows) "java.exe" else "java").toString()
     }
 
     // ---- output ---------------------------------------------------------------------------------------------------

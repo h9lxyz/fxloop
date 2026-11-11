@@ -104,7 +104,7 @@ class DevBar(private val rt: AgentRuntime, private val ownedStage: Boolean = LIN
         return Json.obj().put("queued", true)
     }
 
-    /** Applies the full bar state (see docs/decisions/live-dev-loop.md). Returns [describe]. */
+    /** Applies the full bar state (see docs/design/decisions/live-dev-loop.md). Returns [describe]. */
     internal fun applyState(p: ObjectNode): ObjectNode = Fx.call {
         synchronized(lock) {
             state = p.deepCopy()

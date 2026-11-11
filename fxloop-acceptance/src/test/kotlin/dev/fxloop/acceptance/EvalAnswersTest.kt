@@ -15,7 +15,7 @@ class EvalAnswersTest {
     private val repo = Path.of(System.getProperty("fxloop.repo") ?: "..").toAbsolutePath().normalize()
 
     private fun answers(file: String): List<String> {
-        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(Files.newInputStream(repo.resolve("evals/$file")))
+        val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(Files.newInputStream(repo.resolve("fxloop-acceptance/src/test/resources/evals/$file")))
         val nodes = doc.getElementsByTagName("answer")
         return (0 until nodes.length).map { nodes.item(it).textContent.trim() }
     }

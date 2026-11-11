@@ -42,12 +42,12 @@
   </modules>
 
   <properties>
-    <maven.compiler.release>17</maven.compiler.release>
+    <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
     <kotlin.version>2.4.21</kotlin.version>
-    <kotlin.compiler.jvmTarget>17</kotlin.compiler.jvmTarget>
+    <kotlin.compiler.jvmTarget>21</kotlin.compiler.jvmTarget>
     <!-- Compile Kotlin in the Maven JVM: no long-lived ~1 GB Kotlin daemons left behind by builds and tests. -->
     <kotlin.compiler.daemon>false</kotlin.compiler.daemon>
     <javafx.version>21.0.13</javafx.version>
@@ -200,7 +200,7 @@
           <configuration>
             <jvmTarget>${kotlin.compiler.jvmTarget}</jvmTarget>
             <args>
-              <arg>-Xjdk-release=17</arg>
+              <arg>-Xjdk-release=21</arg>
             </args>
           </configuration>
           <executions>
@@ -299,7 +299,7 @@
             <configuration>
               <rules>
                 <requireJavaVersion>
-                  <version>[17,)</version>
+                  <version>[21,)</version>
                 </requireJavaVersion>
                 <requireMavenVersion>
                   <version>[3.9,)</version>
@@ -313,17 +313,6 @@
   </build>
 
   <profiles>
-    <!-- Monocle 21.x is Java 21 bytecode; on a JDK 17 build the FX tests need the 17.x line. -->
-    <profile>
-      <id>monocle-jdk17</id>
-      <activation>
-        <jdk>[17,21)</jdk>
-      </activation>
-      <properties>
-        <monocle.version>17.0.10</monocle.version>
-      </properties>
-    </profile>
-
     <!-- Sample and gauntlet apps with their Monocle tests: not part of the default build; `./mvnw -Psamples install`. -->
     <profile>
       <id>samples</id>

@@ -9,7 +9,7 @@ git clone https://github.com/h9lxyz/fxloop.git && cd fxloop
 ./mvnw install -Pacceptance     # plus the end-to-end MCP suite
 ```
 
-On Windows, use `mvnw.cmd` and `gradlew.bat`. Browse the docs as a site with `mkdocs serve`.
+On Windows, use `mvnw.cmd` and `gradlew.bat`.
 
 ## Build the server jar
 
@@ -25,7 +25,8 @@ This needs three to five minutes; for Maven apps the first line is enough.
 The jar is `fxloop-server/target/fxloop-server-1.0.0-SNAPSHOT-all.jar`. Copy it to `~/.fxloop/fxloop-server.jar`, or
 register that path with your agent instead.
 
-Releases are cut by pushing a `x.y.z` tag.
+Releases are cut by pushing a `x.y.z` tag. When you cut one, also bump the version in the README's build-plugin
+quickstart, both in the download URL and in the `<plugin>` block; `ReadmeQuickstartTest` keeps the two equal.
 
 ## Generated files
 
@@ -40,11 +41,11 @@ Releases are cut by pushing a `x.y.z` tag.
 | `fxloop-agent` | The in-JVM agent: scene graph, input, reload, FXML registry |
 | `fxloop-protocol` | The protocol between server and agent, and the `launch.json` schema |
 | `fxloop-launch` | Main-class and launch-mode detection shared by the server and both build plugins |
-| `fxloop-dev` | Optional dev dependency for IDE-launched apps ([decision](docs/decisions/fxml-load-registry.md)) |
+| `fxloop-dev` | Optional dev dependency for IDE-launched apps ([decision](docs/design/decisions/fxml-load-registry.md)) |
 | `fxloop-maven-plugin` | `fxloop:run` and `fxloop:prepare` ([README](fxloop-maven-plugin/README.md)) |
 | `fxloop-gradle-plugin` | Gradle plugin `dev.fxloop`, a standalone Gradle build ([README](fxloop-gradle-plugin/README.md)) |
 | `fxloop-skills` | The agent skills, shared references and evals ([README](fxloop-skills/README.md)) |
 | `sample-apps/*` | Test apps, including `fxloop-showcase-app` with planted UI bugs |
 | `fxloop-acceptance` | End-to-end suite that drives the server over MCP |
 
-The tooling is written in Kotlin and targets Java 17 bytecode.
+The tooling is written in Kotlin and targets Java 21 bytecode.

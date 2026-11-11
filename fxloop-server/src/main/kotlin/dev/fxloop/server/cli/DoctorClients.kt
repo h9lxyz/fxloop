@@ -110,30 +110,32 @@ internal object McpClients {
      * The config file text to add for [c]. Claude Code starts servers in the workspace; the others get the project dir.
      * Clients that expand a home variable get the jar relative to it when it lives under [home], so the file holds no
      * machine-specific path (`${HOME}`, `${USERPROFILE}` on Windows, `${userHome}` for Cursor and VS Code); Codex and
-     * Gemini get the absolute path.
+     * Gemini get the absolute path. [java] is `java` or an absolute java executable, rewritten the same way.
      */
-    fun snippet(c: McpClient, jar: String, projectDir: Path, home: Path? = null, windows: Boolean = false): String {
+    fun snippet(c: McpClient, jar: String, projectDir: Path, home: Path? = null, windows: Boolean = false, java: String = "java"): String {
         fun q(s: String) = mapper.writeValueAsString(s)
         val ws = when (c) {
             McpClient.CURSOR, McpClient.VSCODE -> "\${workspaceFolder}"
             else -> projectDir.toString()
         }
-        val jarPath = when (c) {
-            McpClient.CLAUDE_CODE -> homeRelative(jar, home, if (windows) "\${USERPROFILE}" else "\${HOME}")
-            McpClient.CURSOR, McpClient.VSCODE -> homeRelative(jar, home, "\${userHome}")
-            else -> jar
+        fun local(path: String) = when (c) {
+            McpClient.CLAUDE_CODE -> homeRelative(path, home, if (windows) "\${USERPROFILE}" else "\${HOME}")
+            McpClient.CURSOR, McpClient.VSCODE -> homeRelative(path, home, "\${userHome}")
+            else -> path
         }
+        val jarPath = local(jar)
+        val cmd = if (java == "java") java else local(java)
         return when (c) {
             McpClient.CLAUDE_CODE -> """
                 {
                   "mcpServers": {
-                    "fxloop": { "command": "java", "args": ["-jar", ${q(jarPath)}] }
+                    "fxloop": { "command": ${q(cmd)}, "args": ["-jar", ${q(jarPath)}] }
                   }
                 }
             """.trimIndent()
             McpClient.CODEX -> """
                 [mcp_servers.fxloop]
-                command = "java"
+                command = ${q(cmd)}
                 args = ["-jar", ${q(jar)}]
                 env = { FXLOOP_PROJECT_DIR = ${q(ws)} }
             """.trimIndent()
@@ -142,7 +144,7 @@ internal object McpClients {
                 appendLine("  \"${c.serversKey}\": {")
                 appendLine("    \"fxloop\": {")
                 if (c == McpClient.VSCODE) appendLine("      \"type\": \"stdio\",")
-                appendLine("      \"command\": \"java\",")
+                appendLine("      \"command\": ${q(cmd)},")
                 appendLine("      \"args\": [\"-jar\", ${q(jarPath)}],")
                 appendLine("      \"env\": { \"FXLOOP_PROJECT_DIR\": ${q(ws)} }")
                 appendLine("    }")

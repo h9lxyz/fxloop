@@ -3,6 +3,8 @@
 Gradle plugin `dev.fxloop` (Kotlin). Registers task `fxloopPrepare` (group `fxloop`, depends on `classes`) that writes
 `build/fxloop/launch.json` using the same schema as the Maven `fxloop:prepare` (`LaunchDescriptor`, `buildTool: "gradle"`).
 
+Setup in your own project (plugin and production guard): [INSTALL.md](../INSTALL.md#add-the-build-plugin-optional).
+
 Standalone Gradle build (not a Maven reactor module). Requires `dev.fxloop:fxloop-protocol:1.0.0-SNAPSHOT` in `mavenLocal()`
 (`./mvnw install`).
 
@@ -19,6 +21,24 @@ fxloop {
 }
 ```
 
+Groovy DSL, with the production guard that fails the `jar` task when an FXLoop artifact is on the runtime classpath:
+
+```groovy
+plugins {
+    id 'dev.fxloop' version '1.0.0-SNAPSHOT'
+}
+
+def fxloopGuard = tasks.register('fxloopGuard') {
+    group = 'verification'
+    description = 'Fails if a dev.fxloop artifact is on the runtime classpath'
+    def leaked = configurations.runtimeClasspath.map { c ->
+        c.incoming.resolutionResult.allComponents.collect { it.id.displayName }.findAll { it.startsWith('dev.fxloop:') }
+    }
+    doLast { if (!leaked.get().isEmpty()) throw new GradleException("FXLoop must not ship: ${leaked.get()}") }
+}
+tasks.named('jar') { dependsOn fxloopGuard }
+```
+
 Main class resolution: `fxloop.mainClass` -> `javafx { mainClass }` (org.openjfx.javafxplugin, if present) ->
 `application.mainClass` -> jar manifest `Main-Class` -> ASM scan of the compiled classes (Launcher pattern preferred);
 ambiguity fails and lists candidates. `auto` launches on the module path only when `module-info.java` exists.
@@ -27,8 +47,8 @@ Kotlin (and other JVM languages) work without configuration: the scan covers eve
 `sourceRoots` holds all of the source set's source dirs (`src/main/kotlin` too), and `outputDir` is
 `build/classes/java/main` unless only another language produced classes (a pure Kotlin app gets
 `build/classes/kotlin/main`, which is what `FXLOOP_EXTERNAL_COMPILE` watches). Other classes dirs lead the `classpath`.
-Publishing to the Plugin Portal is configured (`com.gradle.plugin-publish`) but not executed. Compiles with `--release 17`
-on any JDK >= 17 (no toolchain required).
+Publishing to the Plugin Portal is configured (`com.gradle.plugin-publish`) but not executed. Compiles with `--release 21`
+on any JDK >= 21 (no toolchain required).
 
 ## Run the app yourself: `fxloopRun`
 

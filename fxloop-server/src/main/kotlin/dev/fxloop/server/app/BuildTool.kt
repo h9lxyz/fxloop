@@ -139,7 +139,9 @@ class BuildTool(private val config: Config) {
     fun run(cmd: List<String>, timeoutSec: Long): Result {
         log.info("running {}", cmd.joinToString(" "))
         val p = try {
-            ProcessTree.track(ProcessBuilder(cmd).directory(config.projectDir.toFile()).redirectErrorStream(true).start())
+            val pb = ProcessBuilder(cmd).directory(config.projectDir.toFile()).redirectErrorStream(true)
+            withJdk(pb.environment(), AppSession.javaHome())
+            ProcessTree.track(pb.start())
         } catch (e: IOException) {
             throw ToolException("BUILD_FAILED", "cannot run ${cmd[0]}: ${e.message}",
                 "install Maven/Gradle, add a wrapper, or set FXLOOP_BUILD_CMD")
@@ -171,6 +173,19 @@ class BuildTool(private val config: Config) {
             Files.exists(c.projectDir.resolve("pom.xml")) -> Kind.MAVEN
             BUILD_FILES.any { Files.exists(c.projectDir.resolve(it)) } -> Kind.GRADLE
             else -> Kind.MAVEN
+        }
+
+        /**
+         * A JDK from mise/SDKMAN/asdf is often neither on the agent's PATH nor in JAVA_HOME, so the wrappers would
+         * find no Java: give the build the JDK the app is launched with. An existing JAVA_HOME always wins.
+         */
+        internal fun withJdk(env: MutableMap<String, String>, javaHome: String) {
+            if (!env["JAVA_HOME"].isNullOrBlank()) return
+            env["JAVA_HOME"] = javaHome
+            // Windows keeps PATH as `Path`; the map is case-sensitive, so reuse whatever key is there
+            val key = env.keys.firstOrNull { it.equals("PATH", ignoreCase = true) } ?: "PATH"
+            val bin = Path.of(javaHome, "bin").toString()
+            env[key] = env[key]?.takeIf { it.isNotEmpty() }?.let { bin + File.pathSeparator + it } ?: bin
         }
 
         /** Prefers a wrapper found in the project dir or any ancestor; `FXLOOP_BUILD_CMD` overrides. */

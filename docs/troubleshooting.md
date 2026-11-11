@@ -32,8 +32,9 @@ Errors come back as tool results with `isError`, an error `code`, a message and 
 
 ## Common situations
 
-* **It doesn't work and you don't know why:** run `java -jar "$HOME/.fxloop/fxloop-server.jar" doctor` in the project directory. It checks the JDK (17+, a JDK not a JRE), the build tool and wrapper, JavaFX, the main class, the FXLoop build plugin and the display, and prints a one-line fix for each problem. It never writes anything. `--json` for tools.
-* **`java -jar` fails with a version or `UnsupportedClassVersionError` message:** the `java` on `PATH` is older than 17. Install a JDK 17+ (a JDK, not a JRE) or fix `PATH`/`JAVA_HOME`; `java -jar "$HOME/.fxloop/fxloop-server.jar" --version` prints the check.
+* **It doesn't work and you don't know why:** run `java -jar "$HOME/.fxloop/fxloop-server.jar" doctor` in the project directory. It checks the JDK (21+, a JDK not a JRE), the build tool and wrapper, JavaFX, the main class, the FXLoop build plugin and the display, and prints a one-line fix for each problem. It never writes anything. `--json` for tools.
+* **`java -jar` fails with a version or `UnsupportedClassVersionError` message:** the `java` on `PATH` is older than 21. Use the absolute path of a JDK 21+ `java` (next item), or install one (a JDK, not a JRE); `java -jar "$HOME/.fxloop/fxloop-server.jar" --version` prints the check.
+* **`java` is not found (or too old), but a JDK 21+ is installed through mise, SDKMAN, asdf or the IDE:** use the absolute path of that JDK's `java` (`mise which java`, `asdf which java`, `~/.sdkman/candidates/java/current/bin/java`, `~/.jdks/*/bin/java`; the full list is in [INSTALL.md step 1](https://github.com/h9lxyz/fxloop/blob/main/INSTALL.md#1-find-a-jdk-21)) for every `java -jar` command, and as the `command` of the MCP entry too: the agent's client does not see your shell's version manager.
 * **The `fx_*` tools don't show up:** start a new agent session after registering the server. A running session doesn't see new servers.
 * **`BUILD_FAILED` with `429` or `Could not resolve`:** your dependency cache is cold and the repository is slow. Wait a moment and ask again.
 * **The jar download fails (proxy, firewall, antivirus):** get `fxloop-server-all.jar` any other way and save it as `~/.fxloop/fxloop-server.jar`.

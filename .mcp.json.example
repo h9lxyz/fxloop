@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "fxloop": {
-      "command": "java",
-      "args": ["-jar", "${HOME}/.fxloop/fxloop-server.jar"]
-    }
-  }
-}
