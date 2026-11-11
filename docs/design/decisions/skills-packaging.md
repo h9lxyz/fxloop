@@ -33,7 +33,7 @@ install mechanism, while the skills themselves are agent-neutral: they call MCP 
 
 ## Update 2026-11-02: bootstrap superseded
 
-[PRD 11](../11-prd-onboarding.md) removes `FxloopBootstrap.java`. `fxloop-connect` now downloads
+[PRD 11](../prd/11-prd-onboarding.md) removes `FxloopBootstrap.java`. `fxloop-connect` now downloads
 `fxloop-server.jar` from the GitHub release (`edge` for a SNAPSHOT) into `~/.fxloop/`, runs `doctor`, and writes an
 MCP entry of `java -jar <absolute jar path>`. Nothing else goes into the home directory. Skills are installed from
 the `fxloop-skills.zip` release asset. The decision above (plain folders, one reference source, version pinned in the

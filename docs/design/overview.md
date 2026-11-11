@@ -1,7 +1,6 @@
 # FXLoop — Agentic Dev-Loop for JavaFX
 ## Product Overview, Architecture & Roadmap (Document 0 of 6)
 
-> **Working name:** `fxloop` (rename freely; grep-safe token used consistently across all PRDs).
 > **License:** Apache-2.0 (deliberate differentiator — the closest prior art, `fxgraph-mcp-server`, ships without a license).
 > **Audience of this document set:** a coding agent (e.g., Claude Code) implementing the system, and the human product owner reviewing scope.
 
@@ -43,7 +42,7 @@ When an AI coding agent builds a **web** app, it has eyes and hands: Playwright/
 3. **Public API only** in the core (`javafx.*`, `java.instrument`, `javax.tools`). Anything touching `com.sun.*` is isolated behind a feature flag and may degrade gracefully.
 4. **Fail loud, explain, suggest.** Tool errors are returned *in-result* (`isError: true`) with a one-line cause and a concrete next step. FX-thread timeouts include the captured FX-thread stack trace.
 5. **Deterministic over magical.** Reload happens when the agent calls `fx_reload` (plus optional human-facing CSS watch mode). No surprise background mutations of app state.
-6. **One language, one repo.** Java 17+, multi-module Maven build, official `io.modelcontextprotocol.sdk:mcp` (see Decision Log for why not TypeScript).
+6. **One language, one repo.** Java 21+, multi-module Maven build, official `io.modelcontextprotocol.sdk:mcp` (see Decision Log for why not TypeScript).
 7. **Never in production.** The agent module is a dev/test-scoped concern; guards + docs enforce it (see 03 §Security).
 8. **Pixels and tree are complementary evidence.** The scene graph answers *what is it exactly*; screenshots answer *does it look right* — CSS and layout bugs are only observable in pixels. **Dual-channel rule:** every image is returned as MCP image content (model + capable clients render it inline) *and* persisted to a stable path the human can always open; **paths always, pixels on demand** governs context budget (see PRD 04).
 
@@ -72,15 +71,15 @@ When an AI coding agent builds a **web** app, it has eyes and hands: Playwright/
 
 ```
 fxloop/
-├── pom.xml                      # parent: Java 17, JavaFX 21 BOM for tests, spotless, enforcer
+├── pom.xml                      # parent: Java 21, JavaFX 21 BOM for tests, spotless, enforcer
 ├── fxloop-protocol/             # FCP DTOs + JSON (shared by agent & server). Zero deps beyond jackson.
 ├── fxloop-agent/                # in-JVM agent. Shaded/relocated jar. Deps: protocol (+ByteBuddy from MVP).
 ├── fxloop-server/               # MCP server (stdio). Deps: protocol, mcp-sdk, jackson.
 ├── fxloop-maven-plugin/         # (MVP) `fxloop:prepare` — emits target/fxloop/launch.json
 ├── fxloop-gradle-plugin/        # (Production) parity task `fxloopPrepare`
 ├── sample-apps/                 # test targets (Java): fxloop-sample-app (PRD-PoC §9), fxloop-gauntlet-app, fxloop-sample-app-gradle
-├── evals/                       # per-stage eval XML + runner notes
-└── docs/                        # PRDs 00–04, tracking 05, developer skills 06
+├── fxloop-acceptance/           # end-to-end tests; evals XML under src/test/resources/evals
+└── docs/                        # user docs; docs/design/ holds the PRDs and decision notes
 ```
 
 ## 7. Conventions (from MCP best practices — apply everywhere)
@@ -107,7 +106,7 @@ fxloop/
 
 ## 9. Cross-cutting non-functional requirements
 
-- **Runtime matrix:** JDK 17 (baseline) & 21; JavaFX 17 & 21 at MVP; add JDK/JavaFX 25 lane at Production. Core uses only APIs present since JavaFX 11 (`Robot`, `Window.getWindows()`, snapshot, public CSS/metadata APIs).
+- **Runtime matrix:** built for JDK 21 against JavaFX 21; CI tests on JDK 25 with JavaFX 27 on Linux, Windows and macOS. Core uses only APIs present since JavaFX 11 (`Robot`, `Window.getWindows()`, snapshot, public CSS/metadata APIs).
 - **OS:** Windows + macOS + Linux (X11) from MVP; PoC develops on one primary OS with a Linux `xvfb` CI smoke lane.
 - **Latency budgets (MVP+):** CSS reload < 300 ms; single-class HotSwap < 2 s; restart incl. replay < 6 s on the sample app; any read tool < 500 ms p95.
 - **Footprint:** agent jar < 2 MB PoC (< 5 MB with ByteBuddy at MVP); no background threads beyond FCP acceptor + watcher; zero overhead when handshake arg absent.
@@ -134,7 +133,7 @@ Swing/SWT support; RPA against apps the user cannot relaunch (until attach mode,
 
 1. Read 00 (this doc) fully; then implement **PRD 01 milestones in order** (M1→M4). Do not start PRD 02 features early — PoC exit criteria gate it.
 2. Each milestone has a **Definition of Done**; treat acceptance scripts and eval suites as executable specs — build them as tests first where possible.
-3. When a PRD marks something **[R&D]**, timebox a spike, record findings in `docs/decisions/`, and fall back to the specified Plan B without waiting for human input.
+3. When a PRD marks something **[R&D]**, timebox a spike, record findings in `docs/design/decisions/`, and fall back to the specified Plan B without waiting for human input.
 4. Anything ambiguous: prefer the option that is (a) public-API, (b) more token-efficient for P1, (c) simpler to delete later.
 
 ## 13. Glossary

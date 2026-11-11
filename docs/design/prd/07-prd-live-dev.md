@@ -13,7 +13,7 @@
 |---|---|---|
 | CSS | Re-applied in place, `visualDiff` returned (`Reloader.cssTier`) | ✅ Yes |
 | FXML (registered document) | Re-loaded and swapped in place (`Reloads.swap`); controller re-created | ⚠️ Visible at once, but text typed, selections, scroll position and selected tab inside the document reset |
-| Java method body | Compiled in-process, HotSwapped | ⚠️ Only if the method runs again on its own (handlers, listeners, cell factories). UI built in `start()`, constructors or `initialize()` does **not** change on screen ([limitations](limitations.md#hot-reload-hotswap)) |
+| Java method body | Compiled in-process, HotSwapped | ⚠️ Only if the method runs again on its own (handlers, listeners, cell factories). UI built in `start()`, constructors or `initialize()` does **not** change on screen ([limitations](../../limitations.md#hot-reload-hotswap)) |
 | Structural Java | Restart + journal replay (or JBR enhanced redefinition) | ⚠️ Replay restores the **agent's** path only; where the developer clicked to is lost |
 | Feedback to the developer | Tool result goes to the agent; the app shows nothing | ❌ The developer can't tell which mode the session is in, whether a reload happened or failed, or whether the app needs a rebuild FXLoop cannot do itself |
 | Shared input | Action tools default to `mode=robot`, which moves the real pointer and types into the focused window | ❌ Agent and developer fight over the mouse when both use the app |

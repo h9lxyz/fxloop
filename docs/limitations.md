@@ -59,7 +59,7 @@ Existing instances keep their state; code in constructors or static initialisers
 
 * **Typing:** `fx_type_keys` via the Robot depends on the keyboard layout and focus. Use `fx_set_text` (programmatic) for text; it fires the same property listeners but not key events.
 * **Pseudo-state capture:** `fx_capture_states` temporarily forces `:hover`, `:focused`, `:pressed`, ... on a node and restores them in a `finally`; effects that depend on real input or animations may differ from true interaction.
-* **`fx_explain_style`:** reports the rule-level winner and the overridden declarations per property, each with `file:line` (or `(set in code)` / inline), from a cascade reconstructed through the public `javafx.css` API. Each property is verified against the live value and origin (`simulation: ok|mismatch`); a `mismatch` is reported, not hidden. Approximations (see [PRD 08 §9](08-prd-css-inspector.md#9-risks-and-known-approximations)):
+* **`fx_explain_style`:** reports the rule-level winner and the overridden declarations per property, each with `file:line` (or `(set in code)` / inline), from a cascade reconstructed through the public `javafx.css` API. Each property is verified against the live value and origin (`simulation: ok|mismatch`); a `mismatch` is reported, not hidden. Approximations (see [PRD 08 §9](design/prd/08-prd-css-inspector.md#9-risks-and-known-approximations)):
   * Popups and context menus take their stylesheets from the owner window; SubScene user-agent sheets are not modeled exactly.
   * Platform-specific Modena additions (touch, high contrast) are not modeled.
   * Looked-up colors (`derive()`, `.root` lookups) are resolved one level only; no derive() chains.

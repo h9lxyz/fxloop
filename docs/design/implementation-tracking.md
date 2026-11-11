@@ -23,7 +23,8 @@ Statuses last reconciled against the code on 2026-10-31. The implementation lang
 | Packaging | maven-shade-plugin, maven-plugin-plugin, Gradle `java-gradle-plugin` | latest |
 | SBOM / formatting | cyclonedx-maven-plugin, spotless | latest |
 
-Baseline: Java 17 bytecode (`--release 17`), compiled against JavaFX 21. CI compiles that baseline but runs nothing on
+Baseline: Java 21 bytecode (`--release 21`, raised from 17 on 2026-11-07 when CI stopped running anything on JDK 17),
+compiled against JavaFX 21. CI compiles that baseline but runs nothing on
 it: tests run on JDK 25 and JavaFX 27.0.1 (`-Djavafx.version=…`) on Linux, Windows and macOS, where the agent's Monocle
 suite is left out. Since JavaFX 25 the
 `SimpleSelector`/`CompoundSelector` classes are internal, so the CSS inspector reads selector parts from
@@ -84,7 +85,7 @@ suite is left out. Since JavaFX 25 the
 | B17 | `fx_describe_at` | 02 §7 | agent | ✅ | |
 | B18 | `fx_lint_fxml` (SAX + isolated classloader) | 02 §8 (F8) | server | ✅ | |
 | B19 | `fxloop-dev` embedded mode + `fx_connect_existing` | 02 §9 (F9) | dev+server | ✅ | |
-| B20 | JUL / SLF4J log capture → `fx_get_logs source=` | 02 §9 (F10) | agent+server | ⚠️ | SLF4J captured only via a JUL bridge; other frameworks via `source=process` ([limitations.md](limitations.md)) |
+| B20 | JUL / SLF4J log capture → `fx_get_logs source=` | 02 §9 (F10) | agent+server | ⚠️ | SLF4J captured only via a JUL bridge; other frameworks via `source=process` ([limitations.md](../limitations.md)) |
 | B21 | `fx_get_node_details` (reflective dump, paginated) | 02 §9 | agent | ✅ | |
 | B22 | Screenshot `annotate` (Set-of-Mark + legend, server-side composite) + `scale` | 04 §3.1 | server+agent | ✅ | |
 | B23 | `fx_compare_screenshots` (threshold, clustered regions, diff composite, verdict) | 04 §3.2 | server | ✅ | |

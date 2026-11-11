@@ -6,7 +6,7 @@ The language was switched to Kotlin mid-build at the maintainer's request. Conse
 
 | Area | Decision |
 |---|---|
-| Tooling modules | `fxloop-protocol`, `fxloop-agent`, `fxloop-server`, `fxloop-maven-plugin`, `fxloop-gradle-plugin`, `fxloop-acceptance` are Kotlin 2.4 with `jvmTarget` 17 (bytecode baseline unchanged: runs on JDK 17+) |
+| Tooling modules | `fxloop-protocol`, `fxloop-agent`, `fxloop-server`, `fxloop-maven-plugin`, `fxloop-gradle-plugin`, `fxloop-acceptance` are Kotlin 2.4 with `jvmTarget` 21 (the bytecode baseline: runs on JDK 21+) |
 | Test-target apps | `sample-apps/*` stay **Java**: they stand in for typical user apps, and the HotSwap tier compiles *Java* edits with `javax.tools` |
 | Agent classpath hygiene | The agent relocates the **Kotlin stdlib** to `fxloop.internal.kotlin` (as with Jackson and ByteBuddy under `fxloop.internal`) so it never clashes with an app's own Kotlin version |
 | Agent code in `FXMLLoader` | Inlined advice is written to avoid Kotlin intrinsics (nullable parameters) so it only references public types |

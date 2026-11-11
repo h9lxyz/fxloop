@@ -1,7 +1,7 @@
 # PRD 11 — Onboarding: two paths to a first screenshot (Stage O)
 
 **Status:** proposed (2026-11-02). Supersedes the install parts of PRD 06 §3 and the bootstrap in
-[decisions/skills-packaging.md](decisions/skills-packaging.md).
+[decisions/skills-packaging.md](../decisions/skills-packaging.md).
 
 **Objective:** a developer who has never seen FXLoop, on Windows, macOS or Linux, gets from the README to "the agent
 just showed me a screenshot of my app" in under five minutes, with no clone, no build of FXLoop, nothing in `~/.m2`,
