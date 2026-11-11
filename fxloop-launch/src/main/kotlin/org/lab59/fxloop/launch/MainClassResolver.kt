@@ -29,10 +29,17 @@ data class MainClassCandidate(val name: String, val extendsApplication: Boolean,
 class MainClassException(val outputDirs: List<Path>, val candidates: List<MainClassCandidate>) :
     RuntimeException(
         if (candidates.isEmpty()) "No main class found in ${outputDirs.joinToString()}"
-        else "Cannot determine the main class unambiguously. Candidates:\n  - " +
-            candidates.joinToString("\n  - ") { it.describe() },
+        else "Cannot determine the main class unambiguously. Candidates:" + candidateLines(candidates),
     ) {
     val noneFound: Boolean get() = candidates.isEmpty()
+
+    /** The candidates as `\n  - <describe()>` lines, for messages that end with "Candidates:". */
+    val candidateLines: String get() = candidateLines(candidates)
+
+    private companion object {
+        fun candidateLines(candidates: List<MainClassCandidate>): String =
+            candidates.joinToString("") { "\n  - " + it.describe() }
+    }
 }
 
 /**
