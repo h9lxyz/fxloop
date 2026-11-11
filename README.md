@@ -65,7 +65,7 @@ Add the plugin to your `pom.xml`, under `<build><plugins>`:
 
 ```xml
 <plugin>
-  <groupId>dev.fxloop</groupId>
+  <groupId>org.lab59.fxloop</groupId>
   <artifactId>fxloop-maven-plugin</artifactId>
   <version>0.0.1</version>
 </plugin>

@@ -68,7 +68,7 @@ jobs:
       - name: Install Xvfb
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - uses: gradle/actions/setup-gradle@v6
-      # The Gradle and Kotlin lane tests resolve the dev.fxloop plugin from mavenLocal, and the server bundles it
+      # The Gradle and Kotlin lane tests resolve the org.lab59.fxloop plugin from mavenLocal, and the server bundles it
       # (plugin-free Gradle prepare, PRD 11 4.2), so: what the plugin depends on, the plugin, then everything else.
       - run: ./mvnw -B -q install -DskipTests -pl fxloop-protocol,fxloop-launch -am
       - run: ./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin publishToMavenLocal

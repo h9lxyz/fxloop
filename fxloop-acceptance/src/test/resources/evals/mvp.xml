@@ -26,7 +26,7 @@
   </qa_pair>
   <qa_pair>
     <question>Which controller class does the FXML load registry report for the main view?</question>
-    <answer>dev.fxloop.sample.MainController</answer>
+    <answer>org.lab59.fxloop.sample.MainController</answer>
   </qa_pair>
   <qa_pair>
     <question>What is the stable path of the Add button as reported by fx_find_nodes for query #addBtn? Give the last path segment only.</question>

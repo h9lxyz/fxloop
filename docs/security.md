@@ -13,7 +13,7 @@ FXLoop is a **developer tool** that lets an MCP client (an LLM agent) inspect an
 | Screenshot flooding | Rate cap, default 2/s (`FXLOOP_SCREENSHOT_RATE`). |
 | Agent shipped to production | See "Production guards" below. |
 | Prompt-injected agent reads/writes arbitrary files | Tool file paths (screenshot/export outputs, references) are **confined to the project directory** (`BAD_REQUEST: path escapes the project directory`). |
-| Silent hijack of running JVMs | `fx_attach` is explicit, audit-logged (`dev.fxloop.audit` logger: `AUDIT attach requested/attached pid=...`) and can be disabled with `-Dfxloop.attach=false` on the server. |
+| Silent hijack of running JVMs | `fx_attach` is explicit, audit-logged (`org.lab59.fxloop.audit` logger: `AUDIT attach requested/attached pid=...`) and can be disabled with `-Dfxloop.attach=false` on the server. |
 | Arbitrary script execution in the app | `fx_eval_js` is **off** unless `FXLOOP_WEBVIEW=true`. |
 | Data exfiltration | **No telemetry.** The server makes no network calls of its own (build tools may fetch dependencies as usual). The live viewer (and the CSS inspector API on it) binds `127.0.0.1` and requires a token. It is started lazily, on an ephemeral port, when the developer clicks **Open CSS inspector** in the dev bar (or `fx_open_inspector` runs), or by the `fxloop:run`/`fxloopRun` inspector helper, which runs it from the start (same binding and token); the browser URL carries the token as `?t=`. The API is read-only except two visual-only POSTs (`/api/highlight`, `/api/pick`), `POST /api/lock/release` (ends the agent's input lock), `POST /api/prompt` / `/api/prompt/cancel` (the *Ask agent* box: queue or withdraw a developer prompt; only known context fields are kept, and the tool result labels node text and CSS as app data, not instructions) and, only with `FXLOOP_INSPECTOR_EDIT`, the scratch-CSS POSTs. Of those, only `POST /api/scratch/apply` (the developer's *Apply to file* click) writes project files: the server writes only `.css` files inside the project's resource roots (never build output), or a library stylesheet's source the developer mapped explicitly (`POST /api/sheet-map`: an existing `.css` file, never the app's build output; kept in `<project dir>/.fxloop/css-map.json`), and only when the file still has the hash the agent planned against. A CSS reload of a mapped source also copies it over the build copy the app loads from a directory. Requests are rate-limited (`429 RATE_LIMITED`); editing answers `423 LOCKED` while the agent holds the input lock. |
 | Developer input kept for the journal (clicks, keys, text) is persisted or leaked | Kept only in the server's **in-memory ring (500 entries)**; nothing is written to disk. `PasswordField` content is never recorded (entry stored `redacted`, skipped on replay). `FXLOOP_RECORD_HUMAN=false` disables capture. |
@@ -38,14 +38,14 @@ Out of scope: a malicious process running as the same OS user (it can read your 
   <id>fxloop-dev</id>
   <dependencies>
     <dependency>
-      <groupId>dev.fxloop</groupId><artifactId>fxloop-dev</artifactId>
+      <groupId>org.lab59.fxloop</groupId><artifactId>fxloop-dev</artifactId>
       <version>1.0.0-SNAPSHOT</version><scope>provided</scope>
     </dependency>
   </dependencies>
 </profile>
 ```
 
-Gradle: `compileOnly("dev.fxloop:fxloop-dev:1.0.0-SNAPSHOT")`. The server-launched mode needs no dependency in your app at all: the agent is injected with `-javaagent`.
+Gradle: `compileOnly("org.lab59.fxloop:fxloop-dev:1.0.0-SNAPSHOT")`. The server-launched mode needs no dependency in your app at all: the agent is injected with `-javaagent`.
 
 ### Fail the production build if FXLoop leaks
 
@@ -62,7 +62,7 @@ Gradle: `compileOnly("dev.fxloop:fxloop-dev:1.0.0-SNAPSHOT")`. The server-launch
         <rules>
           <bannedDependencies>
             <searchTransitive>true</searchTransitive>
-            <excludes><exclude>dev.fxloop:*</exclude></excludes>
+            <excludes><exclude>org.lab59.fxloop:*</exclude></excludes>
             <message>FXLoop must not ship in production; use a dev profile or 'provided' scope.</message>
           </bannedDependencies>
         </rules>

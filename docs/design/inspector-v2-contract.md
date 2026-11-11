@@ -11,7 +11,7 @@ emits exactly this, the consumer relies on nothing else. Fields marked `?` may b
 | **B — agent: CSS engine (lookups, lint, sheets, simulated states)** | `fxloop-agent/.../css/Cascade.kt`, `css/CssInspect.kt`, `css/CssLint.kt`, `css/Sheets.kt` (+ new agent tests) |
 | **C — agent: layout read + constraint keys + FXML edit plan** | `fxloop-agent/.../Introspect.kt` (explainLayout only), `Props.kt`, `FxmlEdit.kt`, `FxmlRegistry.kt` (+ new agent tests) |
 | **D1 — server** | `fxloop-server/.../see/Viewer.kt`, `tools/*.kt`, `loop/Reloader.kt` (clearScratch only), `see/Visuals.kt`, server tests, `docs/tools.md`, skills text |
-| **D2 — page** | `fxloop-server/src/main/resources/dev/fxloop/server/inspect/inspect.html` (+ `ViewerTest` page assertions if needed) |
+| **D2 — page** | `fxloop-server/src/main/resources/org/lab59/fxloop/server/inspect/inspect.html` (+ `ViewerTest` page assertions if needed) |
 | lead | `Fcp.kt`, `Dispatcher.kt`, gauntlet app, acceptance tests, this file |
 
 `Fcp.kt` and `Dispatcher.kt` already contain every new method and route it to the stubs in A/B/C's files. Do not

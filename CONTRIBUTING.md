@@ -28,6 +28,12 @@ register that path with your agent instead.
 Releases are cut by pushing a `x.y.z` tag. When you cut one, also bump the version in the README's build-plugin
 quickstart, both in the download URL and in the `<plugin>` block; `ReadmeQuickstartTest` keeps the two equal.
 
+Publishing a tag to Maven Central and the Gradle Plugin Portal is a separate, manual step: run the **Publish** workflow
+with the tag as its version. It uploads a signed deployment under the `org.lab59` namespace, which you then publish at
+[central.sonatype.com](https://central.sonatype.com/publishing/deployments). It needs the repository secrets
+`CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`, `GRADLE_PUBLISH_KEY` and
+`GRADLE_PUBLISH_SECRET`.
+
 ## Generated files
 
 `docs/tools.md` is generated from the tool registry
@@ -39,11 +45,11 @@ quickstart, both in the download URL and in the `<plugin>` block; `ReadmeQuickst
 |---|---|
 | `fxloop-server` | The stdio MCP server (shaded `-all.jar`): builds, launches, supervises, reloads |
 | `fxloop-agent` | The in-JVM agent: scene graph, input, reload, FXML registry |
-| `fxloop-protocol` | The protocol between server and agent, and the `launch.json` schema |
-| `fxloop-launch` | Main-class and launch-mode detection shared by the server and both build plugins |
+| `fxloop-protocol` | The protocol between server and agent |
+| `fxloop-launch` | The `launch.json` descriptor and schema, and the launch detection that builds it, shared by the server and both build plugins |
 | `fxloop-dev` | Optional dev dependency for IDE-launched apps ([decision](docs/design/decisions/fxml-load-registry.md)) |
 | `fxloop-maven-plugin` | `fxloop:run` and `fxloop:prepare` ([README](fxloop-maven-plugin/README.md)) |
-| `fxloop-gradle-plugin` | Gradle plugin `dev.fxloop`, a standalone Gradle build ([README](fxloop-gradle-plugin/README.md)) |
+| `fxloop-gradle-plugin` | Gradle plugin `org.lab59.fxloop`, a standalone Gradle build ([README](fxloop-gradle-plugin/README.md)) |
 | `fxloop-skills` | The agent skills, shared references and evals ([README](fxloop-skills/README.md)) |
 | `sample-apps/*` | Test apps, including `fxloop-showcase-app` with planted UI bugs |
 | `fxloop-acceptance` | End-to-end suite that drives the server over MCP |

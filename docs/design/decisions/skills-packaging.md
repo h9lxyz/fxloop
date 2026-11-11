@@ -50,7 +50,7 @@ unless `DISABLE_TELEMETRY=1` is set, so `fxloop-skills.zip` stays a release asse
 needs only a JDK.
 
 A skill installed from `main` says `fxloop-version: 1.0.0-SNAPSHOT` even when the jar is a release, because only the
-release zip stamps a real version. `fxloop-connect` therefore takes every `dev.fxloop` coordinate from the version the
+release zip stamps a real version. `fxloop-connect` therefore takes every `org.lab59.fxloop` coordinate from the version the
 installed jar reports, which is also what `--seed-local-repo` writes, and seeds and adds `mavenLocal()` on every version
 until FXLoop is on Central.
 
@@ -63,12 +63,12 @@ The docs give one command per step instead of bash and PowerShell twins, replaci
 `fxloop-connect` no longer adds the build plugin and the guard by default. The server's plugin-free prepare builds the
 same launch descriptor as the Maven plugin and applies its bundled copy of the Gradle plugin through an init script, so
 the agent loses nothing. Only `fxloop:run` / `fxloopRun`, starting the app yourself, need the plugin in the build.
-Until FXLoop is on Central and the Plugin Portal, a committed `id("dev.fxloop")` fails every Gradle build on a machine
+Until FXLoop is on Central and the Plugin Portal, a committed `id("org.lab59.fxloop")` fails every Gradle build on a machine
 that hasn't run `--seed-local-repo`, which is a poor first change to make in someone's project.
 
 Connect now leaves the build files alone, writes nothing to `~/.m2`, and pins an ambiguous main class in
 `fxloop.properties`. On request ("I want to run the app myself", step 6) it seeds the local repository and adds the
 plugin and the guard. It also copies a pinned main class into the plugin config, because the run goals don't read
-`fxloop.properties`. The guard comes with the plugin because it only matters once a `dev.fxloop` artifact is in the
+`fxloop.properties`. The guard comes with the plugin because it only matters once a `org.lab59.fxloop` artifact is in the
 build. This changes PRD 11 path B and acceptance A-O2: the default diff no longer contains the plugin and the guard.
 The connect evals follow, with a fifth eval for the opt-in request.

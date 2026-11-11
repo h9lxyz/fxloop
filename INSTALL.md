@@ -7,7 +7,7 @@ developer's project; it reads just as well by hand.
 **If you are the agent:** work in the developer's project directory and do steps 1 to 6 in order. Stop and ask only
 where a step says so. Nothing here changes application code or commits anything. Outside the project, only these are
 written: `~/.fxloop/` (the server jar and its caches), your MCP client config, your skills directory (if you install
-the skills) and `~/.m2/repository/dev/fxloop/` (only with the build plugin). Say in one line what you do at each step.
+the skills) and `~/.m2/repository/org/lab59/fxloop/` (only with the build plugin). Say in one line what you do at each step.
 
 **Requirements:** a JDK 21 or newer (on `PATH`, or installed by a version manager such as mise, SDKMAN or asdf), a
 JavaFX app built with Maven or Gradle, and an agent that speaks MCP (Claude Code, Cursor, VS Code with Copilot agent
@@ -230,7 +230,7 @@ dev bar (pick a node, open the CSS inspector) so the agent can connect to that w
 when the developer asked to run the app themselves.
 
 Seed the local Maven repository once from the jar (until FXLoop is on Maven Central and the Gradle Plugin Portal), and
-again after updating the jar. It writes only `~/.m2/repository/dev/fxloop/`:
+again after updating the jar. It writes only `~/.m2/repository/org/lab59/fxloop/`:
 
 ```sh
 java -jar "$HOME/.fxloop/fxloop-server.jar" --seed-local-repo
@@ -244,7 +244,7 @@ unchanged):
 
 ```xml
 <plugin>
-  <groupId>dev.fxloop</groupId>
+  <groupId>org.lab59.fxloop</groupId>
   <artifactId>fxloop-maven-plugin</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <!-- only when the main class is ambiguous:
@@ -257,7 +257,7 @@ And the guard, which fails packaging if FXLoop ever reaches the runtime classpat
 
 ```xml
 <plugin>
-  <!-- FXLoop guard: dev.fxloop artifacts may be provided/test only, never packaged -->
+  <!-- FXLoop guard: org.lab59.fxloop artifacts may be provided/test only, never packaged -->
   <groupId>org.apache.maven.plugins</groupId>
   <artifactId>maven-enforcer-plugin</artifactId>
   <version>3.6.2</version>
@@ -271,10 +271,10 @@ And the guard, which fails packaging if FXLoop ever reaches the runtime classpat
           <bannedDependencies>
             <searchTransitive>true</searchTransitive>
             <excludes>
-              <exclude>dev.fxloop:*:*:*:compile</exclude>
-              <exclude>dev.fxloop:*:*:*:runtime</exclude>
+              <exclude>org.lab59.fxloop:*:*:*:compile</exclude>
+              <exclude>org.lab59.fxloop:*:*:*:runtime</exclude>
             </excludes>
-            <message>FXLoop must not ship: use provided or test scope for dev.fxloop artifacts.</message>
+            <message>FXLoop must not ship: use provided or test scope for org.lab59.fxloop artifacts.</message>
           </bannedDependencies>
         </rules>
       </configuration>
@@ -288,7 +288,7 @@ And the guard, which fails packaging if FXLoop ever reaches the runtime classpat
 ```kotlin
 plugins {
     // ...existing plugins
-    id("dev.fxloop") version "1.0.0-SNAPSHOT"
+    id("org.lab59.fxloop") version "1.0.0-SNAPSHOT"
 }
 
 // only when the main class is ambiguous:
@@ -308,7 +308,7 @@ pluginManagement {
 
 dependencyResolutionManagement {
     repositories {
-        mavenLocal() // fxloopRun resolves dev.fxloop:fxloop-agent and fxloop-server:all from the project repositories
+        mavenLocal() // fxloopRun resolves org.lab59.fxloop:fxloop-agent and fxloop-server:all from the project repositories
         mavenCentral()
     }
 }
@@ -317,12 +317,12 @@ dependencyResolutionManagement {
 The guard, also in `build.gradle.kts`:
 
 ```kotlin
-// FXLoop guard: fail packaging if any dev.fxloop artifact reaches the runtime classpath (it must never ship)
+// FXLoop guard: fail packaging if any org.lab59.fxloop artifact reaches the runtime classpath (it must never ship)
 val fxloopGuard = tasks.register("fxloopGuard") {
     group = "verification"
-    description = "Fails if a dev.fxloop artifact is on the runtime classpath"
+    description = "Fails if a org.lab59.fxloop artifact is on the runtime classpath"
     val leaked = configurations.runtimeClasspath.map { c ->
-        c.incoming.resolutionResult.allComponents.map { it.id.displayName }.filter { it.startsWith("dev.fxloop:") }
+        c.incoming.resolutionResult.allComponents.map { it.id.displayName }.filter { it.startsWith("org.lab59.fxloop:") }
     }
     doLast { check(leaked.get().isEmpty()) { "FXLoop must not ship; use compileOnly/testImplementation: ${leaked.get()}" } }
 }
@@ -334,14 +334,14 @@ tasks.named("jar") { dependsOn(fxloopGuard) }
 
 ```groovy
 plugins {
-    id 'dev.fxloop' version '1.0.0-SNAPSHOT'
+    id 'org.lab59.fxloop' version '1.0.0-SNAPSHOT'
 }
 
 def fxloopGuard = tasks.register('fxloopGuard') {
     group = 'verification'
-    description = 'Fails if a dev.fxloop artifact is on the runtime classpath'
+    description = 'Fails if a org.lab59.fxloop artifact is on the runtime classpath'
     def leaked = configurations.runtimeClasspath.map { c ->
-        c.incoming.resolutionResult.allComponents.collect { it.id.displayName }.findAll { it.startsWith('dev.fxloop:') }
+        c.incoming.resolutionResult.allComponents.collect { it.id.displayName }.findAll { it.startsWith('org.lab59.fxloop:') }
     }
     doLast { if (!leaked.get().isEmpty()) throw new GradleException("FXLoop must not ship: ${leaked.get()}") }
 }
@@ -360,8 +360,8 @@ wrap them: `xvfb-run -a ./mvnw fxloop:run`.
 |---|---|
 | `BUILD_FAILED` with compile errors | The project does not compile as-is. Report it; don't "fix" unrelated code |
 | `BUILD_FAILED` with `Could not GET`, `Could not resolve`, `429 Too Many Requests` or `Connection reset` on a repository URL | A cold dependency cache and a slow or rate-limited repository, not FXLoop. Wait twenty seconds and call `fx_start_app` again, or run the project's own build (`./mvnw compile`, `./gradlew classes`) until it passes |
-| `BUILD_FAILED`: plugin `dev.fxloop:...` not found | Run the `--seed-local-repo` line, set the plugin version to what `--version` prints, add `mavenLocal()` to both repository blocks for Gradle ([build plugin](#add-the-build-plugin-optional)), retry |
-| `fxloopRun`: `Could not find dev.fxloop:fxloop-agent` or `fxloop-server` | `mavenLocal()` is missing from the dependency repositories: add it to `dependencyResolutionManagement` in `settings.gradle.kts` (or `repositories {}` in the build file), or re-run the seed line after a jar update |
+| `BUILD_FAILED`: plugin `org.lab59.fxloop:...` not found | Run the `--seed-local-repo` line, set the plugin version to what `--version` prints, add `mavenLocal()` to both repository blocks for Gradle ([build plugin](#add-the-build-plugin-optional)), retry |
+| `fxloopRun`: `Could not find org.lab59.fxloop:fxloop-agent` or `fxloop-server` | `mavenLocal()` is missing from the dependency repositories: add it to `dependencyResolutionManagement` in `settings.gradle.kts` (or `repositories {}` in the build file), or re-run the seed line after a jar update |
 | `CONFIG`: cannot determine the main class, candidates listed | `main-class=` in `fxloop.properties`, then reload |
 | `JavaFX runtime components are missing` | The main class *extends* `Application` and runs on the classpath. Pin a Launcher (a class or Kotlin top-level `main` that calls `Application.launch`) with `main-class=`, or force the module path: `launch-mode=modulepath` in `fxloop.properties` (Maven), `<configuration><launchMode>modulepath</launchMode></configuration>` on `fxloop-maven-plugin`, or `fxloop { launchMode = "modulepath" }` in Gradle |
 | `Module javafx.controls not found` / `--add-modules` | JavaFX jars are missing from the runtime classpath; add the `javafx-controls`/`-fxml` dependencies or the OpenJFX plugin |
@@ -375,4 +375,4 @@ wrap them: `xvfb-run -a ./mvnw fxloop:run`.
 
 Remove the `fxloop` MCP entry (`claude mcp remove fxloop` in the project for Claude Code), `fxloop.properties`, the
 plugin and guard if added, and `~/.fxloop/`. Remove the skills with `npx skills remove h9lxyz/fxloop -g`, and the
-seeded artifacts, if any, in `~/.m2/repository/dev/fxloop/`. Nothing else is installed.
+seeded artifacts, if any, in `~/.m2/repository/org/lab59/fxloop/`. Nothing else is installed.

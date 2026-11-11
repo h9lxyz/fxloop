@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>dev.fxloop</groupId>
+  <groupId>org.lab59.fxloop</groupId>
   <artifactId>fxloop-parent</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
@@ -51,7 +51,7 @@
     <!-- Compile Kotlin in the Maven JVM: no long-lived ~1 GB Kotlin daemons left behind by builds and tests. -->
     <kotlin.compiler.daemon>false</kotlin.compiler.daemon>
     <javafx.version>21.0.13</javafx.version>
-    <jackson.version>2.21.1</jackson.version>
+    <jackson.version>2.23.0</jackson.version>
     <mcp.version>2.1.0</mcp.version>
     <bytebuddy.version>1.18.16</bytebuddy.version>
     <directory-watcher.version>0.19.1</directory-watcher.version>
@@ -61,28 +61,28 @@
     <testfx.version>4.0.18</testfx.version>
     <monocle.version>21.0.2</monocle.version>
     <maven-api.version>3.9.16</maven-api.version>
-    <maven-plugin-tools.version>3.15.2</maven-plugin-tools.version>
+    <maven-plugin-tools.version>3.16.0</maven-plugin-tools.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>dev.fxloop</groupId>
+        <groupId>org.lab59.fxloop</groupId>
         <artifactId>fxloop-protocol</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>dev.fxloop</groupId>
+        <groupId>org.lab59.fxloop</groupId>
         <artifactId>fxloop-launch</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>dev.fxloop</groupId>
+        <groupId>org.lab59.fxloop</groupId>
         <artifactId>fxloop-agent</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>dev.fxloop</groupId>
+        <groupId>org.lab59.fxloop</groupId>
         <artifactId>fxloop-dev</artifactId>
         <version>${project.version}</version>
       </dependency>
@@ -256,7 +256,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-source-plugin</artifactId>
-          <version>3.3.1</version>
+          <version>3.4.0</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -266,7 +266,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-gpg-plugin</artifactId>
-          <version>3.2.7</version>
+          <version>3.2.8</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -335,30 +335,35 @@
       <id>release</id>
       <build>
         <plugins>
+          <!-- Central requires a sources and a javadoc jar for every jar artifact. The sources are Kotlin, so
+               maven-javadoc-plugin has nothing to document; Central accepts a placeholder that says where the docs are. -->
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-source-plugin</artifactId>
+            <artifactId>maven-jar-plugin</artifactId>
             <executions>
+              <!-- maven-source-plugin only packs Java source roots; the Kotlin sources live in src/main/kotlin. -->
               <execution>
-                <id>attach-sources</id>
-                <goals>
-                  <goal>jar-no-fork</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-javadoc-plugin</artifactId>
-            <configuration>
-              <doclint>none</doclint>
-            </configuration>
-            <executions>
-              <execution>
-                <id>attach-javadocs</id>
+                <id>kotlin-sources</id>
+                <phase>package</phase>
                 <goals>
                   <goal>jar</goal>
                 </goals>
+                <configuration>
+                  <classifier>sources</classifier>
+                  <classesDirectory>${project.basedir}/src/main/kotlin</classesDirectory>
+                  <skipIfEmpty>true</skipIfEmpty>
+                </configuration>
+              </execution>
+              <execution>
+                <id>javadoc-placeholder</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+                <configuration>
+                  <classifier>javadoc</classifier>
+                  <classesDirectory>${maven.multiModuleProjectDirectory}/.github/javadoc-placeholder</classesDirectory>
+                </configuration>
               </execution>
             </executions>
           </plugin>

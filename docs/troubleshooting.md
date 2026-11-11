@@ -14,7 +14,7 @@ Errors come back as tool results with `isError`, an error `code`, a message and 
 | `PROPERTY_BOUND` | Cannot set a bound property | `fx_explain_property` to see the binding; set the source property instead |
 | `REDEFINE_REJECTED` | JVM refused the HotSwap (fields/methods added, hierarchy change) | `fx_reload` with `allowRestart:true` (default) or `fx_restart_app {replay:true}`; or launch on JBR for structural hot-swaps, see [limitations](limitations.md) |
 | `HEADLESS_UNSUPPORTED` | `FXLOOP_HEADLESS=monocle` but no matching Monocle jar | Add `org.testfx:openjfx-monocle:<version>` (see [table](ci/monocle.md)) as a test dependency, set `FXLOOP_MONOCLE_JAR`, or use `FXLOOP_HEADLESS=xvfb` |
-| `CONFIG` | Missing/invalid configuration (e.g. `launch.json` unreadable, agent jar missing) | `main-class=` in `fxloop.properties` when detection is ambiguous; `java -jar "$HOME/.fxloop/fxloop-server.jar" doctor`; run `mvn compile dev.fxloop:fxloop-maven-plugin:1.0.0-SNAPSHOT:prepare` (or `gradlew fxloopPrepare`); `FXLOOP_AGENT_JAR` |
+| `CONFIG` | Missing/invalid configuration (e.g. `launch.json` unreadable, agent jar missing) | `main-class=` in `fxloop.properties` when detection is ambiguous; `java -jar "$HOME/.fxloop/fxloop-server.jar" doctor`; run `mvn compile org.lab59.fxloop:fxloop-maven-plugin:1.0.0-SNAPSHOT:prepare` (or `gradlew fxloopPrepare`); `FXLOOP_AGENT_JAR` |
 
 ## Other codes you may see
 
@@ -26,7 +26,7 @@ Errors come back as tool results with `isError`, an error `code`, a message and 
 | `ATTACH_FAILED` / `CONNECT_FAILED` | `fx_attach` / `fx_connect_existing` could not reach the JVM or handshake; see the hint (attach disabled, other user, jlinked runtime, `FxLoopDev.install()` missing) |
 | `DISABLED` | Feature switched off: `fx_attach` (`-Dfxloop.attach=false`), `fx_eval_js` (needs `FXLOOP_WEBVIEW=true`) |
 | `BAD_REQUEST` | Bad parameters, or a path outside the project dir |
-| `WINDOW_NOT_FOUND`, `PROPERTY_NOT_FOUND`, `COERCION_FAILED`, `UNSUPPORTED_TARGET`, `FXML_NOT_REGISTERED` | Wrong target or value type; use `fx_get_app_status`, `fx_get_node_details`, `fx_get_property` to discover valid ones |
+| `WINDOW_NOT_FOUND`, `PROPERTY_NOT_FOUND`, `COERCION_FAILED`, `UNSUPPORTED_TARGET` | Wrong target or value type; use `fx_get_app_status`, `fx_get_node_details`, `fx_get_property` to discover valid ones |
 | `UNAUTHORIZED`, `VERSION_MISMATCH` | FCP token/protocol mismatch: stale agent jar (`FXLOOP_AGENT_JAR`) or wrong handshake |
 | `PICK_STALE` | `fx_get_picked` or a `{"picked": true}` target: the pick is older than 10 minutes or its node left the scene; pick again |
 

@@ -139,7 +139,7 @@ Editing is on with `FXLOOP_INSPECTOR_EDIT`, or while the server is connected to 
 
 | Path | Proxies | Notes |
 |---|---|---|
-| `/inspect` | — | the page (static resource `dev/fxloop/server/inspect/inspect.html`, inline CSS/JS) |
+| `/inspect` | — | the page (static resource `org/lab59/fxloop/server/inspect/inspect.html`, inline CSS/JS) |
 | `/api/windows` | `status` → `windows` | Each entry carries `id`, which stays with the window while it lives (its `index` shifts when an earlier window closes): the page follows its window by `id` |
 | `/api/tree?window=&skin=` | `getSceneGraph` (maxDepth 64, maxNodes 3000) | |
 | `/api/styles?h=&path=` | `cssCascade` | `h` preferred, `path` fallback; adds `edit:true` with `FXLOOP_INSPECTOR_EDIT` |

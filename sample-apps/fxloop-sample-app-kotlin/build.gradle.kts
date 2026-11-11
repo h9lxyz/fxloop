@@ -2,10 +2,10 @@ plugins {
     kotlin("jvm") version "2.4.21"
     application
     id("org.openjfx.javafxplugin") version "0.1.0"
-    id("dev.fxloop") version "1.0.0-SNAPSHOT"
+    id("org.lab59.fxloop") version "1.0.0-SNAPSHOT"
 }
 
-group = "dev.fxloop"
+group = "org.lab59.fxloop"
 version = "1.0.0-SNAPSHOT"
 
 java {
@@ -24,7 +24,7 @@ javafx {
 
 application {
     // Kotlin top-level main in Main.kt (Launcher pattern)
-    mainClass = "dev.fxloop.sample.MainKt"
+    mainClass = "org.lab59.fxloop.sample.MainKt"
 }
 
 dependencies {

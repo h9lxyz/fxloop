@@ -30,7 +30,7 @@ independent of publishing to Maven Central; Central makes path B's plugin step c
 | `cp -r fxloop-skills/skills/fxloop-* ~/.claude/skills/` | bash; `~` and the glob do not work in PowerShell |
 | `fxloop-connect` step 0 | copies `FxloopBootstrap.java` into `~/.fxloop/` ("why is there a Java source file in my home directory?"); `--install` looks in `~/.m2` first because a SNAPSHOT can only be there, then for jbang, then runs the project's own wrapper to fetch an artifact that no remote has: a slow failure with a Maven stack trace |
 | MCP config `java ${HOME}/.fxloop/FxloopBootstrap.java` | `HOME` is unset on Windows; `java` on `PATH` must be a JDK (the single-file launcher fails on a JRE with an unrelated error) |
-| First `fx_get_app_status` | the server runs `dev.fxloop:fxloop-maven-plugin:<v>:prepare`, which is not in any repository on a fresh machine; the fallback demands `FXLOOP_MAIN_CLASS`. So "MCP only" needs the plugin or a manual main class |
+| First `fx_get_app_status` | the server runs `org.lab59.fxloop:fxloop-maven-plugin:<v>:prepare`, which is not in any repository on a fresh machine; the fallback demands `FXLOOP_MAIN_CLASS`. So "MCP only" needs the plugin or a manual main class |
 | Gradle project | the plugin needs `mavenLocal()` in `pluginManagement` for a SNAPSHOT |
 | Two reloads | once for the MCP config, once more if `fxloop.properties` was written after it |
 
@@ -101,7 +101,7 @@ gains a **plugin-free prepare** for both:
   and the Gradle plugin all use, so detection cannot drift between them.
 - **Gradle.** The server bundles the Gradle plugin jar and applies it through a generated init script
   (`--init-script <fxloop dir>/fxloop.init.gradle.kts`, `initscript { dependencies { classpath(files(<jar>)) } }`,
-  `allprojects { apply<FxloopPlugin>() }`) when the project does not apply `dev.fxloop` itself. `fxloopPrepare` then
+  `allprojects { apply<FxloopPlugin>() }`) when the project does not apply `org.lab59.fxloop` itself. `fxloopPrepare` then
   runs exactly as it does with the plugin applied. Nothing is written into the user's build.
 - The result is the same `launch.json`; `prepare: "server"` in `fx_get_app_status` says which route ran. The build
   plugin, when present, still wins (it sees the real build model and supports `fxloop:run`).
@@ -119,7 +119,7 @@ or Gradle plugin README, or path B.
 
 Until the artifacts are on Central and the Plugin Portal, `fxloop:run` cannot resolve the plugin or the agent. The
 server carries the Maven plugin jar and POM and its own agent jar, and `java -jar fxloop-server.jar --seed-local-repo`
-writes them into `~/.m2/repository/dev/fxloop/…` with a `maven-metadata-local.xml`, so `mvn fxloop:run` works with
+writes them into `~/.m2/repository/org/lab59/fxloop/…` with a `maven-metadata-local.xml`, so `mvn fxloop:run` works with
 the plugin in the POM, and Gradle with `mavenLocal()` in `pluginManagement`. `fxloop-connect` runs it when the plugin
 fails to resolve. The command and the bundled copies are removed in the first release after Central publishing works
 (PRD 10 §7). This replaces "clone and build FXLoop" as the only pre-Central option.
@@ -201,11 +201,11 @@ is fixed everywhere (README, `mkdocs.yml`, `docs/index.md`, the Gradle plugin me
 
 **Matrix.** Fresh VMs or containers with only a JDK and git: Windows 11 (PowerShell), macOS (zsh), Ubuntu (bash).
 Projects: `fxloop-sample-app` (Maven, Java), `fxloop-sample-app-kotlin` (Gradle, Kotlin), each copied **without** any
-`dev.fxloop` plugin in its build file for path A.
+`org.lab59.fxloop` plugin in its build file for path A.
 
 - **A-O1 Path A.** README §3 + §4.1 verbatim, then `fx_get_app_status` from Claude Code: the app is launched and a
   screenshot taken, on both projects and all three OSes. Measured wall time from first command to screenshot under
-  five minutes on a normal connection. Assertions: no `dev.fxloop` entries in `~/.m2`; no files outside `~/.fxloop/`
+  five minutes on a normal connection. Assertions: no `org.lab59.fxloop` entries in `~/.m2`; no files outside `~/.fxloop/`
   and the project; the server log shows `prepare: server`.
 - **A-O2 Path B.** README §3 + §5.1, then "connect FXLoop to this project and show me the app": one reload, then a
   screenshot; the build file diff contains the plugin and the guard and nothing else; the report's undo section is
@@ -257,7 +257,7 @@ Projects: `fxloop-sample-app` (Maven, Java), `fxloop-sample-app-kotlin` (Gradle,
   cache on the Kotlin sample.
 - **Corporate Windows**: SmartScreen or antivirus may quarantine a downloaded jar. The README's manual path (copy the
   jar from anywhere, put it at the path) is the escape hatch; nothing is executed from the download location.
-- **`~/.m2` seeding** writes into a directory Maven owns. Only the `dev/fxloop` subtree is touched, with
+- **`~/.m2` seeding** writes into a directory Maven owns. Only the `org/lab59/fxloop` subtree is touched, with
   local-repository metadata, and the command is temporary by design.
 
 ## 12. Non-goals
