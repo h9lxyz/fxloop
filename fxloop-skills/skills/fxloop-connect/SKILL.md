@@ -9,24 +9,25 @@ metadata:
 
 Goal: from "never used FXLoop" to "here is a screenshot of your app" in one pass, with **no manual edits** by the
 developer and **no change to the build files**: the server compiles the project and works out the launch itself.
-Re-running changes nothing that's already in place. Leave the edits unstaged (don't commit unless asked) and show the
-diff at the end.
+Re-running changes nothing already in place. Leave the edits unstaged (don't commit unless asked); show the diff at the
+end. The build plugin (step 6) is only for starting the app yourself: add it only when the developer asks for that.
 
-The build plugin is only for starting the app yourself. Add it (step 6) only when the developer asks for that ("I want
-to run the app myself", "set up fxloop:run"), after steps 0 to 3 if FXLoop isn't connected yet.
-
-Version: `fxloop-version` in this file's frontmatter picks the server jar (step 0). Every `dev.fxloop` coordinate you
-write into a build file uses the version that jar reports instead (first line of `--version`): it is what
-`--seed-local-repo` writes, and a skill installed from the repository says `-SNAPSHOT` here even with a released jar.
-Snippets: [references/snippets.md](references/snippets.md). MCP configs per agent:
-[references/mcp-clients.md](references/mcp-clients.md).
+Version: `fxloop-version` in the frontmatter picks the server jar (step 0). `dev.fxloop` coordinates in build files use
+the version the jar reports (first line of `--version`, what `--seed-local-repo` writes), even if this says `-SNAPSHOT`.
+Snippets: [references/snippets.md](references/snippets.md). MCP configs: [references/mcp-clients.md](references/mcp-clients.md).
 
 ## 0. MCP server
 
 If the `fx_*` tools (e.g. `fx_get_app_status`) are already available to you, skip this step. It copies nothing into
 the home directory except the server jar, `~/.fxloop/fxloop-server.jar`, plus the server's caches there.
 
-1. **Jar.** If `~/.fxloop/fxloop-server.jar` exists, run `java -jar <jar> --version`. It must report this file's
+1. **Java.** Run `java -version`. If it prints 21 or newer, `<java>` below is `java`. Otherwise (or if `java` is not
+   found) find a JDK 21+ and use the absolute path of its `java` as `<java>` everywhere, including the MCP command:
+   `$JAVA_HOME/bin/java`, `mise which java`, `~/.sdkman/candidates/java/current/bin/java`, `asdf which java`,
+   `~/.jdks/*/bin/java`, `/usr/lib/jvm/*/bin/java`, `$(/usr/libexec/java_home -v 21+)/bin/java` (macOS),
+   `C:\Program Files\*\jdk-2*\bin\java.exe` (Windows). Don't change `PATH` or install anything. None found: stop and ask
+   the developer to install a JDK 21+.
+2. **Jar.** If `~/.fxloop/fxloop-server.jar` exists, run `<java> -jar <jar> --version`. It must report this file's
    `fxloop-version` (for a `-SNAPSHOT` version, any version is fine). Otherwise download the matching release:
    `https://github.com/h9lxyz/fxloop/releases/download/<version>/fxloop-server-all.jar`, or
    `https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar` for a SNAPSHOT. Show the developer the URL and the SHA-256 of the file (`SHA256SUMS` is a release asset).
@@ -35,17 +36,16 @@ the home directory except the server jar, `~/.fxloop/fxloop-server.jar`, plus th
    curl -fsSL --create-dirs -o "$HOME/.fxloop/fxloop-server.jar" <url>
    ```
 
-   If the download fails (proxy, firewall), stop and tell the developer to put the jar at that path by any means; the
-   skill continues from there.
-2. **JDK check.** Before writing anything, run `java -jar <jar> doctor --json` in the workspace and relay its lines.
-   Stop with its fix when the JDK is below 17 or a JRE; other warnings are handled in steps 1 to 3.
-3. **Register**, but not yet. The order is: detect (step 1) -> `fxloop.properties` (step 2) -> MCP config -> **one**
+   If the download fails (proxy, firewall), stop and tell the developer to put the jar at that path by any means.
+3. **JDK check.** Before writing anything, run `<java> -jar <jar> doctor --json` in the workspace and relay its lines.
+   `FAIL` on the JDK (below 21, or a JRE) or `UnsupportedClassVersionError`: pick another JDK in item 1.
+4. **Register**, but not yet. The order is: detect (step 1) -> `fxloop.properties` (step 2) -> MCP config -> **one**
    reload (step 3), so everything the server reads at startup exists before the reload. Write the MCP entry for the
-   agent you're running in, as shown in the MCP clients reference: `java -jar <absolute jar path>`. The path is per
-   machine; say so in the report. Merge into any existing config.
+   agent you're running in, as in the MCP clients reference: `<java> -jar <absolute jar path>` (the doctor's
+   `--client=<name>` prints it filled in). Jar and java paths are per machine; say so in the report. Merge, don't replace.
 
-Windows: use PowerShell, `curl.exe` for `curl`, and `mvnw.cmd` / `gradlew.bat` for wrapper commands. Write the jar as
-`"$HOME/.fxloop/fxloop-server.jar"` in every command, including the report: that form works in bash, zsh and PowerShell.
+Windows: PowerShell, `curl.exe` for `curl`, `mvnw.cmd` / `gradlew.bat`, `& "<java>"` for a quoted java path. Write the
+jar as `"$HOME/.fxloop/fxloop-server.jar"` in every command, including the report: it works in bash, zsh and PowerShell.
 
 ## 1. Detect (read only)
 
@@ -103,7 +103,7 @@ optional line, not into the file: demo-data flags (`app-args=--seed`), `webview=
 | `STARTUP_TIMEOUT` | `start()` blocks (I/O, dialogs before show) or the main class never launches JavaFX. Read the log tail in the message |
 | `APP_EXITED` + exception | Read the 50 log lines in the error. It's often a resource path or a missing `--seed` precondition |
 | No display / `Unable to open DISPLAY` | `headless=xvfb` in `fxloop.properties` (step 2) |
-| `BUILD_FAILED`: plugin `dev.fxloop:...` not found | The build declares the FXLoop plugin at a version that isn't seeded: run `java -jar "$HOME/.fxloop/fxloop-server.jar" --seed-local-repo`, set the plugin version to what `--version` reports, add `mavenLocal()` to `pluginManagement` for Gradle, and retry |
+| `BUILD_FAILED`: plugin `dev.fxloop:...` not found | The build declares the FXLoop plugin at a version that isn't seeded: run `<java> -jar "$HOME/.fxloop/fxloop-server.jar" --seed-local-repo`, set the plugin version to what `--version` reports, add `mavenLocal()` to `pluginManagement` for Gradle, and retry |
 
 ## 4. Leave a trail
 
@@ -134,7 +134,7 @@ optional line, not into the file: demo-data flags (`app-args=--seed`), `webview=
 `mvn fxloop:run` / `gradle fxloopRun` start the app with FXLoop and the dev bar, without an agent session; you connect
 to that window later. They need the build plugin, which isn't on Maven Central or the Plugin Portal yet.
 
-1. Run `java -jar <jar> --seed-local-repo`. It writes FXLoop's plugin, agent and server into `~/.m2/repository/dev/fxloop/`.
+1. Run `<java> -jar <jar> --seed-local-repo`. It writes FXLoop's plugin, agent and server into `~/.m2/repository/dev/fxloop/`.
 2. **Maven:** add `dev.fxloop:fxloop-maven-plugin:<version>` under `<build><plugins>`, with no `<executions>`, so the
    normal build is unaffected. **Gradle:** add `id("dev.fxloop") version "<version>"` to `plugins {}`, and `mavenLocal()`
    to `pluginManagement` and the dependency repositories. Multi-module: only `<app>`'s build file. If

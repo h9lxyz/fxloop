@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="400" viewBox="0 0 840 400" role="img" aria-labelledby="title desc">
+<title id="title">How FXLoop works: your agent talks to the FXLoop server, and the server talks to your JavaFX app</title>
+<desc id="desc">Your agent, any MCP client such as Claude Code, Cursor, VS Code, Codex CLI or Gemini CLI, talks to the FXLoop server, fxloop-server, over MCP on stdio. The server builds your project, launches and reloads the app, diffs the scene after every action, keeps a journal and exports it as a test. It launches your JavaFX app with fxloop-agent loaded through -javaagent, or you start the app yourself with the build plugin, using mvn fxloop:run or gradle fxloopRun. Either way the server connects to fxloop-agent in your app on localhost, with a per-run token. The one MCP session is owned by the server and ends there, not at your app, so your app can crash, restart or be hot-swapped while your agent stays connected.</desc>
+<!--
+  Hand-written, no build step. Same look and rules as fxloop-explainer.svg, but static: nothing in it moves.
+
+  Left to right: your agent, the FXLoop server, and your JavaFX app with fxloop-agent inside it.
+  Blue is the one MCP session. Its wires end at the server, and its bracket spans your agent and the server but not
+  your app: the server launches the app, or you start it with the build plugin, and either way the server connects to
+  it on localhost with a new token each run. So the app can crash or restart, and the session stays.
+
+  An img-embedded SVG cannot load fonts, so text uses GitHub's own font stacks. Leave room for wider fallback fonts.
+-->
+<style>
+  text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif}
+  .mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace}
+
+  .canvas{fill:#0e1319;stroke:#2a3340}
+  .label{font-size:14px;font-weight:600;fill:#9aa7b4}
+  .panel{fill:#151b23;stroke:#4a5768;stroke-width:2}
+
+  .wire{fill:none;stroke:#4a5768;stroke-width:1.5}
+  .head{fill:#4a5768}
+  .wire-label{font-size:12px;fill:#8493a3;text-anchor:middle}
+  .wire-label.start{text-anchor:start}
+
+  /* Your agent */
+  .client{font-size:13px;font-weight:600;fill:#e8edf2}
+  .name{font-size:12.5px;fill:#c9d3dd}
+  .dot{fill:#4a5768}
+
+  /* FXLoop: the server and what it does */
+  .brand{font-size:26px;font-weight:700;fill:#f2f5f8;text-anchor:middle}
+  .module{font-size:12px;fill:#8493a3;text-anchor:middle}
+  .pill{fill:#1b2330;stroke:#4a5768}
+  .verb-pill{font-size:13px;font-weight:600;fill:#f2f5f8;text-anchor:middle}
+
+  /* Your JavaFX app: the explainers' light wireframe, in the app's JVM next to fxloop-agent. */
+  .win{fill:#f5f6f8}
+  .titlebar{fill:#e4e8ed}
+  .win-title{font-size:12px;font-weight:600;fill:#3c4650}
+  .ctl{fill:#c5ccd5}
+  .avatar{fill:#d8dde4}
+  .bar{fill:#d8dde4}
+  .bar2{fill:#e6e9ee}
+  .agent{fill:#1c2129;stroke:#5a6878}
+  .devdot{fill:#3fb950}
+  .agent-text{font-size:12.5px;fill:#f2f5f8}
+
+  /* Or you start the app, with the build plugin. */
+  .bubble{fill:#212a35}
+  .cmd{font-size:12.5px;fill:#c9d3dd}
+  .prompt{fill:#8493a3}
+
+  /* The one MCP session: from your agent to the server, and no further. */
+  .mcp{stroke:#79c0ff}
+  .mcp-head{fill:#79c0ff}
+  .session{fill:none;stroke:#79c0ff;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  .note{font-size:13px;fill:#c9d3dd;text-anchor:middle}
+  .em{font-weight:700;fill:#79c0ff}
+
+  .cap{font-size:20px;fill:#e8edf2;text-anchor:middle}
+</style>
+
+<rect class="canvas" x=".5" y=".5" width="839" height="399" rx="14"/>
+<text class="label" x="20" y="32">Your agent</text>
+<text class="label" x="638" y="32">Your JavaFX app</text>
+
+<!-- Wires sit below the boxes, and every arrowhead ends on the edge of a box. The MCP pair is the session, in blue. -->
+<path class="wire mcp" d="M202 183H303M310 203H209"/>
+<path class="head mcp-head" d="M302 178.5l8 4.5-8 4.5zM210 198.5l-8 4.5 8 4.5z"/>
+<text class="wire-label" x="256" y="167">MCP over stdio</text>
+
+<!-- The server and your app: it launches the app, and connects to fxloop-agent inside it. -->
+<path class="wire" d="M530 108H631M530 183H631M638 203H537"/>
+<path class="head" d="M630 103.5l8 4.5-8 4.5zM630 178.5l8 4.5-8 4.5zM538 198.5l-8 4.5 8 4.5z"/>
+<text class="wire-label" x="584" y="77">launches with</text>
+<text class="wire-label mono" x="584" y="92">-javaagent</text>
+<text class="wire-label" x="584" y="137">connects on</text>
+<text class="wire-label" x="584" y="152">localhost,</text>
+<text class="wire-label" x="584" y="167">per-run token</text>
+
+<!-- Your agent -->
+<rect class="panel" x="20" y="46" width="182" height="180" rx="10"/>
+<text class="client" x="36" y="74">Any MCP client</text>
+<circle class="dot" cx="40" cy="98" r="2.5"/><text class="name" x="50" y="102">Claude Code</text>
+<circle class="dot" cx="40" cy="120" r="2.5"/><text class="name" x="50" y="124">Cursor</text>
+<circle class="dot" cx="40" cy="142" r="2.5"/><text class="name" x="50" y="146">VS Code</text>
+<circle class="dot" cx="40" cy="164" r="2.5"/><text class="name" x="50" y="168">Codex CLI</text>
+<circle class="dot" cx="40" cy="186" r="2.5"/><text class="name" x="50" y="190">Gemini CLI</text>
+
+<!-- FXLoop: the server, with the corners of the explainer's loop box. -->
+<rect class="panel" x="310" y="46" width="220" height="180" rx="24"/>
+<text class="brand" x="420" y="84">FXLoop</text>
+<text class="mono module" x="420" y="104">fxloop-server</text>
+<rect class="pill" x="328" y="118" width="87" height="24" rx="12"/><text class="verb-pill" x="371.5" y="134.5">build</text>
+<rect class="pill" x="425" y="118" width="87" height="24" rx="12"/><text class="verb-pill" x="468.5" y="134.5">launch</text>
+<rect class="pill" x="328" y="150" width="87" height="24" rx="12"/><text class="verb-pill" x="371.5" y="166.5">reload</text>
+<rect class="pill" x="425" y="150" width="87" height="24" rx="12"/><text class="verb-pill" x="468.5" y="166.5">diff</text>
+<rect class="pill" x="328" y="182" width="87" height="24" rx="12"/><text class="verb-pill" x="371.5" y="198.5">journal</text>
+<rect class="pill" x="425" y="182" width="87" height="24" rx="12"/><text class="verb-pill" x="468.5" y="198.5">export</text>
+
+<!-- Your JavaFX app: its JVM holds your window and fxloop-agent, which the server talks to. -->
+<rect class="panel" x="638" y="46" width="182" height="180" rx="10"/>
+<rect class="win" x="650" y="58" width="158" height="106" rx="6"/>
+<path class="titlebar" d="M656 58H802a6 6 0 0 1 6 6V80H650V64a6 6 0 0 1 6-6Z"/>
+<text class="win-title" x="660" y="73.5">Contacts</text>
+<circle class="ctl" cx="772" cy="69" r="3.5"/><circle class="ctl" cx="784" cy="69" r="3.5"/><circle class="ctl" cx="796" cy="69" r="3.5"/>
+<circle class="avatar" cx="666" cy="97" r="7"/><rect class="bar" x="681" y="91" width="96" height="6" rx="3"/><rect class="bar2" x="681" y="100" width="62" height="5" rx="2.5"/>
+<circle class="avatar" cx="666" cy="123" r="7"/><rect class="bar" x="681" y="117" width="78" height="6" rx="3"/><rect class="bar2" x="681" y="126" width="90" height="5" rx="2.5"/>
+<circle class="avatar" cx="666" cy="149" r="7"/><rect class="bar" x="681" y="143" width="106" height="6" rx="3"/><rect class="bar2" x="681" y="152" width="54" height="5" rx="2.5"/>
+<rect class="agent" x="650" y="178" width="158" height="30" rx="6"/>
+<circle class="devdot" cx="665" cy="193" r="4"/>
+<text class="mono agent-text" x="677" y="197.5">fxloop-agent</text>
+
+<!-- Or you start the app yourself, and the server connects to the window you already have. -->
+<path class="wire" d="M664 274V233"/>
+<path class="head" d="M659.5 234l4.5-8 4.5 8z"/>
+<text class="wire-label start" x="676" y="247">or you start it</text>
+<text class="wire-label start" x="676" y="262">with the build plugin</text>
+<rect class="bubble" x="638" y="274" width="182" height="48" rx="8"/>
+<text class="mono cmd" x="652" y="293"><tspan class="prompt">$</tspan> mvn fxloop:run</text>
+<text class="mono cmd" x="652" y="311"><tspan class="prompt">$</tspan> gradle fxloopRun</text>
+
+<!-- The MCP session: under your agent and the server, not under your app. -->
+<path class="session" d="M20 236V244H530V236"/>
+<text class="note" x="275" y="266"><tspan class="em">One MCP session</tspan>, owned by the server</text>
+
+<text class="cap" x="420" y="366">Your app can crash or restart. Your agent stays connected.</text>
+</svg>

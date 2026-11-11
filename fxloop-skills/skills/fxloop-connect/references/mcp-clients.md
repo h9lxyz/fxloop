@@ -1,7 +1,9 @@
 # Registering the FXLoop MCP server
 
 The server is the jar at `~/.fxloop/fxloop-server.jar` (downloaded in step 0). Every client gets the same command,
-`java -jar <absolute jar path>`. The path is per machine, so tell the developer the file shouldn't be committed. Use a
+`java -jar <absolute jar path>`. When step 0 found Java through mise, SDKMAN, asdf or the IDE instead of `PATH`, put
+that absolute `java` path in `command` in place of `java` (`doctor --client=<name>` prints it that way).
+The paths are per machine, so tell the developer the file shouldn't be committed. Use a
 client's home variable only where it is known to expand it (Claude Code, Cursor, VS Code); elsewhere write the absolute
 path. The server runs in the workspace when the client starts it there; otherwise add `FXLOOP_PROJECT_DIR`.
 

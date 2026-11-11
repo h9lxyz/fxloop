@@ -4,11 +4,11 @@
 
 **Let your coding agent see, click and fix your JavaFX app.**
 
-FXLoop gives your coding agent a running copy of your JavaFX app to look at and drive, explains why the UI looks the
-way it does, and live-reloads the fix. Works with any MCP agent, for Java or Kotlin, Maven or Gradle.
+An MCP server for JavaFX: any MCP agent can screenshot, drive, explain and live-reload your running app.
+Java or Kotlin, Maven or Gradle.
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-![Java 17+](https://img.shields.io/badge/java-17%2B-orange.svg)
+![Java 21+](https://img.shields.io/badge/java-21%2B-orange.svg)
 ![Kotlin and Java apps](https://img.shields.io/badge/apps-Java%20%7C%20Kotlin-7f52ff.svg)
 ![MCP](https://img.shields.io/badge/MCP-stdio%20server-black.svg)
 ![Latest release](https://img.shields.io/github/v/release/h9lxyz/fxloop)
@@ -17,12 +17,9 @@ way it does, and live-reloads the fix. Works with any MCP agent, for Java or Kot
 
 </div>
 
----
-
-When an agent builds a web app, it has a browser: the DOM, the console, screenshots, clicks. When it builds a JavaFX
-app, it writes code, compiles, and asks you what happened on screen. FXLoop closes that loop. It gives the agent a
-supervised copy of your app to look at and drive, and the explanations it needs to fix what it finds the first time,
-instead of guessing at CSS and layout.
+A coding agent building a web app has a browser to look at and click. Building a JavaFX app, it compiles and asks you
+what happened on screen. FXLoop gives it a copy of your app to look at and drive, and explains why the UI looks the way
+it does, so the agent fixes the cause instead of guessing at CSS and layout.
 
 <p align="center">
   <img src="docs/assets/fxloop-explainer.svg" width="840" alt="Animated diagram: your agent talks to FXLoop over MCP, and FXLoop starts your JavaFX app or connects to it when you start it with the plugin. The agent sees the app, clicks through it, learns why the Save button is cut off, reloads the fix live and confirms it.">
@@ -30,138 +27,129 @@ instead of guessing at CSS and layout.
 
 ## Quickstart
 
-**You need** a JDK 17+, a JavaFX app built with Maven or Gradle, and an agent that speaks MCP.
+**You need** a JDK 21+ (on your `PATH`, or from a version manager such as mise or SDKMAN) and a JavaFX app built with
+Maven or Gradle.
 
-**1. Install the FXLoop skills**, ten workflows your agent picks up from plain requests:
+### With your agent
+
+FXLoop starts your app for the agent. Install the FXLoop skills (needs Node.js 22.20+):
 
 ```sh
 npx skills add h9lxyz/fxloop -g -y
 ```
 
-This needs Node.js 22.20+. It installs the skills in your home directory, for every agent it finds.
-
-**2. Open your agent in your app's project and ask:**
+Then open your agent in your app's project and ask:
 
 > Connect FXLoop to this project and show me the app.
 
-The agent downloads the FXLoop server, registers it and asks you to restart it once. Say "continue" and it launches
-your app and shows you a screenshot. The first launch compiles your project, which takes 30 seconds to a few minutes;
-after that, answers are instant.
+The agent downloads the server, registers it and asks you to restart the agent once. Say "continue" and it launches
+your app and shows you a screenshot; the first launch compiles your project, which can take a few minutes. It doesn't touch your build files; the few files it adds (agent config, a note in `CLAUDE.md` or
+`AGENTS.md`) stay uncommitted for you to review. To try it on a demo first, use
+[Ticket Desk](sample-apps/fxloop-showcase-app/README.md#running-a-demo), a small app with UI bugs planted on purpose.
 
-It doesn't change your build files. The few files it does add, such as the agent config and a short note in
-`CLAUDE.md` or `AGENTS.md`, stay uncommitted so you can review them.
-
-**No Node.js, or an agent without skills?** Skip step 1 and paste this into your agent. It needs nothing but the JDK:
+No Node.js, or an agent without skills? Paste this instead; it needs only the JDK:
 
 > Set up FXLoop in this project by following https://raw.githubusercontent.com/h9lxyz/fxloop/main/INSTALL.md
 
-[INSTALL.md](INSTALL.md) is also the guide for doing every step by hand, with the config for each agent. To try FXLoop
-on a demo first, use [Ticket Desk](sample-apps/fxloop-showcase-app/README.md#running-a-demo), a small helpdesk app with
-UI bugs planted on purpose.
+### With the Maven plugin
 
-## What you can ask
-
-Once FXLoop is connected, talk to your agent the way you would talk to a colleague looking at your screen:
-
-| You say | What happens |
-|---|---|
-| "Show me the app" | Launches the app and shares a screenshot |
-| "Review this screen, what looks off?" | Ranked findings: truncated text, overlaps, low contrast, misalignment |
-| "The panel doesn't resize" / "the buttons are squashed" | Finds the layout cause and fixes it, with before and after screenshots |
-| "Make it look modern" / "add dark mode" | Restyles with CSS, reloaded live while you watch |
-| "Is this keyboard friendly? Check the contrast" | Walks the Tab order and measures contrast ratios |
-| "Does it work at 1024×640? In German? Right-to-left?" | Resizes and relaunches with each setting, and lints every frame |
-| "Creating a ticket feels clunky" / "it freezes on refresh" | Clicks through the flow and fixes friction and UI-thread blocking |
-| "Clean up this dialog" / "Escape doesn't close it" | Fixes tab order, Enter and Escape, sizing and validation |
-| "Make all screens look the same" | Moves shared styles into one stylesheet |
-| "Make sure this doesn't regress" | Writes a JUnit 5 + TestFX test from what was clicked |
-
-## Features
-
-| | |
-|---|---|
-| 👀 **See** | Screenshots of any window or node, with numbered markers. Pixel diffs between frames, hover, focus and pressed states in one image, and the scene graph as JSON. Every screenshot is saved, so you see what the agent saw |
-| 🖱️ **Drive** | Real clicks and typing, or synthetic events while you keep using your mouse. Every action reports what changed: a dialog opened, a button got disabled, or nothing happened |
-| ❓ **Explain** | Why a node has its size: constraints, grow rules, margins. Why it has its color: the winning CSS rule with `file:line` and the smallest override that beats it. Why it is disabled: the binding chain |
-| 🔍 **Catch** | Visual lint for truncated text, overlaps, off-screen and zero-size nodes, and low contrast. FXML checked against your controllers before launch. UI-thread exceptions and logs |
-| ⚡ **Reload live** | CSS in milliseconds, FXML swapped in place with state kept, method bodies hot-swapped (Java and Kotlin). Bigger changes restart the app and click back to the same screen |
-| 🧪 **Lock in** | Turns what was clicked into a JUnit 5 + TestFX test that runs headless |
-| 🤝 **Work alongside you** | A dev bar on the app window shows what the agent is doing. Click **Pick** on a node and ask "why is *this* grey?", or open a [DevTools-style CSS inspector](#run-the-app-yourself) in your browser |
-| 🔒 **Stay out of production** | Nothing is added to your app or its build. The agent attaches only at dev launch and listens on localhost with a per-run token. If you add the build plugin, a guard fails the package if FXLoop ever leaks in |
-
-There are nearly forty `fx_*` tools; the [MCP server overview](docs/mcp.md) groups them by job, and the
-[tool reference](docs/tools.md) lists every parameter.
-
-## Run the app yourself
-
-Prefer to start the app on your own and bring the agent in later? Ask your agent **"I want to run the app myself"**.
-It adds the FXLoop build plugin and a guard that keeps FXLoop out of your release builds. Then run:
+You start the app yourself, no agent needed. FXLoop isn't on Maven Central yet, so download it once and copy its plugin
+into your local Maven repository (on Windows, type `curl.exe`):
 
 ```sh
-./mvnw fxloop:run        # Gradle: ./gradlew fxloopRun
+curl -fsSL --create-dirs -o "$HOME/.fxloop/fxloop-server.jar" https://github.com/h9lxyz/fxloop/releases/download/0.0.1/fxloop-server-all.jar
+java -jar "$HOME/.fxloop/fxloop-server.jar" --seed-local-repo
 ```
 
-Click around, **Pick** the node that bothers you and ask your agent about it. The agent connects to your window instead
-of launching a second copy, and it leaves your mouse alone. The [configuration guide](docs/configuration.md#running-the-app-yourself)
-has the details, and [INSTALL.md](INSTALL.md#7-add-the-build-plugin-and-the-guard-optional) adds the plugin by hand.
+Add the plugin to your `pom.xml`, under `<build><plugins>`:
 
-**Open CSS inspector** on the FXLoop bar opens a DevTools-style inspector in your browser. Try CSS on the running app,
-then save it into your stylesheet:
+```xml
+<plugin>
+  <groupId>dev.fxloop</groupId>
+  <artifactId>fxloop-maven-plugin</artifactId>
+  <version>0.0.1</version>
+</plugin>
+```
+
+Start your app (`mvn fxloop:run` if your project has no Maven wrapper):
+
+```sh
+./mvnw fxloop:run
+```
+
+Your window gets the FXLoop dev bar. **Pick** a node, or click **Open CSS inspector** to inspect it in your browser,
+try CSS live and save it into your stylesheet. An agent can join later: connect it as above and it attaches to this
+window instead of launching a second copy. For Gradle (`./gradlew fxloopRun`), see [Add the build plugin](INSTALL.md#add-the-build-plugin-optional).
 
 <p align="center">
   <img src="docs/assets/fxloop-inspector-explainer.svg" width="840" alt="Animated diagram: the FXLoop bar on your JavaFX app opens a CSS inspector in your browser. You pick the grey Save button and see that a setStyle() call in code beats your .primary rule in app.css. You choose an override scope from the suggested ones with their node counts, the button turns blue live, and Apply to file saves it into the existing rule. Then the Computed tab with :hover forced, and the Layout tab with the box model and where each size is set.">
 </p>
 
+## What you can ask
+
+| You say | What happens |
+|---|---|
+| "Show me the app" | Launches the app and shares a screenshot |
+| "Review this screen, what looks off?" | Ranked findings: truncated text, overlaps, low contrast, misalignment |
+| "The panel doesn't resize" | Finds the layout cause and fixes it, with before and after screenshots |
+| "Add dark mode" | Restyles with CSS, reloaded live while you watch |
+| "Is this keyboard friendly?" | Walks the Tab order and measures contrast ratios |
+| "Does it work at 1024×640? In German?" | Relaunches with each setting and lints every frame |
+| "Make sure this doesn't regress" | Writes a JUnit 5 + TestFX test from what was clicked |
+
+## Features
+
+- **See**: screenshots of any window or node, pixel diffs, and the scene graph as JSON.
+- **Drive**: real or synthetic clicks and typing; each action reports what changed.
+- **Explain**: why a node has its size, its color (the winning CSS rule with `file:line`) or its disabled state.
+- **Catch**: lint for truncated, overlapping, off-screen and low-contrast nodes, plus UI-thread exceptions and logs.
+- **Reload live**: CSS in milliseconds, FXML in place, method bodies hot-swapped; bigger changes restart on the same screen.
+- **Lock in**: turns what was clicked into a headless JUnit 5 + TestFX test.
+- **Stays out of production**: nothing is added to your app; the plugin's guard fails the package if FXLoop leaks in.
+
+There are nearly forty `fx_*` tools; the [MCP server overview](docs/mcp.md) groups them by job, and the
+[tool reference](docs/tools.md) lists every parameter.
+
 ## Troubleshooting
 
-Start with the doctor. Run it in your project, or ask your agent to. It checks your JDK, build, JavaFX setup, main
-class, display and agent config, gives a one-line fix for each problem, and changes nothing:
+Start with the doctor. It checks your JDK, build, JavaFX, main class, display and agent config, and changes nothing:
 
 ```sh
 java -jar "$HOME/.fxloop/fxloop-server.jar" doctor
 ```
 
-If the `fx_*` tools don't show up, start a new agent session: a running session doesn't see new servers. More answers
-are in the [troubleshooting guide](docs/troubleshooting.md).
+If the `fx_*` tools don't show up, start a new agent session: a running session doesn't see new servers. More in the
+[troubleshooting guide](docs/troubleshooting.md).
 
 ## How it works
 
-```mermaid
-flowchart LR
-    A["Your agent<br/>(any MCP client)"] <-->|"MCP over stdio"| S["fxloop-server<br/>build · launch · reload<br/>diff · journal · export"]
-    S -->|"launches with -javaagent"| J["Your JavaFX app<br/>+ fxloop-agent"]
-    S <-->|"localhost, per-run token"| J
-```
+<p align="center">
+  <img src="docs/assets/fxloop-how-it-works.svg" width="840" alt="Diagram: your agent talks MCP over stdio to the FXLoop server, which launches your JavaFX app with fxloop-agent, or connects to it when you start it with mvn fxloop:run or gradle fxloopRun. The MCP session ends at the server, so your app can crash or restart while your agent stays connected.">
+</p>
 
-The server builds your project with its own Maven or Gradle wrapper, finds the main class, and launches the app with a
-small in-JVM agent. Because the server owns the MCP session, your app can crash, restart or be hot-swapped without
-the agent losing its connection.
+The server builds your project with its own Maven or Gradle wrapper and launches the app with a small in-JVM agent, or
+connects to the app you started with the plugin. The server owns the MCP session, so your app can crash or restart
+without the agent losing its connection.
 
 ## Compatibility
 
 | | |
 |---|---|
-| **Agents** | Claude Code, Cursor, VS Code (Copilot agent mode), Codex CLI, Gemini CLI, any stdio MCP client |
+| **Agents** | Claude Code, Cursor, VS Code (Copilot), Codex CLI, Gemini CLI, any stdio MCP client |
 | **Apps** | Java or Kotlin, Maven or Gradle, FXML or code-built UI, classpath or module path |
-| **Runtime** | JDK 17+ with JavaFX 21, 25 or 27. JetBrains Runtime unlocks structural hot-swap (new methods and fields) |
-| **Displays** | A desktop, or headless on Xvfb or Monocle for SSH, devcontainers and CI ([templates](docs/ci/README.md)) |
-| **OS** | Linux is tested in CI; macOS and Windows are configured in CI but not yet run |
+| **Runtime** | JDK 21+ with JavaFX 21, 25 or 27; JetBrains Runtime adds structural hot-swap |
+| **Displays** | A desktop, or headless on Xvfb or Monocle ([CI templates](docs/ci/README.md)) |
+| **OS** | Linux, Windows and macOS, all tested in CI |
 
 FXLoop is at its first `0.0.x` releases. Know the [limitations](docs/limitations.md) before you rely on it.
 
 ## Documentation
 
-| Guides | Reference | Design |
-|---|---|---|
-| [Install (step by step)](INSTALL.md) | [Tool reference](docs/tools.md) | [Architecture](docs/00-overview.md) |
-| [MCP server overview](docs/mcp.md) | [Configuration](docs/configuration.md) | [Implementation status](docs/05-implementation-tracking.md) |
-| [Agent skills](docs/skills.md) | [Troubleshooting](docs/troubleshooting.md) | [Decisions](docs/decisions/) |
-| [CI and headless](docs/ci/README.md) | [Security](docs/security.md), [Limitations](docs/limitations.md) | PRDs in [docs/](docs/) |
+- [Install guide](INSTALL.md): every step by hand, with the config for each agent
+- [MCP server overview](docs/mcp.md), [tool reference](docs/tools.md), [agent skills](docs/skills.md)
+- [Configuration](docs/configuration.md), [troubleshooting](docs/troubleshooting.md), [CI and headless](docs/ci/README.md)
+- [Security](docs/security.md), [limitations](docs/limitations.md), [design notes](docs/design/) for contributors
 
-## Contributing
+## Contributing and license
 
-Build instructions and the repository layout are in [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## License
-
-Apache-2.0, see [LICENSE](LICENSE).
+Build instructions are in [CONTRIBUTING.md](CONTRIBUTING.md). FXLoop is licensed under [Apache-2.0](LICENSE).

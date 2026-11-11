@@ -225,5 +225,5 @@ FXLoop is a local developer tool for one trusted user. The app-side agent listen
 random per-run token. Tool file paths are confined to the project directory, `fx_eval_js` is off by default, `fx_attach`
 is audit-logged, and there is no telemetry. The agent is a no-op without its launch arguments, and
 `-Dfxloop.enabled=false` disables it outright. Keep `fxloop-dev` out of shipped artifacts: the guard in
-[INSTALL.md step 7](https://github.com/h9lxyz/fxloop/blob/main/INSTALL.md#7-add-the-build-plugin-and-the-guard-optional)
+[INSTALL.md, "Add the build plugin"](https://github.com/h9lxyz/fxloop/blob/main/INSTALL.md#add-the-build-plugin-optional)
 fails the production build if it leaks, and the connect skill adds it along with the build plugin. Details: [security](security.md).
