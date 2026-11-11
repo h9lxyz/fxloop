@@ -9,18 +9,24 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.isDirectory
+import kotlin.io.path.isRegularFile
 import kotlin.io.path.name
 
 /**
  * Secondary, human-facing watch mode (PRD 02 §3): `css-only` applies CSS on save, `all` also swaps FXML and hot-swaps
  * Java/Kotlin; never restarts. Uses `io.methvin:directory-watcher` (native macOS events, JDK WatchService elsewhere) with a
  * 150 ms debounce.
+ *
+ * Roots are directories (watched recursively) or single files (a stylesheet mapped to a source outside the project:
+ * its folder is watched, but only saves of that file count).
  */
 class WatchMode(private val apply: (List<String>) -> ObjectNode?) : AutoCloseable {
     private val log = LoggerFactory.getLogger(WatchMode::class.java)
     private val debounce = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "fxloop-watch-debounce").apply { isDaemon = true } }
     private val events = Executors.newSingleThreadExecutor { r -> Thread(r, "fxloop-watch-events").apply { isDaemon = true } }
     private var roots: List<Path> = emptyList()
+    private var files: Set<Path> = emptySet()
+    private var dirs: List<Path> = emptyList()
     private val pending = LinkedHashSet<Path>()
     private var watcher: DirectoryWatcher? = null
     private var scheduled: ScheduledFuture<*>? = null
@@ -40,10 +46,12 @@ class WatchMode(private val apply: (List<String>) -> ObjectNode?) : AutoCloseabl
         mode = newMode
         this.roots = roots
         if (newMode == "off") return
-        val dirs = roots.filter { it.isDirectory() }
-        if (dirs.isEmpty()) return
-        watcher = DirectoryWatcher.builder().paths(dirs).listener(::onEvent).build().also { it.watchAsync(events) }
-        log.info("watch mode {} on {} roots", newMode, dirs.size)
+        dirs = roots.filter { it.isDirectory() }.map(::norm)
+        files = roots.filter { it.isRegularFile() }.map(::norm).toSet()
+        val watched = (dirs + files.mapNotNull { it.parent }.filter { p -> dirs.none { p.startsWith(it) } }).distinct()
+        if (watched.isEmpty()) return
+        watcher = DirectoryWatcher.builder().paths(watched).listener(::onEvent).build().also { it.watchAsync(events) }
+        log.info("watch mode {} on {} roots", newMode, watched.size)
     }
 
     private fun onEvent(e: DirectoryChangeEvent) {
@@ -51,6 +59,8 @@ class WatchMode(private val apply: (List<String>) -> ObjectNode?) : AutoCloseabl
         if (e.eventType() != DirectoryChangeEvent.EventType.CREATE && e.eventType() != DirectoryChangeEvent.EventType.MODIFY || e.isDirectory) return
         synchronized(this) {
             if (!applies(mode, path.name)) return
+            val p = norm(path)
+            if (dirs.none { p.startsWith(it) } && p !in files) return // a sibling of a watched single file
             pending.add(path)
             scheduled?.cancel(false)
             scheduled = debounce.schedule(::flush, 150, TimeUnit.MILLISECONDS)
@@ -79,6 +89,8 @@ class WatchMode(private val apply: (List<String>) -> ObjectNode?) : AutoCloseabl
         debounce.shutdownNow()
         events.shutdownNow()
     }
+
+    private fun norm(p: Path): Path = p.toAbsolutePath().normalize()
 
     companion object {
         val MODES = listOf("css-only", "all", "off")

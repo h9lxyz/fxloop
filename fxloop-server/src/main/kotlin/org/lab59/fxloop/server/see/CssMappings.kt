@@ -26,6 +26,9 @@ class CssMappings(private val projectDir: Path, private val outputDir: () -> Pat
     private val store = projectDir.resolve(DIR).resolve(FILE)
     private var cache: List<Mapping>? = null
 
+    /** Called after a mapping was added, changed or removed (the watcher then follows the mapped source files). */
+    @Volatile var onChange: () -> Unit = {}
+
     @Synchronized
     fun list(): List<Mapping> = cache ?: load().also { cache = it }
 
@@ -54,6 +57,7 @@ class CssMappings(private val projectDir: Path, private val outputDir: () -> Pat
         val next = if (source == null) rest else rest + Mapping(key, source)
         if (source != null || rest.size != all.size) save(next)
         cache = next
+        runCatching { onChange() }
         return Json.obj {
             put("url", key)
             if (source != null) put("file", source.toString()) else putNull("file")

@@ -263,6 +263,7 @@ class Ctx(val config: Config) {
 
     init {
         reloader.mappedSheets = { cssMappings.urlsFor(it) }
+        cssMappings.onChange = { if (watch.mode != "off") applyWatchMode(watch.mode) }
         live.watchMode = { watch.mode }
         live.statusSink = { viewer?.publishStatus(it) }
         reloader.onReloaded { r ->
@@ -287,6 +288,9 @@ class Ctx(val config: Config) {
             forgetScratchProps()
             reloader.checkpoint(session.startedAt.takeIf { session.mode == AppSession.Mode.EMBEDDED })
             if (session.mode == AppSession.Mode.EMBEDDED) live.developerOwnsApp()
+            // an app the developer started (fxloop:run, FxLoopDev.install()) gets the same save-to-apply as a launched one;
+            // attach mode has no source mapping, so nothing to watch
+            applyWatchMode(if (session.mode == AppSession.Mode.EMBEDDED) watch.mode.takeIf { it != "off" } ?: config.watchMode else "off")
             live.push()
             advertiseInspector()
         }
@@ -369,7 +373,9 @@ class Ctx(val config: Config) {
             mode == "css-only" -> d.resourceRoots.map(java.nio.file.Path::of)
             else -> (d.sourceRoots + d.resourceRoots).map(java.nio.file.Path::of)
         }
-        watch.set(mode, roots)
+        // stylesheets mapped to a source outside the project (inspector): saving that source applies it too
+        val mapped = if (d == null) emptyList() else cssMappings.list().map { it.file }.filter { f -> roots.none { f.startsWith(it) } }
+        watch.set(mode, roots + mapped)
     }
 
     /** Flat watched-property snapshot used for effects. */

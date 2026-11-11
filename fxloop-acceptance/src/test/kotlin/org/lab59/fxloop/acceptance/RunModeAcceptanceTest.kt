@@ -58,6 +58,35 @@ class RunModeAcceptanceTest {
     }
 
     @Test
+    fun `saving a stylesheet applies it live to a developer-run app`() {
+        Harness(configure = { it.copy(watchMode = "css-only") }).use { h ->
+            val d = h.ctx.session.build.prepare()
+            val handshake = h.ctx.session.fxloopDir.resolve("handshake.json")
+            Files.deleteIfExists(handshake)
+            val run = d.copy(jvmArgs = d.jvmArgs + Harness.RUN_MARKER)
+                .runCommand(AppSession.javaExecutable(), "${h.ctx.session.agentJar()}=${d.runAgentArgs(handshake, "on")}", listOf("--seed"))
+            val cmd = (if (System.getenv("FXLOOP_ACCEPTANCE_HEADLESS") != "none") listOf("xvfb-run", "-a") else emptyList()) + run
+            val p = ProcessTree.track(ProcessBuilder(cmd).directory(h.project.toFile()).redirectErrorStream(true)
+                .redirectOutput(h.project.resolve("run-mode.log").toFile()).start())
+            try {
+                awaitHandshake(handshake)
+                assertThat(h.ok("fx_get_app_status")["mode"].asText()).isEqualTo("embedded")
+                assertThat(h.ctx.watch.mode).isEqualTo("css-only")
+
+                // the developer saves the stylesheet; nobody calls fx_reload
+                val css = h.project.resolve("src/main/resources/org/lab59/fxloop/sample/app.css")
+                Files.writeString(css, Files.readString(css) + "\n#statusLabel { -fx-text-fill: #123456; }\n")
+                fun fill() = h.ok("fx_explain_style", args("query" to "#statusLabel", "property" to "-fx-text-fill"))["items"][0]["value"].asText()
+                val deadline = System.currentTimeMillis() + 30_000
+                while (fill() != "#123456ff" && System.currentTimeMillis() < deadline) Thread.sleep(200)
+                assertThat(fill()).describedAs("watch result: %s", h.ctx.watch.lastResult).isEqualTo("#123456ff")
+            } finally {
+                ProcessTree.kill(p)
+            }
+        }
+    }
+
+    @Test
     fun `inspector helper serves the CSS inspector without an agent and yields to agent sessions`() {
         Harness().use { h ->
             val d = h.ctx.session.build.prepare()
