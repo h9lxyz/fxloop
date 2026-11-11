@@ -5,12 +5,12 @@ import java.util.jar.JarFile
 /**
  * `--version` output and the JDK check (PRD 11 section 3 / 11 risk 1).
  *
- * The jar is compiled for Java 17, so on an older JVM the launcher fails with UnsupportedClassVersionError before
- * `main` runs; the "< 17" branch below can therefore only fire in theory and exists for completeness and tests.
+ * The jar is compiled for Java 21, so on an older JVM the launcher fails with UnsupportedClassVersionError before
+ * `main` runs; the "< 21" branch below can therefore only fire in theory and exists for completeness and tests.
  * A JRE (no `jdk.compiler`) is the realistic failure: the hot-swap tier cannot compile.
  */
 object JdkCheck {
-    const val MIN_FEATURE = 17
+    const val MIN_FEATURE = 21
 
     /** Pure verdict: null when fine, otherwise a one-line fix. */
     fun problem(featureVersion: Int, hasCompiler: Boolean): String? = when {

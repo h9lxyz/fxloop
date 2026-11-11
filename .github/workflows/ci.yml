@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Newest JavaFX, which needs JDK 25+. The gradle job's plain build keeps the release floor compiling: JDK 21, --release 17, JavaFX 21.
+  # Newest JavaFX, which needs JDK 25+. The gradle job's plain build keeps the release floor compiling: JDK 21, --release 21, JavaFX 21.
   JAVAFX: 27.0.1
 
 jobs:

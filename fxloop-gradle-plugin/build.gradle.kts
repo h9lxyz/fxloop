@@ -16,10 +16,10 @@ repositories {
     mavenCentral()
 }
 
-// JDK 17 bytecode level. A JDK 17 toolchain is not required: any JDK >= 17 compiles with --release 17.
+// JDK 21 bytecode level. A JDK 21 toolchain is not required: any JDK >= 21 compiles with --release 21.
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 // The plugin pins the agent jar to its own version: generated resource dev/fxloop/gradle/fxloop.properties
@@ -37,13 +37,13 @@ val versionResource = tasks.register("fxloopVersionResource") {
 sourceSets.main { resources.srcDir(versionResource) }
 
 tasks.withType<JavaCompile>().configureEach {
-    options.release.set(17)
+    options.release.set(21)
     options.encoding = "UTF-8"
 }
 
 kotlin {
     compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
         // Gradle 9 embeds Kotlin 2.x; keep the plugin's language level at the floor so it loads on all supported Gradles
         apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_2)
         languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_2)

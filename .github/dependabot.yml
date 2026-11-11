@@ -3,7 +3,7 @@ updates:
   - package-ecosystem: maven
     directory: "/"
     schedule: { interval: weekly }
-    # The JavaFX 21 compile baseline is deliberate (JDK 17 apps); 25/27 are covered by CI lanes. Patch bumps only.
+    # The JavaFX 21 compile baseline is deliberate (the oldest JavaFX FXLoop supports); CI tests on 27. Patch bumps only.
     ignore:
       - dependency-name: "org.openjfx:*"
         update-types: ["version-update:semver-major"]
