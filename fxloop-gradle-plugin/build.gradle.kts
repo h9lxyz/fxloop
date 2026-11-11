@@ -5,7 +5,7 @@ plugins {
     id("com.gradle.plugin-publish") version "2.2.1"
 }
 
-group = "dev.fxloop"
+group = "org.lab59.fxloop"
 // The release passes -PfxloopVersion=<tag> (PRD 10); the committed default is the development version.
 val fxloopVersion = (findProperty("fxloopVersion") ?: "1.0.0-SNAPSHOT").toString()
 version = fxloopVersion
@@ -22,14 +22,14 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
-// The plugin pins the agent jar to its own version: generated resource dev/fxloop/gradle/fxloop.properties
+// The plugin pins the agent jar to its own version: generated resource org/lab59/fxloop/gradle/fxloop.properties
 val versionResource = tasks.register("fxloopVersionResource") {
     val out = layout.buildDirectory.dir("generated/fxloop-resources")
     val v = project.version.toString()
     inputs.property("version", v)
     outputs.dir(out)
     doLast {
-        val f = out.get().file("dev/fxloop/gradle/fxloop.properties").asFile
+        val f = out.get().file("org/lab59/fxloop/gradle/fxloop.properties").asFile
         f.parentFile.mkdirs()
         f.writeText("version=$v\n")
     }
@@ -51,8 +51,8 @@ kotlin {
 }
 
 dependencies {
-    implementation("dev.fxloop:fxloop-protocol:$fxloopVersion")
-    implementation("dev.fxloop:fxloop-launch:$fxloopVersion")
+    implementation("org.lab59.fxloop:fxloop-protocol:$fxloopVersion")
+    implementation("org.lab59.fxloop:fxloop-launch:$fxloopVersion")
 
     testImplementation(gradleTestKit())
     testImplementation(kotlin("test-junit5"))
@@ -67,10 +67,10 @@ gradlePlugin {
     vcsUrl.set("https://github.com/h9lxyz/fxloop.git")
     plugins {
         create("fxloop") {
-            id = "dev.fxloop"
+            id = "org.lab59.fxloop"
             displayName = "FXLoop"
             description = "Emits build/fxloop/launch.json so FXLoop can launch, instrument and hot-reload a JavaFX application."
-            implementationClass = "dev.fxloop.gradle.FxloopPlugin"
+            implementationClass = "org.lab59.fxloop.gradle.FxloopPlugin"
             tags.set(listOf("javafx", "fxloop", "hot-reload", "testing"))
         }
     }

@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PAGE = os.path.join(HERE, "..", "..", "..", "main", "resources", "dev", "fxloop", "server", "inspect", "inspect.html")
+PAGE = os.path.join(HERE, "..", "..", "..", "main", "resources", "org", "lab59", "fxloop", "server", "inspect", "inspect.html")
 FIX = {"/api/windows": "windows.json", "/api/tree": "tree.json", "/api/styles": "styles.json",
        "/api/layout": "layout.json", "/api/suggest": "suggest.json"}
 

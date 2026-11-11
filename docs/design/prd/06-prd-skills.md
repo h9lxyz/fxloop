@@ -32,13 +32,13 @@ Each skill declares trigger phrases in its description. Triggers follow the **ta
 ### 3.1 Distribution
 
 - One Claude Code **plugin** (`fxloop`) bundles: the MCP server entry (`.mcp.json`), all skills in §4, the shared references in §5, and the generated tool reference (PRD 03 C21).
-- The MCP entry launches the published **shaded server jar**. Resolution order: `jbang` alias if `jbang` is on PATH → otherwise a bundled bootstrap script that resolves `dev.fxloop:fxloop-server:<version>` through the project's own wrapper (`./mvnw dependency:copy` / `./gradlew` equivalent) into `~/.fxloop/` and runs `java -jar`. No tool beyond a JDK and the project's wrapper is required.
-- Libraries and plugins come from **Maven Central** (`fxloop-agent`, `fxloop-dev`, `fxloop-maven-plugin`) and the **Gradle Plugin Portal** (`dev.fxloop`). The skill pins the version matching the installed plugin.
+- The MCP entry launches the published **shaded server jar**. Resolution order: `jbang` alias if `jbang` is on PATH → otherwise a bundled bootstrap script that resolves `org.lab59.fxloop:fxloop-server:<version>` through the project's own wrapper (`./mvnw dependency:copy` / `./gradlew` equivalent) into `~/.fxloop/` and runs `java -jar`. No tool beyond a JDK and the project's wrapper is required.
+- Libraries and plugins come from **Maven Central** (`fxloop-agent`, `fxloop-dev`, `fxloop-maven-plugin`) and the **Gradle Plugin Portal** (`org.lab59.fxloop`). The skill pins the version matching the installed plugin.
 
 ### 3.2 What `/fxloop:connect` does (idempotent, re-runnable)
 
 1. **Detect** build tool (`pom.xml` vs `build.gradle(.kts)`), language (`src/main/kotlin`, Kotlin plugin), JavaFX setup (`javafx-maven-plugin` / `org.openjfx.javafxplugin`, `module-info.java`), multi-module layout (which module holds the `Application`), existing main-class config.
-2. **Add the build plugin** (`fxloop-maven-plugin` or `id("dev.fxloop")`) with the pinned version; copy the main class into the plugin config only when auto-detection would be ambiguous (Launcher pattern, Kotlin top-level `main` → `FooKt`, several `Application` subclasses).
+2. **Add the build plugin** (`fxloop-maven-plugin` or `id("org.lab59.fxloop")`) with the pinned version; copy the main class into the plugin config only when auto-detection would be ambiguous (Launcher pattern, Kotlin top-level `main` → `FooKt`, several `Application` subclasses).
 3. **Guard production:** `fxloop-*` only in dev/test scope; add the enforcer / Gradle verification snippet from PRD 03 §8 so the agent can never ship. Explain in one line why.
 4. **Prepare and launch:** run the prepare goal, read back `launch.json`, start the app via `fx_start_app`, take one labeled screenshot, and show it. Failure modes have scripted fixes: missing `--add-modules`, "JavaFX runtime components are missing", ambiguous main class, annotation processors (Lombok / kapt / KSP → build-tool compile fallback), Kotlin sources (external-compile mode, §6).
 5. **Leave a trail:** a short `CLAUDE.md` section (how the app is launched, which flags seed demo data, where screenshots land) and a `.gitignore` entry for `target/fxloop` / `build/fxloop`.

@@ -1,17 +1,17 @@
 # fxloop-gradle-plugin
 
-Gradle plugin `dev.fxloop` (Kotlin). Registers task `fxloopPrepare` (group `fxloop`, depends on `classes`) that writes
+Gradle plugin `org.lab59.fxloop` (Kotlin). Registers task `fxloopPrepare` (group `fxloop`, depends on `classes`) that writes
 `build/fxloop/launch.json` using the same schema as the Maven `fxloop:prepare` (`LaunchDescriptor`, `buildTool: "gradle"`).
 
 Setup in your own project (plugin and production guard): [INSTALL.md](../INSTALL.md#add-the-build-plugin-optional).
 
-Standalone Gradle build (not a Maven reactor module). Requires `dev.fxloop:fxloop-protocol:1.0.0-SNAPSHOT` in `mavenLocal()`
+Standalone Gradle build (not a Maven reactor module). Requires `org.lab59.fxloop:fxloop-protocol:1.0.0-SNAPSHOT` in `mavenLocal()`
 (`./mvnw install`).
 
     ./gradlew -p fxloop-gradle-plugin build publishToMavenLocal
 
 ```kotlin
-plugins { java; id("dev.fxloop") version "1.0.0-SNAPSHOT" }
+plugins { java; id("org.lab59.fxloop") version "1.0.0-SNAPSHOT" }
 
 fxloop {
     mainClass = "com.acme.Launcher"      // optional
@@ -25,14 +25,14 @@ Groovy DSL, with the production guard that fails the `jar` task when an FXLoop a
 
 ```groovy
 plugins {
-    id 'dev.fxloop' version '1.0.0-SNAPSHOT'
+    id 'org.lab59.fxloop' version '1.0.0-SNAPSHOT'
 }
 
 def fxloopGuard = tasks.register('fxloopGuard') {
     group = 'verification'
-    description = 'Fails if a dev.fxloop artifact is on the runtime classpath'
+    description = 'Fails if a org.lab59.fxloop artifact is on the runtime classpath'
     def leaked = configurations.runtimeClasspath.map { c ->
-        c.incoming.resolutionResult.allComponents.collect { it.id.displayName }.findAll { it.startsWith('dev.fxloop:') }
+        c.incoming.resolutionResult.allComponents.collect { it.id.displayName }.findAll { it.startsWith('org.lab59.fxloop:') }
     }
     doLast { if (!leaked.get().isEmpty()) throw new GradleException("FXLoop must not ship: ${leaked.get()}") }
 }
@@ -60,11 +60,11 @@ on any JDK >= 21 (no toolchain required).
 ./gradlew fxloopRun -Pfxloop.inspectorEdit=false   # read-only CSS inspector (no "Try it live")
 ```
 
-Runs the app in the foreground from `launch.json` with the agent (`dev.fxloop:fxloop-agent` at the plugin's version,
+Runs the app in the foreground from `launch.json` with the agent (`org.lab59.fxloop:fxloop-agent` at the plugin's version,
 resolved from the project's repositories: a SNAPSHOT needs `mavenLocal()` in the dependency repositories, not only in
 `pluginManagement`, after `java -jar ~/.fxloop/fxloop-server.jar --seed-local-repo`; without a display run the task
 under `xvfb-run -a`). The dev bar shows before any agent
-connects, with **Pick** and **Open CSS inspector**: an inspector helper (`dev.fxloop:fxloop-server:all`, also from the project's
+connects, with **Pick** and **Open CSS inspector**: an inspector helper (`org.lab59.fxloop:fxloop-server:all`, also from the project's
 repositories) serves the browser CSS inspector until an agent session connects, steps aside while it is there, and
 returns afterwards; its output and URL are in `build/fxloop/inspector.log`. The inspector has "Try it live" on, also
 while an agent session is connected: edit CSS values and add rules in a scratch stylesheet, then hand them to your agent

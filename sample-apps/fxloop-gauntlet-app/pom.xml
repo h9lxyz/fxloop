@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>dev.fxloop</groupId>
+    <groupId>org.lab59.fxloop</groupId>
     <artifactId>fxloop-parent</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
@@ -15,7 +15,7 @@
   <description>Pure-Java JavaFX robustness/performance test target (dialogs, menus, stages, scroll, visual, web, big, RTL).</description>
 
   <properties>
-    <gauntlet.mainClass>dev.fxloop.gauntlet.Launcher</gauntlet.mainClass>
+    <gauntlet.mainClass>org.lab59.fxloop.gauntlet.Launcher</gauntlet.mainClass>
   </properties>
 
   <dependencies>
@@ -32,7 +32,7 @@
       <artifactId>javafx-fxml</artifactId>
     </dependency>
     <dependency>
-      <groupId>dev.fxloop</groupId>
+      <groupId>org.lab59.fxloop</groupId>
       <artifactId>fxloop-dev</artifactId>
     </dependency>
     <dependency>

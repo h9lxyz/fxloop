@@ -7,14 +7,14 @@ guard): [INSTALL.md](../INSTALL.md#add-the-build-plugin-optional). `prepare` has
 after `compile`:
 
 ```sh
-mvn -q compile dev.fxloop:fxloop-maven-plugin:1.0.0-SNAPSHOT:prepare
+mvn -q compile org.lab59.fxloop:fxloop-maven-plugin:1.0.0-SNAPSHOT:prepare
 ```
 
 Optional explicit configuration:
 
 ```xml
 <plugin>
-  <groupId>dev.fxloop</groupId>
+  <groupId>org.lab59.fxloop</groupId>
   <artifactId>fxloop-maven-plugin</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <configuration>
@@ -48,8 +48,8 @@ re-running the goal.
 | `bar` | `fxloop.bar` | `on` | Dev bar before an agent connects: `on`, `pill` or `off`. |
 | `inspector` | `fxloop.inspector` | `true` | Start the inspector helper (Open CSS inspector without an agent session). |
 | `inspectorEdit` | `fxloop.inspectorEdit` | `true` | "Try it live" in the CSS inspector: edit values, untick declarations and add rules in a scratch stylesheet, never in source. Applies to the helper and to agent sessions that connect to this run. `false` keeps it read-only. |
-| `agentJar` | `fxloop.agentJar` | `dev.fxloop:fxloop-agent` at the plugin's version | Agent jar override. |
-| `serverJar` | `fxloop.serverJar` | `dev.fxloop:fxloop-server:jar:all` at the plugin's version | Server jar for the inspector helper. |
+| `agentJar` | `fxloop.agentJar` | `org.lab59.fxloop:fxloop-agent` at the plugin's version | Agent jar override. |
+| `serverJar` | `fxloop.serverJar` | `org.lab59.fxloop:fxloop-server:jar:all` at the plugin's version | Server jar for the inspector helper. |
 | `javaHome` | `fxloop.javaHome` | the JDK running Maven | JDK that runs the app. |
 
 `fxloop:run` also takes every `prepare` parameter below.

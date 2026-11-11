@@ -72,13 +72,13 @@ Gradle plugin READMEs for the options (`fxloop.bar`, `fxloop.inspectorEdit`, app
 
 The command is `FXLOOP_BUILD_CMD` if set; otherwise the **wrapper** (`mvnw`/`mvnw.cmd`, `gradlew`/`gradlew.bat`) found in the project dir or any parent directory; otherwise `mvn`/`gradle` from `PATH`.
 
-What runs on start: Maven `compile dev.fxloop:fxloop-maven-plugin:<server version>:prepare` (adds `-Dfxloop.mainClass` from `FXLOOP_MAIN_CLASS`); Gradle `classes fxloopPrepare`. Both write `launch.json`, which the server reads to launch the app. `fx_get_app_status` reports which route ran as `prepare: "plugin" | "server"`.
+What runs on start: Maven `compile org.lab59.fxloop:fxloop-maven-plugin:<server version>:prepare` (adds `-Dfxloop.mainClass` from `FXLOOP_MAIN_CLASS`); Gradle `classes fxloopPrepare`. Both write `launch.json`, which the server reads to launch the app. `fx_get_app_status` reports which route ran as `prepare: "plugin" | "server"`.
 
 ## Without the build plugin (server-side prepare)
 
 **Maven.** When `fxloop-maven-plugin` cannot be resolved, the server runs `compile`, `help:effective-pom` (cached until a POM changes) and `dependency:build-classpath` in one invocation and builds the same descriptor the plugin would: main class in the plugin's order (`main-class` → `javafx-maven-plugin` → `exec-maven-plugin` → jar manifest → class scan of `target/classes`), launch mode from `module-info.java` and the `org.openjfx` jars, `release`, JVM/app args from `javafx-maven-plugin`, annotation processors.
 
-**Gradle.** When no build file applies `dev.fxloop`, the server applies its bundled copy of the Gradle plugin through a generated init script (`build/fxloop/fxloop.init.gradle.kts`, jars cached in `~/.fxloop/cache/<version>/gradle/`) and runs `classes fxloopPrepare`. Nothing is written into the build files; the configuration cache stays valid.
+**Gradle.** When no build file applies `org.lab59.fxloop`, the server applies its bundled copy of the Gradle plugin through a generated init script (`build/fxloop/fxloop.init.gradle.kts`, jars cached in `~/.fxloop/cache/<version>/gradle/`) and runs `classes fxloopPrepare`. Nothing is written into the build files; the configuration cache stays valid.
 
 `prepare-route=auto|plugin|server` (`FXLOOP_PREPARE_ROUTE`) forces a route; the default `auto` uses the plugin when it resolves.
 

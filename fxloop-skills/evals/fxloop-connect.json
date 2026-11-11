@@ -8,9 +8,9 @@
       "expected_output": "Registers the MCP server and launches MainKt without touching pom.xml (prepare: server), shows a screenshot, writes a CLAUDE.md FXLoop section, reports the Kotlin reload note and offers the build plugin for running the app yourself.",
       "files": [],
       "expectations": [
-        "pom.xml is unchanged: no dev.fxloop plugin and no enforcer guard were added",
-        "fx_get_app_status reports prepare: server, and nothing was written to ~/.m2/repository/dev/fxloop/",
-        "the main class is dev.fxloop.showcase.MainKt (pinned or resolved via javafx-maven-plugin) and the app starts",
+        "pom.xml is unchanged: no org.lab59.fxloop plugin and no enforcer guard were added",
+        "fx_get_app_status reports prepare: server, and nothing was written to ~/.m2/repository/org/lab59/fxloop/",
+        "the main class is org.lab59.fxloop.showcase.MainKt (pinned or resolved via javafx-maven-plugin) and the app starts",
         "a screenshot labeled connect-first-look exists under target/fxloop/screens and its path is cited",
         "CLAUDE.md contains a '## FXLoop' section mentioning the main class and screenshot directory, without the run-it-yourself and guard lines",
         "the report says .kt edits compile through the build tool (or external-compile) and lists what was added and how to undo",
@@ -35,12 +35,12 @@
     },
     {
       "id": 3,
-      "setup": "sample-apps/fxloop-sample-app-kotlin (Gradle Kotlin DSL) with the dev.fxloop plugin and settings mavenLocal removed",
+      "setup": "sample-apps/fxloop-sample-app-kotlin (Gradle Kotlin DSL) with the org.lab59.fxloop plugin and settings mavenLocal removed",
       "prompt": "set up fxloop for this app",
       "expected_output": "Launches MainKt through the server's Gradle init script, with build.gradle.kts and settings.gradle.kts unchanged.",
       "files": [],
       "expectations": [
-        "build.gradle.kts and settings.gradle.kts are unchanged: no dev.fxloop plugin, no mavenLocal(), no fxloopGuard task",
+        "build.gradle.kts and settings.gradle.kts are unchanged: no org.lab59.fxloop plugin, no mavenLocal(), no fxloopGuard task",
         "fx_get_app_status reports prepare: server (the init-script route)",
         "the app launches and a screenshot is cited"
       ]
@@ -65,11 +65,11 @@
       "files": [],
       "expectations": [
         "java -jar <jar> --seed-local-repo ran before pom.xml was edited",
-        "pom.xml declares dev.fxloop:fxloop-maven-plugin with no executions, at the version java -jar <jar> --version reports",
-        "pom.xml has a maven-enforcer bannedDependencies rule excluding dev.fxloop compile/runtime scopes",
+        "pom.xml declares org.lab59.fxloop:fxloop-maven-plugin with no executions, at the version java -jar <jar> --version reports",
+        "pom.xml has a maven-enforcer bannedDependencies rule excluding org.lab59.fxloop compile/runtime scopes",
         "./mvnw -q compile fxloop:prepare (or an equivalent check) succeeded",
         "the CLAUDE.md FXLoop section gained the run-it-yourself and guard lines",
-        "the report gives ./mvnw fxloop:run, says teammates and CI need the seed line until Maven Central, and lists ~/.m2/repository/dev/fxloop/ in the undo",
+        "the report gives ./mvnw fxloop:run, says teammates and CI need the seed line until Maven Central, and lists ~/.m2/repository/org/lab59/fxloop/ in the undo",
         "the MCP config was not touched and no reload was requested"
       ]
     }

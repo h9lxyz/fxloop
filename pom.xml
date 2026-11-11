@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>dev.fxloop</groupId>
+  <groupId>org.lab59.fxloop</groupId>
   <artifactId>fxloop-parent</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
@@ -67,22 +67,22 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>dev.fxloop</groupId>
+        <groupId>org.lab59.fxloop</groupId>
         <artifactId>fxloop-protocol</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>dev.fxloop</groupId>
+        <groupId>org.lab59.fxloop</groupId>
         <artifactId>fxloop-launch</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>dev.fxloop</groupId>
+        <groupId>org.lab59.fxloop</groupId>
         <artifactId>fxloop-agent</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>dev.fxloop</groupId>
+        <groupId>org.lab59.fxloop</groupId>
         <artifactId>fxloop-dev</artifactId>
         <version>${project.version}</version>
       </dependency>

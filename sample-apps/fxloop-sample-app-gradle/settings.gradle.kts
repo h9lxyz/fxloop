@@ -1,6 +1,6 @@
 pluginManagement {
     repositories {
-        mavenLocal() // dev.fxloop plugin (./gradlew -p ../../fxloop-gradle-plugin publishToMavenLocal)
+        mavenLocal() // org.lab59.fxloop plugin (./gradlew -p ../../fxloop-gradle-plugin publishToMavenLocal)
         gradlePluginPortal()
     }
 }

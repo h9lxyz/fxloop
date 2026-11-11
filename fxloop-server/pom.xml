@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>dev.fxloop</groupId>
+    <groupId>org.lab59.fxloop</groupId>
     <artifactId>fxloop-parent</artifactId>
     <version>1.0.0-SNAPSHOT</version>
   </parent>
@@ -19,11 +19,11 @@
 
   <dependencies>
     <dependency>
-      <groupId>dev.fxloop</groupId>
+      <groupId>org.lab59.fxloop</groupId>
       <artifactId>fxloop-protocol</artifactId>
     </dependency>
     <dependency>
-      <groupId>dev.fxloop</groupId>
+      <groupId>org.lab59.fxloop</groupId>
       <artifactId>fxloop-launch</artifactId>
     </dependency>
     <dependency>
@@ -54,7 +54,7 @@
 
     <!-- Bundled as a resource (agent jar extracted at launch); ordering only. -->
     <dependency>
-      <groupId>dev.fxloop</groupId>
+      <groupId>org.lab59.fxloop</groupId>
       <artifactId>fxloop-agent</artifactId>
       <scope>provided</scope>
       <exclusions>
@@ -67,7 +67,7 @@
 
     <!-- TEMPORARY (removed after Central publishing, PRD 10 §7): bundled for the seed-local-repo command; ordering only. -->
     <dependency>
-      <groupId>dev.fxloop</groupId>
+      <groupId>org.lab59.fxloop</groupId>
       <artifactId>fxloop-maven-plugin</artifactId>
       <version>${project.version}</version>
       <scope>provided</scope>
@@ -111,13 +111,13 @@
             <configuration>
               <artifactItems>
                 <artifactItem>
-                  <groupId>dev.fxloop</groupId>
+                  <groupId>org.lab59.fxloop</groupId>
                   <artifactId>fxloop-agent</artifactId>
                   <version>${project.version}</version>
                   <destFileName>fxloop-agent.jar</destFileName>
                 </artifactItem>
               </artifactItems>
-              <outputDirectory>${project.build.outputDirectory}/dev/fxloop/server</outputDirectory>
+              <outputDirectory>${project.build.outputDirectory}/org/lab59/fxloop/server</outputDirectory>
               <overWriteSnapshots>true</overWriteSnapshots>
             </configuration>
           </execution>
@@ -131,63 +131,63 @@
             <configuration>
               <artifactItems>
                 <artifactItem>
-                  <groupId>dev.fxloop</groupId>
+                  <groupId>org.lab59.fxloop</groupId>
                   <artifactId>fxloop-parent</artifactId>
                   <version>${project.version}</version>
                   <type>pom</type>
                   <destFileName>fxloop-parent.pom</destFileName>
                 </artifactItem>
                 <artifactItem>
-                  <groupId>dev.fxloop</groupId>
+                  <groupId>org.lab59.fxloop</groupId>
                   <artifactId>fxloop-protocol</artifactId>
                   <version>${project.version}</version>
                   <type>pom</type>
                   <destFileName>fxloop-protocol.pom</destFileName>
                 </artifactItem>
                 <artifactItem>
-                  <groupId>dev.fxloop</groupId>
+                  <groupId>org.lab59.fxloop</groupId>
                   <artifactId>fxloop-protocol</artifactId>
                   <version>${project.version}</version>
                   <type>jar</type>
                   <destFileName>fxloop-protocol.jar</destFileName>
                 </artifactItem>
                 <artifactItem>
-                  <groupId>dev.fxloop</groupId>
+                  <groupId>org.lab59.fxloop</groupId>
                   <artifactId>fxloop-launch</artifactId>
                   <version>${project.version}</version>
                   <type>pom</type>
                   <destFileName>fxloop-launch.pom</destFileName>
                 </artifactItem>
                 <artifactItem>
-                  <groupId>dev.fxloop</groupId>
+                  <groupId>org.lab59.fxloop</groupId>
                   <artifactId>fxloop-launch</artifactId>
                   <version>${project.version}</version>
                   <type>jar</type>
                   <destFileName>fxloop-launch.jar</destFileName>
                 </artifactItem>
                 <artifactItem>
-                  <groupId>dev.fxloop</groupId>
+                  <groupId>org.lab59.fxloop</groupId>
                   <artifactId>fxloop-agent</artifactId>
                   <version>${project.version}</version>
                   <type>pom</type>
                   <destFileName>fxloop-agent.pom</destFileName>
                 </artifactItem>
                 <artifactItem>
-                  <groupId>dev.fxloop</groupId>
+                  <groupId>org.lab59.fxloop</groupId>
                   <artifactId>fxloop-maven-plugin</artifactId>
                   <version>${project.version}</version>
                   <type>pom</type>
                   <destFileName>fxloop-maven-plugin.pom</destFileName>
                 </artifactItem>
                 <artifactItem>
-                  <groupId>dev.fxloop</groupId>
+                  <groupId>org.lab59.fxloop</groupId>
                   <artifactId>fxloop-maven-plugin</artifactId>
                   <version>${project.version}</version>
                   <type>jar</type>
                   <destFileName>fxloop-maven-plugin.jar</destFileName>
                 </artifactItem>
               </artifactItems>
-              <outputDirectory>${project.build.outputDirectory}/dev/fxloop/server/seed</outputDirectory>
+              <outputDirectory>${project.build.outputDirectory}/org/lab59/fxloop/server/seed</outputDirectory>
               <overWriteSnapshots>true</overWriteSnapshots>
             </configuration>
           </execution>
@@ -197,7 +197,7 @@
            BUILD ORDER: the Gradle plugin is built by Gradle, so for it to be inside this jar run
              ./mvnw install -DskipTests && ./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin publishToMavenLocal
            and THEN build this module again. If the plugin jar is absent the build still succeeds; the server then
-           reports "lacks the bundled Gradle plugin" when asked to prepare a Gradle project that does not apply dev.fxloop. -->
+           reports "lacks the bundled Gradle plugin" when asked to prepare a Gradle project that does not apply org.lab59.fxloop. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-antrun-plugin</artifactId>
@@ -211,24 +211,24 @@
             </goals>
             <configuration>
               <target>
-                <mkdir dir="${project.build.outputDirectory}/dev/fxloop/server/gradle"/>
-                <copy file="${settings.localRepository}/dev/fxloop/fxloop-gradle-plugin/${project.version}/fxloop-gradle-plugin-${project.version}.jar"
-                      tofile="${project.build.outputDirectory}/dev/fxloop/server/gradle/fxloop-gradle-plugin.jar"
+                <mkdir dir="${project.build.outputDirectory}/org/lab59/fxloop/server/gradle"/>
+                <copy file="${settings.localRepository}/org/lab59/fxloop/fxloop-gradle-plugin/${project.version}/fxloop-gradle-plugin-${project.version}.jar"
+                      tofile="${project.build.outputDirectory}/org/lab59/fxloop/server/gradle/fxloop-gradle-plugin.jar"
                       failonerror="false" overwrite="true"/>
-                <!-- TEMPORARY (PRD 10 A-R5): the same plugin for the seed-local-repo command, so `id("dev.fxloop")` resolves
+                <!-- TEMPORARY (PRD 10 A-R5): the same plugin for the seed-local-repo command, so `id("org.lab59.fxloop")` resolves
                      from mavenLocal before the Plugin Portal: jar, POM, Gradle module metadata and the plugin marker POM. -->
-                <mkdir dir="${project.build.outputDirectory}/dev/fxloop/server/seed"/>
-                <copy file="${settings.localRepository}/dev/fxloop/fxloop-gradle-plugin/${project.version}/fxloop-gradle-plugin-${project.version}.jar"
-                      tofile="${project.build.outputDirectory}/dev/fxloop/server/seed/fxloop-gradle-plugin.jar"
+                <mkdir dir="${project.build.outputDirectory}/org/lab59/fxloop/server/seed"/>
+                <copy file="${settings.localRepository}/org/lab59/fxloop/fxloop-gradle-plugin/${project.version}/fxloop-gradle-plugin-${project.version}.jar"
+                      tofile="${project.build.outputDirectory}/org/lab59/fxloop/server/seed/fxloop-gradle-plugin.jar"
                       failonerror="false" overwrite="true"/>
-                <copy file="${settings.localRepository}/dev/fxloop/fxloop-gradle-plugin/${project.version}/fxloop-gradle-plugin-${project.version}.pom"
-                      tofile="${project.build.outputDirectory}/dev/fxloop/server/seed/fxloop-gradle-plugin.pom"
+                <copy file="${settings.localRepository}/org/lab59/fxloop/fxloop-gradle-plugin/${project.version}/fxloop-gradle-plugin-${project.version}.pom"
+                      tofile="${project.build.outputDirectory}/org/lab59/fxloop/server/seed/fxloop-gradle-plugin.pom"
                       failonerror="false" overwrite="true"/>
-                <copy file="${settings.localRepository}/dev/fxloop/fxloop-gradle-plugin/${project.version}/fxloop-gradle-plugin-${project.version}.module"
-                      tofile="${project.build.outputDirectory}/dev/fxloop/server/seed/fxloop-gradle-plugin.module"
+                <copy file="${settings.localRepository}/org/lab59/fxloop/fxloop-gradle-plugin/${project.version}/fxloop-gradle-plugin-${project.version}.module"
+                      tofile="${project.build.outputDirectory}/org/lab59/fxloop/server/seed/fxloop-gradle-plugin.module"
                       failonerror="false" overwrite="true"/>
-                <copy file="${settings.localRepository}/dev/fxloop/dev.fxloop.gradle.plugin/${project.version}/dev.fxloop.gradle.plugin-${project.version}.pom"
-                      tofile="${project.build.outputDirectory}/dev/fxloop/server/seed/dev.fxloop.gradle.plugin.pom"
+                <copy file="${settings.localRepository}/org/lab59/fxloop/org.lab59.fxloop.gradle.plugin/${project.version}/org.lab59.fxloop.gradle.plugin-${project.version}.pom"
+                      tofile="${project.build.outputDirectory}/org/lab59/fxloop/server/seed/org.lab59.fxloop.gradle.plugin.pom"
                       failonerror="false" overwrite="true"/>
               </target>
             </configuration>
@@ -266,7 +266,7 @@
         <configuration>
           <archive>
             <manifest>
-              <mainClass>dev.fxloop.server.MainKt</mainClass>
+              <mainClass>org.lab59.fxloop.server.MainKt</mainClass>
             </manifest>
             <manifestEntries>
               <Implementation-Version>${project.version}</Implementation-Version>
@@ -291,7 +291,7 @@
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>dev.fxloop.server.MainKt</mainClass>
+                  <mainClass>org.lab59.fxloop.server.MainKt</mainClass>
                 </transformer>
               </transformers>
               <filters>

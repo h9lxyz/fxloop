@@ -2,7 +2,7 @@
 
 Contacts demo app; the test target for FXLoop tooling. Ids and texts are load-bearing.
 
-Package `dev.fxloop.sample`: `Launcher` (classpath entry) -> `ContactApp` -> `main-view.fxml` + `MainController`.
+Package `org.lab59.fxloop.sample`: `Launcher` (classpath entry) -> `ContactApp` -> `main-view.fxml` + `MainController`.
 Stage title `FXLoop Sample — Contacts`, scene 640x480.
 
 ## Node ids

@@ -6,7 +6,7 @@ The answer key is [ISSUES.md](ISSUES.md). Don't give it to an agent during a dem
 
 It is a standalone Maven project (own wrapper, not a reactor module, no `fxloop-parent`) and is **not connected to
 FXLoop yet** (no `fxloop-maven-plugin`, no MCP config), so `fxloop-connect` (S0) is the first step of every demo. The
-entry point is a top-level `fun main` (`dev.fxloop.showcase.MainKt`).
+entry point is a top-level `fun main` (`org.lab59.fxloop.showcase.MainKt`).
 
     ./mvnw verify          # one headless smoke test (TestFX + Monocle)
     ./mvnw javafx:run      # plain run, no FXLoop

@@ -7,7 +7,7 @@ The build plugin and guard snippets are for step 6 only, when the developer asks
 
 ```xml
 <plugin>
-  <groupId>dev.fxloop</groupId>
+  <groupId>org.lab59.fxloop</groupId>
   <artifactId>fxloop-maven-plugin</artifactId>
   <version><version></version>
   <!-- only when the main class is ambiguous:
@@ -18,17 +18,17 @@ The build plugin and guard snippets are for step 6 only, when the developer asks
 Run `java -jar "$HOME/.fxloop/fxloop-server.jar" --seed-local-repo` once first; it writes the plugin into `~/.m2` until
 the artifacts are on Maven Central.
 
-No executions: the server runs `compile dev.fxloop:fxloop-maven-plugin:<version>:prepare` itself, which writes
+No executions: the server runs `compile org.lab59.fxloop:fxloop-maven-plugin:<version>:prepare` itself, which writes
 `target/fxloop/launch.json`. Other parameters: `launchMode` (`auto|classpath|modulepath`), `jvmArgs`, `appArgs`.
 
 ## Maven: production guard
 
-Verified: a clean build passes, a `compile`/`runtime`-scope `dev.fxloop` dependency fails `package`, `provided`
+Verified: a clean build passes, a `compile`/`runtime`-scope `org.lab59.fxloop` dependency fails `package`, `provided`
 passes.
 
 ```xml
 <plugin>
-  <!-- FXLoop guard: dev.fxloop artifacts may be provided/test only, never packaged -->
+  <!-- FXLoop guard: org.lab59.fxloop artifacts may be provided/test only, never packaged -->
   <groupId>org.apache.maven.plugins</groupId>
   <artifactId>maven-enforcer-plugin</artifactId>
   <version>3.6.2</version>
@@ -42,10 +42,10 @@ passes.
           <bannedDependencies>
             <searchTransitive>true</searchTransitive>
             <excludes>
-              <exclude>dev.fxloop:*:*:*:compile</exclude>
-              <exclude>dev.fxloop:*:*:*:runtime</exclude>
+              <exclude>org.lab59.fxloop:*:*:*:compile</exclude>
+              <exclude>org.lab59.fxloop:*:*:*:runtime</exclude>
             </excludes>
-            <message>FXLoop must not ship: use provided or test scope for dev.fxloop artifacts.</message>
+            <message>FXLoop must not ship: use provided or test scope for org.lab59.fxloop artifacts.</message>
           </bannedDependencies>
         </rules>
       </configuration>
@@ -62,7 +62,7 @@ entry, and keep their version.
 ```kotlin
 plugins {
     // ...existing plugins
-    id("dev.fxloop") version "<version>"
+    id("org.lab59.fxloop") version "<version>"
 }
 
 // only when the main class is ambiguous:
@@ -83,7 +83,7 @@ pluginManagement {
 
 dependencyResolutionManagement {
     repositories {
-        mavenLocal() // fxloopRun resolves dev.fxloop:fxloop-agent and fxloop-server:all from the project repositories
+        mavenLocal() // fxloopRun resolves org.lab59.fxloop:fxloop-agent and fxloop-server:all from the project repositories
         mavenCentral()
     }
 }
@@ -94,12 +94,12 @@ dependencyResolutionManagement {
 Verified, including with the configuration cache.
 
 ```kotlin
-// FXLoop guard: fail packaging if any dev.fxloop artifact reaches the runtime classpath (it must never ship)
+// FXLoop guard: fail packaging if any org.lab59.fxloop artifact reaches the runtime classpath (it must never ship)
 val fxloopGuard = tasks.register("fxloopGuard") {
     group = "verification"
-    description = "Fails if a dev.fxloop artifact is on the runtime classpath"
+    description = "Fails if a org.lab59.fxloop artifact is on the runtime classpath"
     val leaked = configurations.runtimeClasspath.map { c ->
-        c.incoming.resolutionResult.allComponents.map { it.id.displayName }.filter { it.startsWith("dev.fxloop:") }
+        c.incoming.resolutionResult.allComponents.map { it.id.displayName }.filter { it.startsWith("org.lab59.fxloop:") }
     }
     doLast { check(leaked.get().isEmpty()) { "FXLoop must not ship; use compileOnly/testImplementation: ${leaked.get()}" } }
 }
@@ -110,14 +110,14 @@ tasks.named("jar") { dependsOn(fxloopGuard) }
 
 ```groovy
 plugins {
-    id 'dev.fxloop' version '<version>'
+    id 'org.lab59.fxloop' version '<version>'
 }
 
 def fxloopGuard = tasks.register('fxloopGuard') {
     group = 'verification'
-    description = 'Fails if a dev.fxloop artifact is on the runtime classpath'
+    description = 'Fails if a org.lab59.fxloop artifact is on the runtime classpath'
     def leaked = configurations.runtimeClasspath.map { c ->
-        c.incoming.resolutionResult.allComponents.collect { it.id.displayName }.findAll { it.startsWith('dev.fxloop:') }
+        c.incoming.resolutionResult.allComponents.collect { it.id.displayName }.findAll { it.startsWith('org.lab59.fxloop:') }
     }
     doLast { if (!leaked.get().isEmpty()) throw new GradleException("FXLoop must not ship: ${leaked.get()}") }
 }

@@ -12,7 +12,7 @@ developer and **no change to the build files**: the server compiles the project 
 Re-running changes nothing already in place. Leave the edits unstaged (don't commit unless asked); show the diff at the
 end. The build plugin (step 6) is only for starting the app yourself: add it only when the developer asks for that.
 
-Version: `fxloop-version` in the frontmatter picks the server jar (step 0). `dev.fxloop` coordinates in build files use
+Version: `fxloop-version` in the frontmatter picks the server jar (step 0). `org.lab59.fxloop` coordinates in build files use
 the version the jar reports (first line of `--version`, what `--seed-local-repo` writes), even if this says `-SNAPSHOT`.
 Snippets: [references/snippets.md](references/snippets.md). MCP configs: [references/mcp-clients.md](references/mcp-clients.md).
 
@@ -103,7 +103,7 @@ optional line, not into the file: demo-data flags (`app-args=--seed`), `webview=
 | `STARTUP_TIMEOUT` | `start()` blocks (I/O, dialogs before show) or the main class never launches JavaFX. Read the log tail in the message |
 | `APP_EXITED` + exception | Read the 50 log lines in the error. It's often a resource path or a missing `--seed` precondition |
 | No display / `Unable to open DISPLAY` | `headless=xvfb` in `fxloop.properties` (step 2) |
-| `BUILD_FAILED`: plugin `dev.fxloop:...` not found | The build declares the FXLoop plugin at a version that isn't seeded: run `<java> -jar "$HOME/.fxloop/fxloop-server.jar" --seed-local-repo`, set the plugin version to what `--version` reports, add `mavenLocal()` to `pluginManagement` for Gradle, and retry |
+| `BUILD_FAILED`: plugin `org.lab59.fxloop:...` not found | The build declares the FXLoop plugin at a version that isn't seeded: run `<java> -jar "$HOME/.fxloop/fxloop-server.jar" --seed-local-repo`, set the plugin version to what `--version` reports, add `mavenLocal()` to `pluginManagement` for Gradle, and retry |
 
 ## 4. Leave a trail
 
@@ -134,16 +134,16 @@ optional line, not into the file: demo-data flags (`app-args=--seed`), `webview=
 `mvn fxloop:run` / `gradle fxloopRun` start the app with FXLoop and the dev bar, without an agent session; you connect
 to that window later. They need the build plugin, which isn't on Maven Central or the Plugin Portal yet.
 
-1. Run `<java> -jar <jar> --seed-local-repo`. It writes FXLoop's plugin, agent and server into `~/.m2/repository/dev/fxloop/`.
-2. **Maven:** add `dev.fxloop:fxloop-maven-plugin:<version>` under `<build><plugins>`, with no `<executions>`, so the
-   normal build is unaffected. **Gradle:** add `id("dev.fxloop") version "<version>"` to `plugins {}`, and `mavenLocal()`
+1. Run `<java> -jar <jar> --seed-local-repo`. It writes FXLoop's plugin, agent and server into `~/.m2/repository/org/lab59/fxloop/`.
+2. **Maven:** add `org.lab59.fxloop:fxloop-maven-plugin:<version>` under `<build><plugins>`, with no `<executions>`, so the
+   normal build is unaffected. **Gradle:** add `id("org.lab59.fxloop") version "<version>"` to `plugins {}`, and `mavenLocal()`
    to `pluginManagement` and the dependency repositories. Multi-module: only `<app>`'s build file. If
    `fxloop.properties` pins `main-class=`, pin it in the plugin config too (snippets file): the run goals don't read it.
-3. Add the guard (snippets file): the Maven enforcer rule (dev.fxloop artifacts may be `provided`/`test`, never
+3. Add the guard (snippets file): the Maven enforcer rule (org.lab59.fxloop artifacts may be `provided`/`test`, never
    packaged) or the Gradle `fxloopGuard` task wired before `jar`. Say in one line why: now that FXLoop is in the build,
    it fails packaging if a FXLoop artifact ever lands on the runtime classpath.
 4. Check that the plugin resolves: `./mvnw -q compile fxloop:prepare` or `./gradlew -q classes fxloopPrepare` in
    `<app>`. Add the "Run it yourself" and "Guard" lines of the template to the `## FXLoop` section.
 5. Report the build-file diff and the command (`./mvnw fxloop:run -Dfxloop.appArgs=<flags>` or `./gradlew fxloopRun`;
-   then Pick a node or open the CSS inspector, and ask). Undo: revert the hunks, delete `~/.m2/repository/dev/fxloop/`.
+   then Pick a node or open the CSS inspector, and ask). Undo: revert the hunks, delete `~/.m2/repository/org/lab59/fxloop/`.
    Teammates and CI need the seed line too until FXLoop is on Central; without it, a Gradle build fails outright.

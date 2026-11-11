@@ -24,7 +24,7 @@
 
 ## 2. G1 — Gradle parity
 
-- Plugin id `dev.fxloop` (Gradle Plugin Portal + Central). Task `fxloopPrepare` emits the **identical** `build/fxloop/launch.json` schema (single source of truth: schema lives in `fxloop-protocol`, both plugins depend on it; JSON-schema file published).
+- Plugin id `org.lab59.fxloop` (Gradle Plugin Portal + Central). Task `fxloopPrepare` emits the **identical** `build/fxloop/launch.json` schema (single source of truth: schema lives in `fxloop-protocol`, both plugins depend on it; JSON-schema file published).
 - Resolution order: plugin extension → `org.openjfx.javafxplugin` config → `application.mainClass` → manifest → candidate scan (mirrors Maven order).
 - Server autodetects build tool: `pom.xml` vs `build.gradle(.kts)`/`settings.gradle*`; prefers wrapper (`gradlew`/`mvnw`); override `FXLOOP_BUILD_CMD`.
 - Reload pipeline is build-tool-independent by design (in-process javac from `launch.json` classpath), so tiers 1–3 need **zero** Gradle-specific work; tier-4 restart runs `gradlew fxloopPrepare` + relaunch. Optional: document `gradle -t classes` continuous mode as an alternative compile source (watcher then treats `outputDir` changes as hotswap triggers — feature-flagged `FXLOOP_EXTERNAL_COMPILE=true`, also usable with IDE auto-build).

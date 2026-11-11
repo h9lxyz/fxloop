@@ -88,13 +88,13 @@ Nothing else changes. `SkillsLayoutTest` keeps tying the committed skill version
 
 ## 6. Known limitation
 
-A released server invokes `dev.fxloop:fxloop-maven-plugin:<v>:prepare`, which exists in no repository until Central
+A released server invokes `org.lab59.fxloop:fxloop-maven-plugin:<v>:prepare`, which exists in no repository until Central
 publishing. Until then the server's plugin-free prepare (PRD 11 §4.2) or a locally installed plugin is what makes a
 release jar launch an app.
 
 ## 7. Later: Maven Central and the Gradle Plugin Portal
 
-When the `dev.fxloop` namespace is verified and the secrets exist, a second workflow (or a `workflow_dispatch` input
+When the `org.lab59.fxloop` namespace is verified and the secrets exist, a second workflow (or a `workflow_dispatch` input
 on this one) runs `./mvnw -B -Prelease deploy` and `publishPlugins` with the same on-the-fly version. It is deliberately
 not part of the tag workflow, so a publishing problem can never block the GitHub release.
 

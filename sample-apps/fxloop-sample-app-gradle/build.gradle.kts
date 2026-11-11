@@ -2,10 +2,10 @@ plugins {
     java
     application
     id("org.openjfx.javafxplugin") version "0.1.0"
-    id("dev.fxloop") version "1.0.0-SNAPSHOT"
+    id("org.lab59.fxloop") version "1.0.0-SNAPSHOT"
 }
 
-group = "dev.fxloop"
+group = "org.lab59.fxloop"
 version = "1.0.0-SNAPSHOT"
 
 java {
@@ -24,7 +24,7 @@ javafx {
 }
 
 application {
-    mainClass = "dev.fxloop.sample.Launcher"
+    mainClass = "org.lab59.fxloop.sample.Launcher"
 }
 
 dependencies {
