@@ -2,7 +2,7 @@ package org.lab59.fxloop.server.loop
 
 import com.fasterxml.jackson.databind.node.ArrayNode
 import org.lab59.fxloop.protocol.Json
-import org.lab59.fxloop.protocol.LaunchDescriptor
+import org.lab59.fxloop.launch.LaunchDescriptor
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path

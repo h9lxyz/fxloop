@@ -11,7 +11,7 @@ val fxloopVersion = (findProperty("fxloopVersion") ?: "1.0.0-SNAPSHOT").toString
 version = fxloopVersion
 
 repositories {
-    // fxloop-protocol and fxloop-launch are installed by the Maven build (`./mvnw install`); not yet on Central.
+    // fxloop-launch (and fxloop-protocol, which it uses) are installed by the Maven build (`./mvnw install`); not yet on Central.
     mavenLocal()
     mavenCentral()
 }
@@ -51,7 +51,6 @@ kotlin {
 }
 
 dependencies {
-    implementation("org.lab59.fxloop:fxloop-protocol:$fxloopVersion")
     implementation("org.lab59.fxloop:fxloop-launch:$fxloopVersion")
 
     testImplementation(gradleTestKit())

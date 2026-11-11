@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import org.lab59.fxloop.protocol.Fcp
 import org.lab59.fxloop.protocol.FcpException
 import org.lab59.fxloop.protocol.Json
-import org.lab59.fxloop.protocol.LaunchDescriptor
+import org.lab59.fxloop.launch.LaunchDescriptor
 import org.lab59.fxloop.server.app.AppSession
 import org.lab59.fxloop.server.app.LiveState
 import org.lab59.fxloop.server.mcp.ToolException

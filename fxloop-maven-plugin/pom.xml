@@ -17,10 +17,6 @@
   <dependencies>
     <dependency>
       <groupId>org.lab59.fxloop</groupId>
-      <artifactId>fxloop-protocol</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.lab59.fxloop</groupId>
       <artifactId>fxloop-launch</artifactId>
     </dependency>
     <dependency>

@@ -3,8 +3,8 @@ package org.lab59.fxloop.server.app
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.ObjectMapper
-import org.lab59.fxloop.launch.MainClassResolver
-import org.lab59.fxloop.protocol.LaunchDescriptor
+import org.lab59.fxloop.launch.LaunchDescriptor
+import org.lab59.fxloop.protocol.Json
 import org.lab59.fxloop.server.mcp.ToolException
 import org.objectweb.asm.ClassReader
 import java.io.ByteArrayInputStream
@@ -44,7 +44,7 @@ object GradlePrepare {
 
     /** One class per dependency, to find where it was loaded from: the shaded jar, or separate jars and class folders. */
     private val RUNTIME_ROOTS = listOf(
-        LaunchDescriptor::class.java, MainClassResolver::class.java, ClassReader::class.java, Unit::class.java,
+        Json::class.java, LaunchDescriptor::class.java, ClassReader::class.java, Unit::class.java,
         JsonProperty::class.java, JsonParser::class.java, ObjectMapper::class.java,
     )
 

@@ -2,7 +2,7 @@ package org.lab59.fxloop.gradle
 
 import org.lab59.fxloop.launch.JavaFxModules
 import org.lab59.fxloop.launch.LaunchMode
-import org.lab59.fxloop.protocol.LaunchDescriptor
+import org.lab59.fxloop.launch.LaunchDescriptor
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test

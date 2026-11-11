@@ -6,7 +6,7 @@ import org.lab59.fxloop.protocol.Fcp
 import org.lab59.fxloop.protocol.FcpException
 import org.lab59.fxloop.protocol.Handshake
 import org.lab59.fxloop.protocol.Json
-import org.lab59.fxloop.protocol.LaunchDescriptor
+import org.lab59.fxloop.launch.LaunchDescriptor
 import org.lab59.fxloop.protocol.OwnerOnly
 import org.lab59.fxloop.protocol.Tokens
 import org.lab59.fxloop.server.Config

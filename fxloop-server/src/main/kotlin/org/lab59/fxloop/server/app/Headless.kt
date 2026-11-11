@@ -1,6 +1,6 @@
 package org.lab59.fxloop.server.app
 
-import org.lab59.fxloop.protocol.LaunchDescriptor
+import org.lab59.fxloop.launch.LaunchDescriptor
 import org.lab59.fxloop.server.Config
 import org.lab59.fxloop.server.mcp.ToolException
 import java.nio.file.Files

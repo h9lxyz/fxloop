@@ -1,6 +1,5 @@
 package org.lab59.fxloop.launch
 
-import org.lab59.fxloop.protocol.LaunchDescriptor
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files

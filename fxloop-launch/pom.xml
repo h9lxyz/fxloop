@@ -11,7 +11,7 @@
 
   <artifactId>fxloop-launch</artifactId>
   <name>FXLoop :: Launch</name>
-  <description>Build-tool-independent launch detection (main class, JavaFX modules, launch mode) shared by the server and both build plugins.</description>
+  <description>Build-tool-independent launch detection (main class, JavaFX modules, launch mode) and the launch.json descriptor, shared by the server and both build plugins.</description>
 
   <properties>
     <asm.version>9.11.1</asm.version>
@@ -25,6 +25,10 @@
     <dependency>
       <groupId>org.lab59.fxloop</groupId>
       <artifactId>fxloop-protocol</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
     </dependency>
     <dependency>
       <groupId>org.ow2.asm</groupId>

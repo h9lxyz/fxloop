@@ -56,17 +56,6 @@ class FcpCodecTest {
     }
 
     @Test
-    fun `launch descriptor round trips and tolerates missing arrays`(@TempDir dir: Path) {
-        val d = LaunchDescriptor.builder().buildTool("maven").mainClass("a.B").classpath(listOf("/x.jar"))
-            .workingDir("/w").outputDir("/w/target/classes").build()
-        val file = dir.resolve("launch.json")
-        d.writeTo(file)
-        assertThat(LaunchDescriptor.readFrom(file)).isEqualTo(d)
-        Files.writeString(file, """{"buildTool":"gradle","mainClass":"a.B","workingDir":"/w","outputDir":"/o"}""")
-        assertThat(LaunchDescriptor.readFrom(file).classpath).isEmpty()
-    }
-
-    @Test
     fun `tokens compare and redact`() {
         val t = Tokens.generate()
         assertThat(t).hasSize(32)

@@ -5,7 +5,7 @@ import org.lab59.fxloop.launch.LaunchAssembler
 import org.lab59.fxloop.launch.LaunchAssembly
 import org.lab59.fxloop.launch.MainClassException
 import org.lab59.fxloop.launch.MainClassStep
-import org.lab59.fxloop.protocol.LaunchDescriptor
+import org.lab59.fxloop.launch.LaunchDescriptor
 import org.lab59.fxloop.server.mcp.ToolException
 import java.io.File
 import java.nio.file.Files

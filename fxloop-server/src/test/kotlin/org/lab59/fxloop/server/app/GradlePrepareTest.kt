@@ -53,7 +53,8 @@ class GradlePrepareTest {
         val jar = GradlePrepare.runtimeJar()
         val names = ZipInputStream(ByteArrayInputStream(jar)).use { z -> generateSequence { z.nextEntry?.name }.toList() }
         assertThat(names).contains(
-            "org/lab59/fxloop/protocol/LaunchDescriptor.class", "org/lab59/fxloop/launch/MainClassResolver.class",
+            "org/lab59/fxloop/protocol/Json.class", "org/lab59/fxloop/launch/LaunchDescriptor.class",
+            "org/lab59/fxloop/launch/MainClassResolver.class", "org/lab59/fxloop/launch/launch.schema.json",
             "org/objectweb/asm/ClassReader.class", "kotlin/Unit.class",
             "com/fasterxml/jackson/databind/ObjectMapper.class", "com/fasterxml/jackson/core/JsonParser.class",
             "com/fasterxml/jackson/annotation/JsonProperty.class",

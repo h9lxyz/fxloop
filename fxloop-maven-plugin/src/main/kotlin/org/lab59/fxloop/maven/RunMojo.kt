@@ -1,6 +1,6 @@
 package org.lab59.fxloop.maven
 
-import org.lab59.fxloop.protocol.LaunchDescriptor
+import org.lab59.fxloop.launch.LaunchDescriptor
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path

@@ -2,7 +2,7 @@ package org.lab59.fxloop.acceptance
 
 import org.lab59.fxloop.acceptance.Harness.Companion.args
 import org.lab59.fxloop.protocol.Json
-import org.lab59.fxloop.protocol.LaunchDescriptor
+import org.lab59.fxloop.launch.LaunchDescriptor
 import org.lab59.fxloop.server.app.AppSession
 import org.lab59.fxloop.server.app.ProcessTree
 import org.assertj.core.api.Assertions.assertThat

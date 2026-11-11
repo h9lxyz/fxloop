@@ -45,8 +45,8 @@ with the tag as its version. It uploads a signed deployment under the `org.lab59
 |---|---|
 | `fxloop-server` | The stdio MCP server (shaded `-all.jar`): builds, launches, supervises, reloads |
 | `fxloop-agent` | The in-JVM agent: scene graph, input, reload, FXML registry |
-| `fxloop-protocol` | The protocol between server and agent, and the `launch.json` schema |
-| `fxloop-launch` | Main-class and launch-mode detection shared by the server and both build plugins |
+| `fxloop-protocol` | The protocol between server and agent |
+| `fxloop-launch` | The `launch.json` descriptor and schema, and the launch detection that builds it, shared by the server and both build plugins |
 | `fxloop-dev` | Optional dev dependency for IDE-launched apps ([decision](docs/design/decisions/fxml-load-registry.md)) |
 | `fxloop-maven-plugin` | `fxloop:run` and `fxloop:prepare` ([README](fxloop-maven-plugin/README.md)) |
 | `fxloop-gradle-plugin` | Gradle plugin `org.lab59.fxloop`, a standalone Gradle build ([README](fxloop-gradle-plugin/README.md)) |

@@ -1,15 +1,16 @@
-package org.lab59.fxloop.protocol
+package org.lab59.fxloop.launch
 
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
+import org.lab59.fxloop.protocol.Json
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 
 /**
  * `launch.json` emitted by `fxloop:prepare` (Maven) and `fxloopPrepare` (Gradle). Single source of truth for both
- * build plugins; JSON schema published as `org/lab59/fxloop/protocol/launch.schema.json`.
+ * build plugins; JSON schema published as `org/lab59/fxloop/launch/launch.schema.json`.
  *
  * @property buildTool `maven` or `gradle`
  * @property mainModule main module name when the app itself is modular, else `null`
