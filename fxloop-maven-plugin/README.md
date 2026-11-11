@@ -1,7 +1,7 @@
 # fxloop-maven-plugin
 
 Provides `fxloop:run`, which runs your app with the FXLoop agent and dev bar so you can explore it and bring in an
-agent whenever you want, and `fxloop:prepare`, which writes `target/fxloop/launch.json` (a `LaunchDescriptor` from `fxloop-protocol`)
+agent whenever you want, and `fxloop:prepare`, which writes `target/fxloop/launch.json` (a `LaunchDescriptor` from `fxloop-launch`)
 so the FXLoop server can launch the app without any manual configuration. Setup (plugin, `pluginGroup`, production
 guard): [INSTALL.md](../INSTALL.md#add-the-build-plugin-optional). `prepare` has no default phase; invoke it explicitly
 after `compile`:
