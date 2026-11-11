@@ -149,4 +149,23 @@ class MavenPrepareTest {
         assertThat(bt.pluginUnresolvable("[ERROR] Failed to execute goal dev.fxloop:fxloop-maven-plugin:1.0:prepare: Cannot determine the main class")).isFalse()
         assertThat(bt.pluginUnresolvable("[ERROR] COMPILATION ERROR")).isFalse()
     }
+
+    @Test
+    fun buildGetsTheServerJdkOnlyWhenJavaHomeIsUnset() {
+        val jdk = Path.of("/jdks/21").toString()
+        val bin = Path.of(jdk, "bin").toString()
+        val sep = java.io.File.pathSeparator
+
+        val bare = mutableMapOf("Path" to "/usr/bin")
+        BuildTool.withJdk(bare, jdk)
+        assertThat(bare).containsEntry("JAVA_HOME", jdk).containsEntry("Path", "$bin$sep/usr/bin").doesNotContainKey("PATH")
+
+        val noPath = mutableMapOf<String, String>()
+        BuildTool.withJdk(noPath, jdk)
+        assertThat(noPath).containsEntry("JAVA_HOME", jdk).containsEntry("PATH", bin)
+
+        val set = mutableMapOf("JAVA_HOME" to "/opt/jdk17", "PATH" to "/usr/bin")
+        BuildTool.withJdk(set, jdk)
+        assertThat(set).isEqualTo(mapOf("JAVA_HOME" to "/opt/jdk17", "PATH" to "/usr/bin"))
+    }
 }

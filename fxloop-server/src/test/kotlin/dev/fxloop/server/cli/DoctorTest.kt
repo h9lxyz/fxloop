@@ -12,7 +12,7 @@ import javax.tools.ToolProvider
 /** PRD 11 §6 / A-O3: `doctor` on temp project fixtures. Never touches the real machine except the fixtures. */
 class DoctorTest {
     private val jdk21 = JdkInfo("21.0.5", 21, "Eclipse Adoptium", "OpenJDK Runtime Environment", "OpenJDK 64-Bit Server VM",
-        "/opt/jdk", hasCompiler = true, javaHomeEnv = null, pathJavaHome = null)
+        "/opt/jdk", hasCompiler = true, javaHomeEnv = null, pathJavaHome = "/opt/jdk")
 
     private fun env(
         dir: Path, os: String = "Linux", vars: Map<String, String> = mapOf("DISPLAY" to ":0"),
@@ -100,6 +100,30 @@ class DoctorTest {
         assertThat(mismatch.status).isEqualTo(DoctorStatus.warn)
         assertThat(mismatch.summary).contains("/nonexistent/a").contains("/nonexistent/b")
         assertThat(Doctor.jdkCheck(jdk21.copy(vendor = "JetBrains s.r.o.")).summary).contains("JetBrains Runtime")
+        assertThat(Doctor.jdkCheck(jdk21).summary).endsWith("; JAVA_HOME unset, builds use this JDK")
+        assertThat(Doctor.jdkCheck(jdk21.copy(javaHomeEnv = "/opt/jdk")).summary).doesNotContain("JAVA_HOME")
+    }
+
+    @Test
+    fun `snippets use the absolute java when the java on PATH is another JDK or missing`(@TempDir dir: Path) {
+        pom(dir)
+        val home = dir.resolve("home")
+        val jar = home.resolve(".fxloop/fxloop-server-all.jar")
+        val jdk = home.resolve(".local/share/mise/installs/java/21").toString()
+        fun snips(pathJavaHome: String?): Map<String, String> {
+            val e = env(dir, jdk = jdk21.copy(runningHome = jdk, pathJavaHome = pathJavaHome), jar = jar)
+            @Suppress("UNCHECKED_CAST") val l = run(dir, e, "all")["mcp-client"]!!.data!!["snippets"] as List<Map<String, String>>
+            return l.associate { it["client"]!! to it["content"]!! }
+        }
+        assertThat(snips(jdk).values).allMatch { "\"java\"" in it }
+        val abs = Path.of(jdk, "bin", "java").toString()
+        for (s in listOf(snips(null), snips("/usr/lib/jvm/java-17"))) {
+            assertThat(s["claude-code"]).contains("\"command\": \"\${HOME}/.local/share/mise/installs/java/21/bin/java\"")
+            assertThat(s["cursor"]).contains("\"command\": \"\${userHome}/.local/share/mise/installs/java/21/bin/java\"")
+            assertThat(s["vscode"]).contains("\"command\": \"\${userHome}/.local/share/mise/installs/java/21/bin/java\"")
+            assertThat(s["gemini"]).contains("\"command\": \"${json(Path.of(abs))}\"")
+            assertThat(s["codex"]).contains("command = \"${json(Path.of(abs))}\"")
+        }
     }
 
     @Test
