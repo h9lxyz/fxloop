@@ -17,7 +17,7 @@ class AgentRuntime private constructor(
 ) {
     val startedAt: Long = System.currentTimeMillis()
     val errors: ErrorRing = ErrorRing(200)
-    val logs: LogCapture = LogCapture(2000)
+    val logs: LogCapture = LogCapture()
     val handles: HandleTable = HandleTable()
     val fxml: FxmlRegistry = FxmlRegistry()
     val mounts: MountRegistry = MountRegistry()

@@ -112,7 +112,4 @@ object ProcessTree {
     }
 
     private const val ROOT_CLEANUP_MS = 3000L
-
-    /** Number of live processes still tracked (for leak assertions in tests). */
-    fun trackedAlive(): Int = tracked.count { it.isAlive }
 }

@@ -82,7 +82,7 @@ data class Config(
                 mainClass = str("FXLOOP_MAIN_CLASS"),
                 jvmArgs = split(v["FXLOOP_JVM_ARGS"]),
                 appArgs = split(v["FXLOOP_APP_ARGS"]),
-                buildCmd = str("FXLOOP_BUILD_CMD") ?: str("FXLOOP_MVN_CMD"),
+                buildCmd = str("FXLOOP_BUILD_CMD"),
                 buildTool = str("FXLOOP_BUILD_TOOL"),
                 prepare = !"none".equals(str("FXLOOP_PREPARE"), ignoreCase = true),
                 prepareRoute = str("FXLOOP_PREPARE_ROUTE")?.lowercase() ?: "auto",

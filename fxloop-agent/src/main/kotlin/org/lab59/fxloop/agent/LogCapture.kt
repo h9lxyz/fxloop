@@ -1,10 +1,8 @@
 package org.lab59.fxloop.agent
 
-import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import org.lab59.fxloop.protocol.Json
 import java.text.MessageFormat
-import java.util.ArrayDeque
 import java.util.logging.Handler
 import java.util.logging.LogRecord
 import java.util.logging.Logger
@@ -14,8 +12,7 @@ import java.util.logging.Logger
  * `System.Logger` output and SLF4J when bridged via `slf4j-jdk14`/`slf4j-jdk-platform-logging`.
  * Other SLF4J backends remain visible through process stdout/stderr capture.
  */
-class LogCapture internal constructor(private val capacity: Int) {
-    private val ring = ArrayDeque<ObjectNode>()
+class LogCapture internal constructor() {
     private var seq = 0L
 
     @Volatile
@@ -58,10 +55,10 @@ class LogCapture internal constructor(private val capacity: Int) {
 
     /**
      * Called on arbitrary application threads. Notifies under the lock so events leave in seq order; safe because
-     * the listener only enqueues (never blocks). The listener gets a private copy.
+     * the listener only enqueues (never blocks).
      */
     internal fun add(level: String, logger: String?, message: String?, thrown: Throwable?) {
-        synchronized(this) { listener(addLocked(level, logger, message, thrown).deepCopy()) }
+        synchronized(this) { listener(addLocked(level, logger, message, thrown)) }
     }
 
     private fun addLocked(level: String, logger: String?, message: String?, thrown: Throwable?): ObjectNode {
@@ -74,19 +71,6 @@ class LogCapture internal constructor(private val capacity: Int) {
         if (thrown != null) {
             e.put("thrown", thrown.toString())
         }
-        ring.addLast(e)
-        while (ring.size > capacity) {
-            ring.removeFirst()
-        }
         return e
-    }
-
-    @Synchronized
-    internal fun since(sinceSeq: Long): ArrayNode {
-        val out = Json.array()
-        for (e in ring) {
-            if (e.get("seq").asLong() > sinceSeq) out.add(e.deepCopy())
-        }
-        return out
     }
 }

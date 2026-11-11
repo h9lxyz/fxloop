@@ -239,7 +239,6 @@ class AgentFxTest {
     @Test
     fun dispatcherRoundTrip() {
         val d = Dispatcher(rt)
-        assertThat(d.dispatch(Fcp.Method.PING, null).has("pong")).isTrue()
         val found = d.dispatch(Fcp.Method.FIND_NODES, params { put("query", "#ok") })
         assertThat(found.path("total").asInt()).isEqualTo(1)
         val handle = found.path("items").get(0).path("h").asInt()

@@ -22,7 +22,6 @@ object Fcp {
          * client (an agent session) is connected, and is itself replaced by any non-yielding client.
          */
         const val HELLO = "hello"
-        const val PING = "ping"
         const val STATUS = "status"
         const val GET_SCENE_GRAPH = "getSceneGraph"
         const val FIND_NODES = "findNodes"
@@ -33,7 +32,6 @@ object Fcp {
         const val SET_PROPERTY = "setProperty"
         const val SCREENSHOT = "screenshot"
         const val GET_UI_ERRORS = "getUiErrors"
-        const val GET_APP_LOGS = "getAppLogs"
         const val SNAPSHOT_STATE = "snapshotState"
         const val PATH_VISIBLE = "pathVisible"
         const val DESCRIBE_AT = "describeAt"
@@ -147,7 +145,6 @@ object Fcp {
         const val COERCION_FAILED = "COERCION_FAILED"
         const val UNSUPPORTED_TARGET = "UNSUPPORTED_TARGET"
         const val REDEFINE_REJECTED = "REDEFINE_REJECTED"
-        const val FXML_NOT_REGISTERED = "FXML_NOT_REGISTERED"
         const val PICK_STALE = "PICK_STALE"
         const val DISABLED = "DISABLED"
         const val INTERNAL = "INTERNAL"

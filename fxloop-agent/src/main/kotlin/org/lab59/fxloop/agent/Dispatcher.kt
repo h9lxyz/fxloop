@@ -13,7 +13,6 @@ internal class Dispatcher(private val rt: AgentRuntime) {
     private val handlers = HashMap<String, (ObjectNode) -> JsonNode>()
 
     init {
-        handlers[Method.PING] = { Json.obj().put("pong", System.currentTimeMillis()) }
         handlers[Method.STATUS] = { status() }
         handlers[Method.GET_SCENE_GRAPH] = { sceneGraph(it) }
         handlers[Method.FIND_NODES] = { p -> Fx.call { Finder.find(p) } }
@@ -27,9 +26,6 @@ internal class Dispatcher(private val rt: AgentRuntime) {
         handlers[Method.CAPTURE_STATES] = Snapshots::captureStates
         handlers[Method.GET_UI_ERRORS] = { p ->
             Json.obj().setNode("errors", rt.errors.since(p.path("sinceSeq").asLong(0)))
-        }
-        handlers[Method.GET_APP_LOGS] = { p ->
-            Json.obj().put("installed", rt.logs.installed).setNode("records", rt.logs.since(p.path("sinceSeq").asLong(0)))
         }
         handlers[Method.SNAPSHOT_STATE] = { p ->
             if (p.path("settleMs").asLong(0) > 0) {

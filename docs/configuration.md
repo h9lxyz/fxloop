@@ -17,7 +17,7 @@ headless=xvfb
 | `FXLOOP_MAIN_CLASS` / `--main-class` | auto-detected | Main class (optionally `module/fqcn`). Needed only when detection finds several candidates. |
 | `FXLOOP_JVM_ARGS` / `--jvm-args` | none | Extra JVM args for the app; whitespace-split, double quotes group. Appended after the plugin's `jvmArgs`. |
 | `FXLOOP_APP_ARGS` / `--app-args` | none | Extra program args (e.g. `--seed`). Same splitting. |
-| `FXLOOP_BUILD_CMD` / `--build-cmd` | auto (wrapper preferred) | Full build command override, whitespace-split (e.g. `./mvnw`, `gradle`). Legacy alias: `FXLOOP_MVN_CMD`. |
+| `FXLOOP_BUILD_CMD` / `--build-cmd` | auto (wrapper preferred) | Full build command override, whitespace-split (e.g. `./mvnw`, `gradle`). |
 | `FXLOOP_BUILD_TOOL` / `--build-tool` | auto-detected | `maven` or `gradle` (anything other than `gradle` means Maven). |
 | `FXLOOP_PREPARE` / `--prepare` | on | `none` skips the build and reads an existing `launch.json`. |
 | `FXLOOP_PREPARE_ROUTE` / `--prepare-route` | `auto` | `plugin`, `server` or `auto` (plugin when it resolves, else server-side prepare). |

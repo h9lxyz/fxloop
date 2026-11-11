@@ -18,7 +18,7 @@ class FcpCodecTest {
     fun `round trips request, response, error and event`() {
         val out = ByteArrayOutputStream()
         val writer = FcpCodec(InputStream.nullInputStream(), out)
-        writer.write(FcpFrame.request(1, Fcp.Method.PING, Json.obj { put("x", 1) }))
+        writer.write(FcpFrame.request(1, Fcp.Method.STATUS, Json.obj { put("x", 1) }))
         writer.write(FcpFrame.result(1, Json.obj { put("ok", true) }))
         writer.write(FcpFrame.error(2, FcpError(Fcp.Error.FX_TIMEOUT, "blocked")))
         writer.write(FcpFrame.event(Fcp.Event.UI_ERROR, Json.obj { put("seq", 3) }))

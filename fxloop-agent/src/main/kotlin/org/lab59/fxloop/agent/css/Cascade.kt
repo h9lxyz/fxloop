@@ -117,8 +117,6 @@ internal class Cascade(val node: Node, private val engine: Engine) {
         return list.sortedWith(PRECEDENCE)
     }
 
-    fun ancestorCascade(n: Node): Cascade = engine.cascade(n)
-
     companion object {
         const val INLINE_ORDINAL = Long.MAX_VALUE / 2
 
