@@ -1,0 +1,66 @@
+name: Publish
+
+# Publishes an existing release tag to Maven Central and the Gradle Plugin Portal. Started by hand, and separate from
+# release.yml on purpose: a publishing problem can never block the GitHub release.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to publish, for example 0.0.2"
+        required: true
+      gradle_plugin:
+        description: "Also publish the Gradle plugin to the Plugin Portal"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.version }}
+      # Writes ~/.m2/settings.xml with the `central` server and imports the signing key.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+          server-id: central
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Set the version (in this checkout only)
+        run: ./mvnw -B -q versions:set -DnewVersion="$VERSION" -DgenerateBackupPoms=false
+
+      # Same order as release.yml: the server jar bundles the Gradle plugin, which Gradle builds from the Maven libs.
+      - name: Build order (Maven libs -> Gradle plugin)
+        run: |
+          ./mvnw -B -DskipTests install
+          ./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin -PfxloopVersion="$VERSION" publishToMavenLocal
+
+      # Uploads and validates the deployment. It is not released automatically: publish it at
+      # https://central.sonatype.com/publishing/deployments once it shows as validated.
+      - name: Deploy to Maven Central
+        run: ./mvnw -B -Prelease -DskipTests deploy
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      # The plugin depends on fxloop-protocol and fxloop-launch from Central: publish the Central deployment first.
+      - name: Publish the Gradle plugin
+        if: ${{ inputs.gradle_plugin }}
+        run: ./fxloop-gradle-plugin/gradlew -p fxloop-gradle-plugin -PfxloopVersion="$VERSION" publishPlugins
+        env:
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
