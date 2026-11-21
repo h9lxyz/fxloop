@@ -7,12 +7,13 @@ import javafx.scene.control.Label
 import javafx.scene.layout.Pane
 import javafx.scene.layout.Region
 import javafx.stage.Popup
+import javafx.stage.Stage
 import javafx.stage.Window
 
 /**
  * Node highlight for the CSS inspector (PRD 08 §4): a [NodeFrame] plus a label, drawn on request from the browser.
  * This is the transient preview: the held selection, `hold` and `release` here, is [PickMode]'s outline, as is pick
- * mode itself (PRD 07 §8). The popups are [Overlays] so no tool sees them. FX thread only.
+ * mode itself (PRD 07 §8). The overlays are [Overlays] so no tool sees them. FX thread only.
  */
 internal object Overlay {
     const val OVERLAY_KEY = Overlays.KEY
@@ -20,7 +21,7 @@ internal object Overlay {
 
     private val preview by lazy { NodeFrame(COLOR, ::describe) }
     private const val MAX_HANDLES = 50
-    private val multi = LinkedHashMap<Window, Popup>()
+    private val multi = LinkedHashMap<Window, Window>()
 
     internal fun isShown(): Boolean = preview.isShown() || multi.values.any { it.isShowing }
 
@@ -67,9 +68,12 @@ internal object Overlay {
         val byWindow = LinkedHashMap<Window, MutableList<Pair<Int, Node>>>()
         for (item in items) byWindow.getOrPut(item.second.scene.window) { ArrayList() }.add(item)
         for ((win, list) in byWindow) {
-            val popup = newPopup(Pane().apply { isMouseTransparent = true })
-            val pane = popup.content[0] as Pane
-            pane.setPrefSize(Math.max(win.width, 1.0), Math.max(win.height, 1.0))
+            val w = Math.max(win.width, 1.0)
+            val h = Math.max(win.height, 1.0)
+            val pane = Pane().apply {
+                isMouseTransparent = true
+                setPrefSize(w, h)
+            }
             for ((i, n) in list) {
                 val b = n.localToScreen(n.boundsInLocal)
                 val r = Region().apply {
@@ -91,8 +95,18 @@ internal object Overlay {
                     })
                 }
             }
-            popup.show(win, win.x, win.y)
-            multi[win] = popup
+            val overlay: Window = if (Overlays.OWNED_STAGE && win is Stage) {
+                Overlays.ownedStage(win, "FXLoop highlight", pane).apply {
+                    x = win.x
+                    y = win.y
+                    width = w
+                    height = h
+                    show()
+                }
+            } else {
+                newPopup(pane).apply { show(win, win.x, win.y) }
+            }
+            multi[win] = overlay
         }
         return out.put("shown", items.size).put("notShown", notShown)
     }

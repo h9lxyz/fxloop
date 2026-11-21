@@ -327,6 +327,14 @@ class DevBarFxTest {
     }
 
     @Test
+    fun usesOwnedStageOnLinuxAndWindowsOnly() {
+        assertThat(Overlays.usesOwnedStage("Linux")).isTrue()
+        assertThat(Overlays.usesOwnedStage("Windows 11")).isTrue()
+        assertThat(Overlays.usesOwnedStage("Windows 10")).isTrue()
+        assertThat(Overlays.usesOwnedStage("Mac OS X")).isFalse()
+    }
+
+    @Test
     fun disconnectReleasesTheLock() {
         fx { rt.bar.applyState(state("on") { putObject("lock").put("remainingMs", 10_000) }) }
         rt.onDisconnected()

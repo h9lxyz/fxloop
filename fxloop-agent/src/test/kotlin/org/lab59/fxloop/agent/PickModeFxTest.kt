@@ -18,6 +18,7 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.VBox
+import javafx.stage.Popup
 import javafx.stage.Stage
 import javafx.stage.Window
 import org.assertj.core.api.Assertions.assertThat
@@ -160,16 +161,21 @@ class PickModeFxTest {
         val rects = fx { rt.pick.outlineRects() }
         val b = fx { button.localToScreen(button.boundsInLocal)!! }
         val t = 2.0
-        assertThat(rects.take(4)).containsExactlyElementsOf(
-            listOf(
-                Rectangle2D(b.minX - t, b.minY - t, b.width + 2 * t, t),
-                Rectangle2D(b.minX - t, b.maxY, b.width + 2 * t, t),
-                Rectangle2D(b.minX - t, b.minY, t, b.height),
-                Rectangle2D(b.maxX, b.minY, t, b.height),
-            ),
+        val expected = listOf(
+            Rectangle2D(b.minX - t, b.minY - t, b.width + 2 * t, t),
+            Rectangle2D(b.minX - t, b.maxY, b.width + 2 * t, t),
+            Rectangle2D(b.minX - t, b.minY, t, b.height),
+            Rectangle2D(b.maxX, b.minY, t, b.height),
         )
+        assertThat(rects).hasSize(5)
+        for ((actual, want) in rects.take(4).zip(expected)) {
+            assertThat(actual.minX).isCloseTo(want.minX, within(1.0))
+            assertThat(actual.minY).isCloseTo(want.minY, within(1.0))
+            assertThat(actual.width).isCloseTo(want.width, within(1.0))
+            assertThat(actual.height).isCloseTo(want.height, within(1.0))
+        }
         // the label sits just above or below the node, never over it
-        assertThat(rects[4].minX).isEqualTo(b.minX - t)
+        assertThat(rects[4].minX).isCloseTo(b.minX - t, within(1.0))
         assertThat(rects[4].maxY <= b.minY || rects[4].minY >= b.maxY).isTrue()
         fx { rt.pick.toggle(null) }
         assertThat(fx { rt.pick.outlineRects() }).isEmpty()
@@ -180,9 +186,9 @@ class PickModeFxTest {
         val rects = fx { rt.pick.outlineRects() }
         val b = fx { n.localToScreen(n.boundsInLocal)!! }
         assertThat(rects).hasSize(5)
-        assertThat(rects[0].minX).isEqualTo(b.minX - 2.0)
-        assertThat(rects[0].minY).isEqualTo(b.minY - 2.0)
-        assertThat(rects[0].width).isCloseTo(b.width + 4.0, within(1.0)) // popups take whole pixels
+        assertThat(rects[0].minX).isCloseTo(b.minX - 2.0, within(1.0))
+        assertThat(rects[0].minY).isCloseTo(b.minY - 2.0, within(1.0))
+        assertThat(rects[0].width).isCloseTo(b.width + 4.0, within(1.0)) // windows take whole pixels
     }
 
     @Test
@@ -275,6 +281,27 @@ class PickModeFxTest {
         assertOutlineOn(other)
         fx { Event.fireEvent(box, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ESCAPE, false, false, false, false)) }
         assertOutlineOn(button)
+    }
+
+    @Test
+    fun frameUsesOwnedStagesWhenEnabledAndPopupsOtherwise() {
+        val owned = NodeFrame("rgba(255,64,129,0.95)", { it.javaClass.simpleName }, ownedStage = true)
+        try {
+            fx { owned.show(stage, button) }
+            val stages = fx { Window.getWindows().filter { Overlays.isOverlay(it) && it.isShowing } }
+            assertThat(stages).hasSize(5).allMatch { it is Stage && it.owner === stage }
+        } finally {
+            fx { owned.hide() }
+        }
+
+        val popup = NodeFrame("rgba(255,64,129,0.95)", { it.javaClass.simpleName }, ownedStage = false)
+        try {
+            fx { popup.show(stage, button) }
+            val popups = fx { Window.getWindows().filter { Overlays.isOverlay(it) && it.isShowing } }
+            assertThat(popups).hasSize(5).allMatch { it is Popup && it.ownerWindow === stage }
+        } finally {
+            fx { popup.hide() }
+        }
     }
 
     @Test
