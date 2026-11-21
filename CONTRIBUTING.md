@@ -25,8 +25,7 @@ This needs three to five minutes; for Maven apps the first line is enough.
 The jar is `fxloop-server/target/fxloop-server-1.0.0-SNAPSHOT-all.jar`. Copy it to `~/.fxloop/fxloop-server.jar`, or
 register that path with your agent instead.
 
-Releases are cut by pushing a `x.y.z` tag. When you cut one, also bump the version in the README's build-plugin
-quickstart, both in the download URL and in the `<plugin>` block; `ReadmeQuickstartTest` keeps the two equal.
+Releases are cut by pushing a `x.y.z` tag. The README downloads the latest release, so nothing needs bumping.
 
 Publishing a tag to Maven Central and the Gradle Plugin Portal is a separate, manual step: run the **Publish** workflow
 with the tag as its version. It uploads a signed deployment under the `org.lab59` namespace, which you then publish at

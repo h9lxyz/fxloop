@@ -22,7 +22,7 @@ what happened on screen. FXLoop gives it a copy of your app to look at and drive
 it does, so the agent fixes the cause instead of guessing at CSS and layout.
 
 <p align="center">
-  <img src="docs/assets/fxloop-explainer.svg" width="840" alt="Animated diagram: your agent talks to FXLoop over MCP, and FXLoop starts your JavaFX app or connects to it when you start it with the plugin. The agent sees the app, clicks through it, learns why the Save button is cut off, reloads the fix live and confirms it.">
+  <img src="docs/assets/fxloop-explainer.svg" width="840" alt="Animated diagram: your agent talks to FXLoop over MCP, and FXLoop starts your JavaFX app or connects to it when you start it yourself. The agent sees the app, clicks through it, learns why the Save button is cut off, reloads the fix live and confirms it.">
 </p>
 
 ## Quickstart
@@ -51,35 +51,25 @@ No Node.js, or an agent without skills? Paste this instead; it needs only the JD
 
 > Set up FXLoop in this project by following https://raw.githubusercontent.com/h9lxyz/fxloop/main/INSTALL.md
 
-### With the Maven plugin
+### Start the app yourself
 
-You start the app yourself, no agent needed. FXLoop isn't on Maven Central yet, so download it once and copy its plugin
-into your local Maven repository (on Windows, type `curl.exe`):
-
-```sh
-curl -fsSL --create-dirs -o "$HOME/.fxloop/fxloop-server.jar" https://github.com/h9lxyz/fxloop/releases/download/0.0.1/fxloop-server-all.jar
-java -jar "$HOME/.fxloop/fxloop-server.jar" --seed-local-repo
-```
-
-Add the plugin to your `pom.xml`, under `<build><plugins>`:
-
-```xml
-<plugin>
-  <groupId>org.lab59.fxloop</groupId>
-  <artifactId>fxloop-maven-plugin</artifactId>
-  <version>0.0.1</version>
-</plugin>
-```
-
-Start your app (`mvn fxloop:run` if your project has no Maven wrapper):
+No agent needed and no changes to your build. Download FXLoop once (on Windows, type `curl.exe`):
 
 ```sh
-./mvnw fxloop:run
+curl -fsSL --create-dirs -o "$HOME/.fxloop/fxloop-server.jar" https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar
+```
+
+Start your app the way you always do (your IDE's Run button, `mvn javafx:run`, `gradle run`), then:
+
+```sh
+java -jar "$HOME/.fxloop/fxloop-server.jar" attach
 ```
 
 Your window gets the FXLoop dev bar. **Pick** a node, or click **Open CSS inspector** to inspect it in your browser,
-try CSS live and save it into your stylesheet. An agent can join later: connect it as above and it attaches to this
-window instead of launching a second copy. For Gradle (`./gradlew fxloopRun`), see [Add the build plugin](INSTALL.md#add-the-build-plugin-optional).
+try CSS live and save it into your stylesheet; saving a stylesheet in your editor applies it at once. When you restart
+your app, `attach` picks it up again; Ctrl+C stops FXLoop and leaves your app running. An agent can join later: connect
+it as above and it works in this window. Limits and options: [attach](docs/attach.md). To have FXLoop start the app
+from your build instead, add the [build plugin](INSTALL.md#add-the-build-plugin-optional).
 
 <p align="center">
   <img src="docs/assets/fxloop-inspector-explainer.svg" width="840" alt="Animated diagram: the FXLoop bar on your JavaFX app opens a CSS inspector in your browser. You pick the grey Save button and see that a setStyle() call in code beats your .primary rule in app.css. You choose an override scope from the suggested ones with their node counts, the button turns blue live, and Apply to file saves it into the existing rule. Then the Computed tab with :hover forced, and the Layout tab with the box model and where each size is set.">
@@ -124,11 +114,11 @@ If the `fx_*` tools don't show up, start a new agent session: a running session 
 ## How it works
 
 <p align="center">
-  <img src="docs/assets/fxloop-how-it-works.svg" width="840" alt="Diagram: your agent talks MCP over stdio to the FXLoop server, which launches your JavaFX app with fxloop-agent, or connects to it when you start it with mvn fxloop:run or gradle fxloopRun. The MCP session ends at the server, so your app can crash or restart while your agent stays connected.">
+  <img src="docs/assets/fxloop-how-it-works.svg" width="840" alt="Diagram: your agent talks MCP over stdio to the FXLoop server, which launches your JavaFX app with fxloop-agent, or connects to it when you start it yourself and run attach. The MCP session ends at the server, so your app can crash or restart while your agent stays connected.">
 </p>
 
 The server builds your project with its own Maven or Gradle wrapper and launches the app with a small in-JVM agent, or
-connects to the app you started with the plugin. The server owns the MCP session, so your app can crash or restart
+connects to the app you started yourself. The server owns the MCP session, so your app can crash or restart
 without the agent losing its connection.
 
 ## Compatibility

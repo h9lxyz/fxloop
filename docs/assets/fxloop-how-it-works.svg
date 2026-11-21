@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="840" height="400" viewBox="0 0 840 400" role="img" aria-labelledby="title desc">
 <title id="title">How FXLoop works: your agent talks to the FXLoop server, and the server talks to your JavaFX app</title>
-<desc id="desc">Your agent, any MCP client such as Claude Code, Cursor, VS Code, Codex CLI or Gemini CLI, talks to the FXLoop server, fxloop-server, over MCP on stdio. The server builds your project, launches and reloads the app, diffs the scene after every action, keeps a journal and exports it as a test. It launches your JavaFX app with fxloop-agent loaded through -javaagent, or you start the app yourself with the build plugin, using mvn fxloop:run or gradle fxloopRun. Either way the server connects to fxloop-agent in your app on localhost, with a per-run token. The one MCP session is owned by the server and ends there, not at your app, so your app can crash, restart or be hot-swapped while your agent stays connected.</desc>
+<desc id="desc">Your agent, any MCP client such as Claude Code, Cursor, VS Code, Codex CLI or Gemini CLI, talks to the FXLoop server, fxloop-server, over MCP on stdio. The server builds your project, launches and reloads the app, diffs the scene after every action, keeps a journal and exports it as a test. It launches your JavaFX app with fxloop-agent loaded through -javaagent, or you start the app yourself and attach FXLoop to it with java -jar fxloop-server.jar attach. Either way the server connects to fxloop-agent in your app on localhost, with a per-run token. The one MCP session is owned by the server and ends there, not at your app, so your app can crash, restart or be hot-swapped while your agent stays connected.</desc>
 <!--
   Hand-written, no build step. Same look and rules as fxloop-explainer.svg, but static: nothing in it moves.
 
   Left to right: your agent, the FXLoop server, and your JavaFX app with fxloop-agent inside it.
   Blue is the one MCP session. Its wires end at the server, and its bracket spans your agent and the server but not
-  your app: the server launches the app, or you start it with the build plugin, and either way the server connects to
+  your app: the server launches the app, or you start it yourself and attach FXLoop, and either way the server connects to
   it on localhost with a new token each run. So the app can crash or restart, and the session stays.
 
   An img-embedded SVG cannot load fonts, so text uses GitHub's own font stacks. Leave room for wider fallback fonts.
@@ -47,7 +47,7 @@
   .devdot{fill:#3fb950}
   .agent-text{font-size:12.5px;fill:#f2f5f8}
 
-  /* Or you start the app, with the build plugin. */
+  /* Or you start the app yourself and attach FXLoop. */
   .bubble{fill:#212a35}
   .cmd{font-size:12.5px;fill:#c9d3dd}
   .prompt{fill:#8493a3}
@@ -117,10 +117,9 @@
 <path class="wire" d="M664 274V233"/>
 <path class="head" d="M659.5 234l4.5-8 4.5 8z"/>
 <text class="wire-label start" x="676" y="247">or you start it</text>
-<text class="wire-label start" x="676" y="262">with the build plugin</text>
-<rect class="bubble" x="638" y="274" width="182" height="48" rx="8"/>
-<text class="mono cmd" x="652" y="293"><tspan class="prompt">$</tspan> mvn fxloop:run</text>
-<text class="mono cmd" x="652" y="311"><tspan class="prompt">$</tspan> gradle fxloopRun</text>
+<text class="wire-label start" x="676" y="262">and run attach</text>
+<rect class="bubble" x="638" y="274" width="182" height="30" rx="8"/>
+<text class="mono cmd" x="652" y="293"><tspan class="prompt">$</tspan> java -jar … attach</text>
 
 <!-- The MCP session: under your agent and the server, not under your app. -->
 <path class="session" d="M20 236V244H530V236"/>

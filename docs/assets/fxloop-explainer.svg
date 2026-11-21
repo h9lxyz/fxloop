@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="840" height="400" viewBox="0 0 840 400" role="img" aria-labelledby="title desc">
 <title id="title">FXLoop: your agent sees, clicks, explains and reloads your JavaFX app</title>
-<desc id="desc">Your agent talks to FXLoop over MCP. FXLoop starts your JavaFX app, or connects to it when you start it with the FXLoop build plugin. Asked about a cut-off Save button, the agent takes a screenshot, clicks New to open the dialog, learns that the button's prefWidth is too narrow for its text, fixes the code, reloads the app live and confirms the fix.</desc>
+<desc id="desc">Your agent talks to FXLoop over MCP. FXLoop starts your JavaFX app, or attaches to it when you start it yourself. Asked about a cut-off Save button, the agent takes a screenshot, clicks New to open the dialog, learns that the button's prefWidth is too narrow for its text, fixes the code, reloads the app live and confirms the fix.</desc>
 <!--
   Hand-written, no build step. The loop is 20 s, so 1 s = 5 % in every @keyframes below.
 
@@ -200,10 +200,10 @@
 <path class="wire" d="M246 166H295M302 186H253M494 166H599M606 186H501"/>
 <path class="head" d="M294 161.5l8 4.5-8 4.5zM254 181.5l-8 4.5 8 4.5zM598 161.5l8 4.5-8 4.5zM502 181.5l-8 4.5 8 4.5z"/>
 <text class="wire-label" x="274" y="150">MCP</text>
-<!-- The two ways to connect: FXLoop starts the app, or you start it with the build plugin and FXLoop joins it. -->
+<!-- The two ways to connect: FXLoop starts the app, or you start it yourself and FXLoop attaches to it. -->
 <text class="wire-label" x="550" y="150">starts your app</text>
 <text class="wire-label" x="550" y="208">or you start it</text>
-<text class="wire-label" x="550" y="223">with the plugin</text>
+<text class="wire-label" x="550" y="223">and run attach</text>
 <g class="req"><circle class="halo" cx="236" cy="166" r="9"/><circle class="pulse" cx="236" cy="166" r="4.5"/></g>
 <g class="rep"><circle class="halo" cx="616" cy="186" r="9"/><circle class="pulse" cx="616" cy="186" r="4.5"/></g>
 <g class="thumb"><rect class="thumb-win" x="612" y="177" width="26" height="18" rx="2"/><rect class="thumb-bar" x="612" y="177" width="26" height="4" rx="1"/></g>

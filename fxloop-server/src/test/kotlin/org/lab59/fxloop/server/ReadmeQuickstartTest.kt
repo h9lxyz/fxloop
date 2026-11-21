@@ -7,20 +7,20 @@ import java.nio.file.Path
 import kotlin.io.path.readText
 
 /**
- * The README's build-plugin quickstart pins one release. The jar it downloads seeds exactly its own plugin version into
- * ~/.m2, so the download URL and the pasted `<plugin>` block must name the same version, or `mvn fxloop:run` cannot
- * resolve the plugin. Both are bumped by hand when a release is cut (CONTRIBUTING.md).
+ * The README's "Start the app yourself" quickstart: one download of the latest release (no version to bump when a
+ * release is cut) and the `attach` command, with no build-file edits and no snapshot version.
  */
 class ReadmeQuickstartTest {
     private val repo: Path = generateSequence(Path.of("").toAbsolutePath()) { it.parent }.first { Files.isDirectory(it.resolve("fxloop-skills")) }
     private val readme = repo.resolve("README.md").readText()
 
     @Test
-    fun `build plugin quickstart pastes the version it downloads`() {
-        val downloaded = Regex("releases/download/(\\d+\\.\\d+\\.\\d+)/fxloop-server-all\\.jar").findAll(readme).map { it.groupValues[1] }.toSet()
-        val pasted = Regex("<artifactId>fxloop-maven-plugin</artifactId>\\s*<version>([^<]+)</version>").findAll(readme).map { it.groupValues[1] }.toSet()
-        assertThat(downloaded).describedAs("release versions the README downloads").hasSize(1)
-        assertThat(pasted).describedAs("fxloop-maven-plugin versions the README pastes").isEqualTo(downloaded)
-        assertThat(readme).contains("--seed-local-repo").contains("./mvnw fxloop:run").doesNotContain("SNAPSHOT")
+    fun `start-it-yourself quickstart downloads the latest release and runs attach`() {
+        assertThat(readme).contains("releases/latest/download/fxloop-server-all.jar")
+            .contains("java -jar \"\$HOME/.fxloop/fxloop-server.jar\" attach")
+            .contains("(docs/attach.md)")
+            .doesNotContain("SNAPSHOT")
+            .doesNotContain("<artifactId>fxloop-maven-plugin</artifactId>")
+        assertThat(Regex("releases/download/\\d+\\.\\d+\\.\\d+/").containsMatchIn(readme)).describedAs("a pinned release in the README").isFalse()
     }
 }
