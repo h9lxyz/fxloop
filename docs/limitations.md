@@ -78,6 +78,10 @@ Existing instances keep their state; code in constructors or static initialisers
 * **Embedded** (`FxLoopDev.install()` + `fx_connect_existing`): same as attach regarding restart.
 * **Developer-run** (`fxloop:run`, `fxloopRun`): no restart or stop (the build tool owns the JVM); reloads, input,
   inspection and screenshots work. Connected automatically on the server's first call.
+* **Attach command** (`fxloop-server.jar attach`, [details](attach.md)): a developer-run app started any way, without
+  the build plugin. No restart or stop; `attach` follows the app to its new process when you restart it. CSS and
+  method-body reloads work; FXML views loaded before the attach are not swapped live. Without a Maven or Gradle project
+  (app runs from jars) it is inspect-only. Same JDK 21+ warning as `fx_attach`.
 
 ## Dev bar and overlays
 

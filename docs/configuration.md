@@ -23,7 +23,7 @@ headless=xvfb
 | `FXLOOP_PREPARE_ROUTE` / `--prepare-route` | `auto` | `plugin`, `server` or `auto` (plugin when it resolves, else server-side prepare). |
 | `FXLOOP_LAUNCH_MODE` / `--launch-mode` | `auto` | Maven projects: `auto` (module path when a `module-info.java` exists, else classpath), `classpath` or `modulepath`; passed to the plugin as `-Dfxloop.launchMode` or used by the server-side prepare. Gradle: `fxloop { launchMode = ... }` in the build. |
 | `FXLOOP_STARTUP_TIMEOUT_MS` / `--startup-timeout-ms` | `30000` | Max wait for the agent handshake after launch (`STARTUP_TIMEOUT`). |
-| `FXLOOP_AGENT_JAR` / `--agent-jar` | bundled in server jar, extracted to `<fxloop dir>/fxloop-agent.jar` | Use a different agent jar. |
+| `FXLOOP_AGENT_JAR` / `--agent-jar` | bundled in server jar, extracted to `<fxloop dir>/fxloop-agent.jar` (`attach`: `~/.fxloop/cache/<version>/agent/`) | Use a different agent jar. |
 | `FXLOOP_JAVA_HOME` | server's `java.home` | JDK used to launch the app (not a `--flag`; read straight from the environment). |
 | `FXLOOP_HEADLESS` / `--headless` | unset (real display) | `monocle` or `xvfb`; see [Monocle](ci/monocle.md). |
 | `FXLOOP_MONOCLE_JAR` / `--monocle-jar` | looked up in `~/.m2` | Explicit `openjfx-monocle` jar for `monocle` mode. |
@@ -31,7 +31,7 @@ headless=xvfb
 | `FXLOOP_WEBVIEW` / `--webview` | `false` | Enables `fx_eval_js` (otherwise `DISABLED`). |
 | `FXLOOP_VIEWER` / `--viewer` | off | Port for the live screenshot viewer (token-protected HTTP). |
 | `FXLOOP_EDITOR_URL` / `--editor-url` | unset | Template for "open in editor" links in the inspector, e.g. `idea://open?file={file}&line={line}`; returned as `editorUrl` by `/api/styles`. |
-| `FXLOOP_INSPECTOR_EDIT` / `--inspector-edit` | `false` | "Try it live" in the CSS inspector: click a value to edit it (suggestions per property type, ↑/↓ on numbers, a color picker for colors, live preview), untick a declaration, or add a declaration or rule. Edits go into one scratch stylesheet in the running app; *Apply to file…* previews and then writes them into the project stylesheets they belong to (and reloads), or into a stylesheet you pick per rule, while *Copy as CSS* / *Ask agent to apply* hand them over instead (the agent applies them, then calls `fx_reload{clearScratch:true}`). A rule from a library's stylesheet (a jar, another module) can be saved into the library's source once you *Map to source…* it, or as an override into one of your stylesheets; mappings are kept in `<project dir>/.fxloop/css-map.json` (git-ignored). Off: the inspector stays read-only and the scratch and mapping endpoints do not exist. `fxloop:run` / `fxloopRun` turn it on unless `fxloop.inspectorEdit=false`: for their inspector helper, and, through the app's handshake, for any agent session that connects to the run. |
+| `FXLOOP_INSPECTOR_EDIT` / `--inspector-edit` | `false` | "Try it live" in the CSS inspector: click a value to edit it (suggestions per property type, ↑/↓ on numbers, a color picker for colors, live preview), untick a declaration, or add a declaration or rule. Edits go into one scratch stylesheet in the running app; *Apply to file…* previews and then writes them into the project stylesheets they belong to (and reloads), or into a stylesheet you pick per rule, while *Copy as CSS* / *Ask agent to apply* hand them over instead (the agent applies them, then calls `fx_reload{clearScratch:true}`). A rule from a library's stylesheet (a jar, another module) can be saved into the library's source once you *Map to source…* it, or as an override into one of your stylesheets; mappings are kept in `<project dir>/.fxloop/css-map.json` (git-ignored). Off: the inspector stays read-only and the scratch and mapping endpoints do not exist. `fxloop:run` / `fxloopRun` turn it on unless `fxloop.inspectorEdit=false`: for their inspector helper, and, through the app's handshake, for any agent session that connects to the run. The `attach` command does the same unless `inspector-edit=false`. |
 | `FXLOOP_BROWSER` / `--browser` | `auto` | `none` stops the server from opening a browser for `fx_open_inspector` and dev-bar picks (the URL is still returned). |
 | `FXLOOP_WATCH` / `--watch` | `css-only` | Initial file-watch mode: `css-only`, `all` (also FXML, Java and Kotlin), `off`. Change at runtime with `fx_set_watch_mode`. |
 | `FXLOOP_EXTERNAL_COMPILE` / `--external-compile` | `false` | The IDE/build tool compiles; the server HotSwaps changed classes from the output dir instead of running its own javac. |
@@ -49,7 +49,7 @@ headless=xvfb
 | `FXLOOP_TEST` / `--test` | `false` | Adds `-Dfxloop.test=true` to the app and exposes test-only tool `fx_test_block_fx_thread`. Not for normal use. |
 | `FXLOOP_LOG` | slf4j default | Server log level (stderr), e.g. `debug`. stdout is reserved for MCP frames. |
 
-JVM system properties on the **server** (`-D` before `-jar`): `fxloop.attach=false` disables `fx_attach`. On the **app**: see [security](security.md).
+JVM system properties on the **server** (`-D` before `-jar`): `fxloop.attach=false` disables `fx_attach` and the `attach` command. On the **app**: see [security](security.md).
 
 ## Running the app yourself
 
@@ -62,6 +62,9 @@ and edits made after the app started are picked up even if you made them before 
 available (the build tool owns the JVM); re-run the goal. The same auto-connect applies to IDE launches that call
 `FxLoopDev.install()`. See the [Maven plugin](https://github.com/h9lxyz/fxloop/tree/main/fxloop-maven-plugin) and
 Gradle plugin READMEs for the options (`fxloop.bar`, `fxloop.inspectorEdit`, app args).
+
+Without the build plugin, start the app any way you like and run `java -jar ~/.fxloop/fxloop-server.jar attach`: the
+same dev bar, inspector helper and auto-connect, with the limits in [attach](attach.md).
 
 ## Build tool detection
 

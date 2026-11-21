@@ -145,7 +145,7 @@ and the [fxloop-dev API](configuration.md#live-dev-loop-fxloop-dev-api).
 - **Pick.** Click **Pick** (or press `Ctrl+Shift+F12`), click a node, and ask "why is *this* grey?". The agent reads
   it with `fx_get_picked`, and every node tool accepts `picked:true`.
 - **Open CSS inspector.** The bar's **Open CSS inspector** button opens the browser inspector: live scene tree, the
-  cascade with `file:line` for each rule, and layout boxes. Under `fxloop:run` / `fxloopRun` (or with
+  cascade with `file:line` for each rule, and layout boxes. Under `fxloop:run` / `fxloopRun` or [`attach`](attach.md) (or with
   `FXLOOP_INSPECTOR_EDIT=true`) you can also try changes live: edit a value, untick a declaration or add a rule. They go
   into a scratch stylesheet in the running app. *Apply to file…* shows which lines of which stylesheet would change and,
   once you confirm, writes them there, reloads the CSS and clears the scratch; you can send each rule to another of your
@@ -157,7 +157,7 @@ and the [fxloop-dev API](configuration.md#live-dev-loop-fxloop-dev-api).
   (`fx_wait_for_prompt`, a long poll it calls in a loop) receives your text, the node's path and a screenshot of it,
   plus any unapplied scratch CSS, and answers with `fx_reply_to_prompt`; answers appear under your prompt. The box
   shows whether an agent is listening right now; prompts sent while none is wait in the queue (in memory, last 50).
-  Under `fxloop:run` / `fxloopRun`, the run's own inspector helper forwards your prompts to the agent session's server
+  Under `fxloop:run` / `fxloopRun` or `attach`, the run's own inspector helper forwards your prompts to the agent session's server
   (and shows its answers), even before that session attaches to the app; once it does, the page switches to the agent
   session's inspector on the same node.
 - **Watching the agent.** The bar always says what the agent is doing ("Agent: clicking Button#save") and whether you
@@ -174,6 +174,7 @@ and the [fxloop-dev API](configuration.md#live-dev-loop-fxloop-dev-api).
 |---|---|---|---|
 | Launched | The server, on the first tool call | CSS, FXML, HotSwap | Yes, with replay |
 | Developer-run | You, with `mvn fxloop:run` or `gradle fxloopRun`. The agent connects on its first call | CSS, FXML, HotSwap | Re-run the goal |
+| Developer-run via `attach` | You, any way you like, then [`fxloop-server.jar attach`](attach.md). The agent connects on its first call | CSS, HotSwap; FXML after a restart | You restart; `attach` follows |
 | Embedded | Your IDE run config, with `FxLoopDev.install()` (`fxloop-dev` dependency) | CSS, FXML, HotSwap | From your IDE |
 | Attached | `fx_attach` by pid | No | No |
 | Headless | `FXLOOP_HEADLESS=monocle` or `xvfb` on a launched app | CSS, FXML, HotSwap | Yes, with replay |
@@ -223,7 +224,7 @@ Common knobs, all optional (full list in [configuration](configuration.md)):
 
 FXLoop is a local developer tool for one trusted user. The app-side agent listens on loopback only and requires a
 random per-run token. Tool file paths are confined to the project directory, `fx_eval_js` is off by default, `fx_attach`
-is audit-logged, and there is no telemetry. The agent is a no-op without its launch arguments, and
+and the `attach` command are audit-logged, and there is no telemetry. The agent is a no-op without its launch arguments, and
 `-Dfxloop.enabled=false` disables it outright. Keep `fxloop-dev` out of shipped artifacts: the guard in
 [INSTALL.md, "Add the build plugin"](https://github.com/h9lxyz/fxloop/blob/main/INSTALL.md#add-the-build-plugin-optional)
 fails the production build if it leaks, and the connect skill adds it along with the build plugin. Details: [security](security.md).
