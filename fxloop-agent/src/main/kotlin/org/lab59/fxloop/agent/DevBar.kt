@@ -15,7 +15,6 @@ import javafx.beans.InvalidationListener
 import javafx.collections.ListChangeListener
 import javafx.geometry.Pos
 import javafx.scene.Node
-import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonBase
 import javafx.scene.control.ContextMenu
@@ -34,7 +33,6 @@ import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
-import javafx.scene.paint.Paint
 import javafx.stage.Popup
 import javafx.stage.PopupWindow
 import javafx.stage.Screen
@@ -55,7 +53,7 @@ import kotlin.math.floor
  * squeezes a button into "…". Dragging the bar moves the window and a double-click maximizes it, like a title bar.
  * Styles come from `devbar.css`, scoped by id so the app's own stylesheets, which every popup inherits, don't apply.
  */
-class DevBar(private val rt: AgentRuntime, private val ownedStage: Boolean = LINUX) {
+class DevBar(private val rt: AgentRuntime, private val ownedStage: Boolean = Overlays.OWNED_STAGE) {
     private class Action(val kind: String, val reason: String, val next: String, val button: String)
 
     private val lock = Any()
@@ -416,7 +414,7 @@ class DevBar(private val rt: AgentRuntime, private val ownedStage: Boolean = LIN
         fun place(x: Double, y: Double)
     }
 
-    /** The lighter window, for Windows and macOS: there a popup stacks with its owner and never takes focus. */
+    /** The lighter window, for macOS: there a popup stacks with its owner as a child window and never takes focus. */
     private class PopupBar(private val owner: Stage, root: Region) : BarWindow {
         private val popup = Popup().apply {
             isAutoHide = false
@@ -436,22 +434,13 @@ class DevBar(private val rt: AgentRuntime, private val ownedStage: Boolean = LIN
     }
 
     /**
-     * For Linux (GTK), where a `Popup` maps to an override-redirect window (`GTK_WINDOW_POPUP` in glass) that the
-     * window manager never stacks: the bar then floats above every other app, not just above the app it belongs to.
-     * An owned `Stage` is a normal managed window, transient for the app stage, so it stays one level above the app
-     * and sinks behind other apps with it.
+     * For Linux (GTK) and Windows (Win32), where a `Popup` floats above every other app: on GTK it maps to an
+     * override-redirect window (`GTK_WINDOW_POPUP`) that the window manager never stacks, and on Windows Glass gives
+     * `Window.POPUP` the `WS_EX_TOPMOST` style. An owned `Stage` is a normal managed window owned by [app], so it
+     * stays one level above [app] and sinks behind other apps with it.
      */
-    private class StageBar(private val app: Stage, private val root: Region) : BarWindow {
-        private val bar = Stage(StageStyle.TRANSPARENT).apply {
-            initOwner(app)
-            // a window the WM lists needs a name; JavaFX cannot ask it to skip the taskbar
-            title = "FXLoop dev bar"
-            scene = Scene(StackPane(root), null as Paint?)
-            // a popup never takes focus, a stage does on show and on every click; keys and hotkeys belong to the app
-            focusedProperty().addListener { _, _, focused ->
-                if (focused) Platform.runLater { if (isShowing) app.requestFocus() }
-            }
-        }
+    private class StageBar(app: Stage, private val root: Region) : BarWindow {
+        private val bar = Overlays.ownedStage(app, "FXLoop dev bar", StackPane(root))
         override val window: Window get() = bar
 
         override fun place(x: Double, y: Double) {
@@ -847,9 +836,6 @@ class DevBar(private val rt: AgentRuntime, private val ownedStage: Boolean = LIN
         /** Title bar width left free for the window's own buttons when the bar docks over it. */
         const val WINDOW_BUTTONS = 140.0
         val MAC = System.getProperty("os.name", "").lowercase(Locale.ROOT).contains("mac")
-
-        /** Linux/GTK: popups are override-redirect there, so the bar needs a real window (see [StageBar]). */
-        val LINUX = System.getProperty("os.name", "").lowercase(Locale.ROOT).startsWith("linux")
 
         /** [Fit.priority] of what the bar always shows. */
         const val ALWAYS = Int.MAX_VALUE
