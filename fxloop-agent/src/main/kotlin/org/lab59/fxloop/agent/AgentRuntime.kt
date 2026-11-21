@@ -5,6 +5,7 @@ import org.lab59.fxloop.protocol.Handshake
 import org.lab59.fxloop.protocol.Tokens
 import java.lang.instrument.Instrumentation
 import java.lang.management.ManagementFactory
+import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicReference
 import javafx.application.Platform
 
@@ -15,7 +16,11 @@ class AgentRuntime private constructor(
     val mode: String,
     internal val token: String,
 ) {
-    val startedAt: Long = System.currentTimeMillis()
+    /**
+     * When the app started, for the server's "files changed since the app started" baseline: the JVM's start in attach
+     * mode (the agent arrives late, and edits made before it must still reload), else the moment the agent started.
+     */
+    val startedAt: Long = if (mode == "attach") ManagementFactory.getRuntimeMXBean().startTime else System.currentTimeMillis()
     val errors: ErrorRing = ErrorRing(200)
     val logs: LogCapture = LogCapture()
     val handles: HandleTable = HandleTable()
@@ -29,6 +34,10 @@ class AgentRuntime private constructor(
     @Volatile
     internal var server: FcpServer? = null
 
+    /** The FCP port once the listener is up (0 before), and the handshake files a later `agentmain` asked for meanwhile. */
+    private var port = 0
+    private val pendingHandshakes = ArrayList<Path>()
+
     private fun boot() {
         if (instrumentation != null && options.fxmlHook) {
             FxmlHook.install(instrumentation)
@@ -40,8 +49,13 @@ class AgentRuntime private constructor(
         options.ownerPid?.let(OwnerWatchdog::start)
     }
 
+    /**
+     * Waits for the JavaFX toolkit, then listens. A `-javaagent` or embedded agent gives up after 60 s; an attached one
+     * waits as long as the JVM runs: `attach` follows app restarts by loading the agent into a JVM that may start JavaFX
+     * much later (a slow startup, a splash phase, a debugger pause).
+     */
     private fun awaitFxAndListen() {
-        val deadline = System.currentTimeMillis() + 60_000
+        val deadline = if (mode == "attach") Long.MAX_VALUE else System.currentTimeMillis() + 60_000
         while (System.currentTimeMillis() < deadline) {
             try {
                 Platform.runLater { onFxThread() }
@@ -73,15 +87,57 @@ class AgentRuntime private constructor(
         try {
             val s = FcpServer(this)
             server = s
-            val port = s.bind()
-            val pid = ManagementFactory.getRuntimeMXBean().pid
-            val writeToken = options.token == null
-            Handshake(Fcp.VERSION, pid, port, startedAt, mode, if (writeToken) token else null, options.inspectorEdit.takeIf { it })
-                .writeTo(options.handshake!!.toAbsolutePath())
-            AgentLog.info("FCP listening on 127.0.0.1:$port ($mode)")
+            val bound = s.bind()
+            published(bound)
+            AgentLog.info("FCP listening on 127.0.0.1:$bound ($mode)")
             s.acceptLoop()
         } catch (e: Exception) {
             AgentLog.warn("FCP listener failed", e)
+        }
+    }
+
+    /** The listener is up on [bound]: writes the handshake and every copy a later `agentmain` asked for meanwhile. */
+    private fun published(bound: Int) {
+        val files = synchronized(this) {
+            port = bound
+            listOfNotNull(options.handshake) + pendingHandshakes.toList().also { pendingHandshakes.clear() }
+        }
+        // one copy that cannot be written (a deleted dir, a full disk) must not take the listener down with it
+        files.forEach { f ->
+            try {
+                writeHandshake(f, bound)
+            } catch (e: Exception) {
+                AgentLog.warn("cannot write handshake $f", e)
+            }
+        }
+    }
+
+    /**
+     * Same content rules for every copy: the token is written only when the agent generated it itself (a supervised
+     * launch's server owns its token, so its handshake never carries one).
+     */
+    private fun writeHandshake(file: Path, port: Int) {
+        val pid = ManagementFactory.getRuntimeMXBean().pid
+        val writeToken = options.token == null
+        Handshake(Fcp.VERSION, pid, port, startedAt, mode, if (writeToken) token else null, options.inspectorEdit.takeIf { it })
+            .writeTo(file.toAbsolutePath())
+    }
+
+    /**
+     * A later `agentmain` with a `handshake=` argument on a JVM where the agent already runs (`attach` after `mvn clean`
+     * deleted the file, or with a different path): publish the handshake there too, now or once the listener is up.
+     */
+    internal fun republish(file: Path) {
+        val bound = synchronized(this) {
+            if (port == 0) pendingHandshakes.add(file)
+            port
+        }
+        if (bound == 0) return
+        try {
+            writeHandshake(file, bound)
+            AgentLog.info("handshake published again at $file")
+        } catch (e: Exception) {
+            AgentLog.warn("cannot write handshake $file", e)
         }
     }
 
@@ -119,13 +175,20 @@ class AgentRuntime private constructor(
     companion object {
         private val INSTANCE = AtomicReference<AgentRuntime?>()
 
-        /** Starts the agent once; later calls return the existing runtime. */
+        /**
+         * Starts the agent once; later calls return the existing runtime. A later attach (`agentmain`) with a handshake
+         * path re-publishes the running agent's handshake there ([republish]).
+         */
         @JvmStatic
         fun start(options: AgentOptions, inst: Instrumentation?, mode: String): AgentRuntime {
+            INSTANCE.get()?.let { running ->
+                if (mode == "attach") options.handshake?.let(running::republish)
+                return running
+            }
             val token = options.token ?: Tokens.generate()
             val fresh = AgentRuntime(options, inst, mode, token)
             if (!INSTANCE.compareAndSet(null, fresh)) {
-                return INSTANCE.get()!!
+                return INSTANCE.get()!!.also { running -> if (mode == "attach") options.handshake?.let(running::republish) }
             }
             fresh.boot()
             return fresh
@@ -143,5 +206,12 @@ class AgentRuntime private constructor(
             INSTANCE.set(fresh)
             return fresh
         }
+
+        /** Test hook: a runtime that is not installed process-wide, with the listener's [port] set as if it were up. */
+        internal fun forTest(options: AgentOptions, mode: String, port: Int = 0): AgentRuntime =
+            AgentRuntime(options, null, mode, "test-token").also { it.port = port }
+
+        /** Test hook: the listener came up on [port] (what [listen] does after binding). */
+        internal fun listenedForTest(rt: AgentRuntime, port: Int) = rt.published(port)
     }
 }

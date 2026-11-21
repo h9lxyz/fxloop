@@ -1,7 +1,6 @@
 package org.lab59.fxloop.server
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import org.lab59.fxloop.protocol.Handshake
 import org.lab59.fxloop.server.app.AppSession
 import org.lab59.fxloop.server.app.Versions
 import org.lab59.fxloop.server.mcp.ToolRegistry
@@ -79,6 +78,8 @@ fun usage(): String = """
     java -jar fxloop-server.jar --version            version, build commit and a JDK check
     java -jar fxloop-server.jar doctor [--json] [--client=claude-code|cursor|vscode|codex|gemini|all]
                                                      check the project in the current directory (never writes)
+    java -jar fxloop-server.jar attach [<pid>] [--list] [--once] [--project-dir=<dir>] [--watch=css-only|all|off]
+                                                     dev bar and CSS inspector for a JavaFX app you already started
     java -jar fxloop-server.jar --seed-local-repo    write FXLoop's Maven artifacts into ~/.m2 (until Maven Central)
     java -jar fxloop-server.jar --tool-reference     the MCP tool reference as Markdown
 
@@ -94,6 +95,15 @@ fun main(args: Array<String>) {
     }
     // `doctor` is a read-only diagnostic: no Config/MCP startup (PRD 11 §6)
     if (args.firstOrNull() == "doctor") exitProcess(org.lab59.fxloop.server.cli.Doctor.main(args.drop(1)))
+    // `attach`: a terminal command for a developer-run app, no MCP; quiet logging unless FXLOOP_LOG asks for more
+    if (args.firstOrNull() == "attach") {
+        System.setProperty("java.awt.headless", "true")
+        val level = System.getenv("FXLOOP_LOG")
+        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", level ?: "warn")
+        // the AUDIT lines (attach requested / attached) stay visible on stderr unless FXLOOP_LOG sets another level
+        if (level == null) System.setProperty("org.slf4j.simpleLogger.log.org.lab59.fxloop.audit", "info")
+        exitProcess(org.lab59.fxloop.server.attach.AttachCommand.main(args.drop(1)))
+    }
     System.setProperty("java.awt.headless", "true")
     System.getenv("FXLOOP_LOG")?.let { System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", it) }
     if (args.any { it == "--version" }) {
@@ -143,49 +153,15 @@ fun main(args: Array<String>) {
 }
 
 /**
- * `--sidecar=true`, started by `fxloop:run` / `fxloopRun` next to the app: no MCP. Keeps a yielding FCP connection to the
- * developer-run app so the dev bar's Inspect CSS (the viewer and CSS inspector) works without an agent session. An
- * agent session's server takes the app over; this reconnects once it is gone. Waits up to two minutes for the app's
- * handshake (it starts alongside the app), then exits with the app or its parent.
+ * `--sidecar=true`, started by `fxloop:run` / `fxloopRun` next to the app: no MCP, the [InspectorHelper] loop. Waits up to
+ * two minutes for the app's handshake (it starts alongside the app), then exits with the app or its parent.
  */
 private fun runSidecar(ctx: Ctx): Nothing {
-    val log = LoggerFactory.getLogger("org.lab59.fxloop.server.sidecar")
-    val handshake = ctx.session.fxloopDir.resolve("handshake.json")
     ParentWatchdog.start { exitProcess(0) }
     Runtime.getRuntime().addShutdownHook(Thread { ctx.shutdown() })
     val viewer = ctx.ensureViewer(ctx.config.viewerPort ?: 0)
     System.err.println("[fxloop] CSS inspector: ${viewer.inspectUrl()} (also via Open CSS inspector in the dev bar)")
-    var yielded = false
-    var seen = false
-    val startDeadline = System.currentTimeMillis() + 120_000
-    while (true) {
-        val hs = runCatching { Handshake.readFrom(handshake) }.getOrNull()
-        val alive = hs != null && ProcessHandle.of(hs.pid).map { it.isAlive }.orElse(false)
-        if (!alive) {
-            if (seen || System.currentTimeMillis() > startDeadline) {
-                log.info("the app is gone; inspector helper exits")
-                exitProcess(0)
-            }
-            Thread.sleep(500)
-            continue
-        }
-        seen = true
-        if (!ctx.session.connected) {
-            try {
-                ctx.session.connectExisting(handshake, AppSession.Mode.EMBEDDED, yieldToAgents = true)
-                if (yielded) log.info("agent session ended; inspector helper is back")
-                yielded = false
-            } catch (e: Exception) { // BUSY while an agent session has the app, or the app is going away
-                if (!yielded) log.info("an agent session has the app; inspector helper waits ({})", e.message)
-                yielded = true
-            }
-        }
-        // An agent session's inspector: while that session has the app, open pages move there; while we keep the app,
-        // Ask agent prompts are forwarded to it. Either way they reach the agent that is listening.
-        val agent = Ctx.advertisedInspector(ctx.session.fxloopDir.resolve(Ctx.INSPECTOR_FILE))
-        viewer.setMovedTo(if (yielded) agent else null)
-        viewer.setPromptsRemote(if (yielded) null else agent)
-        viewer.pollRemotePrompts()
-        Thread.sleep(1500)
-    }
+    InspectorHelper.serve(ctx, ctx.session.fxloopDir.resolve("handshake.json"), AppSession.Mode.EMBEDDED, null,
+        System.currentTimeMillis() + 120_000)
+    exitProcess(0)
 }

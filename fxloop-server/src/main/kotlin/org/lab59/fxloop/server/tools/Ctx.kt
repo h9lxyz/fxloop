@@ -40,10 +40,7 @@ class Ctx(val config: Config) {
         val seq = live.reloadCount()
         val r = reloader.reload(Reloader.Options(files = files, allowRestart = false, replay = false, visualDiff = false,
             javaTier = watchModeName() == "all", consume = false)) { _, _ -> Json.obj() }
-        if (live.reloadCount() == seq) {
-            val tiers = r.path("tiersApplied").map { it.asText() }
-            live.reloaded("watch: " + tiers.joinToString(", ").ifEmpty { "no change" }, true, live.actionItems())
-        }
+        if (live.reloadCount() == seq) live.reloaded(watchText(r), true, live.actionItems())
         r
     }
     var viewer: Viewer? = null
@@ -123,7 +120,10 @@ class Ctx(val config: Config) {
         val wd = java.nio.file.Path.of(d.workingDir)
         fun abs(s: String) = wd.resolve(s).toAbsolutePath().normalize().toString()
         p.put("projectDir", config.projectDir.toString())
-        p.set<JsonNode>("outputDirs", Json.strings(listOf(abs(d.outputDir))))
+        // every directory a save is copied into (Reloader.copyResources): Gradle and IDE builds load stylesheets from a
+        // resources folder of the class path (build/resources/main), not from outputDir
+        val dirs = (listOf(d.outputDir) + d.classpath).map(::abs).distinct().filter { java.nio.file.Files.isDirectory(java.nio.file.Path.of(it)) }
+        p.set<JsonNode>("outputDirs", Json.strings(dirs.ifEmpty { listOf(abs(d.outputDir)) }))
         p.set<JsonNode>("resourceRoots", Json.strings(d.resourceRoots.map(::abs)))
         return p
     }
@@ -501,6 +501,10 @@ class Ctx(val config: Config) {
             val alive = ProcessHandle.of(j.path("pid").asLong(-1)).map { it.isAlive }.orElse(false)
             url.takeIf { alive && INSPECT_URL.matches(it) }
         }.getOrNull()
+
+        /** The dev bar's line after a save the watch applied, naming the tiers (`watch: css`). */
+        fun watchText(r: JsonNode): String =
+            "watch: " + r.path("tiersApplied").map { it.path("tier").asText() }.joinToString(", ").ifEmpty { "no change" }
 
         private val INSPECT_URL = Regex("^http://127\\.0\\.0\\.1:\\d{1,5}/inspect\\?t=[A-Za-z0-9_%-]+$")
 

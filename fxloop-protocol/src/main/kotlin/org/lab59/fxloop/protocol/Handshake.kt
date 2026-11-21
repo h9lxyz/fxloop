@@ -27,15 +27,20 @@ data class Handshake @JsonCreator constructor(
     @param:JsonProperty("token") val token: String?,
     @param:JsonProperty("inspectorEdit") val inspectorEdit: Boolean? = null,
 ) {
-    /** Atomic write (temp + rename) with owner-only permissions where the file system supports POSIX. */
+    /**
+     * Atomic write (temp + rename) with owner-only permissions where the file system supports POSIX. The temp name is
+     * unique per write, so two writers of one path (an agent re-publishing while it starts) cannot collide.
+     */
     fun writeTo(file: Path) {
-        val tmp = file.resolveSibling("${file.fileName}.tmp")
+        val tmp = file.resolveSibling("${file.fileName}.${java.util.UUID.randomUUID().toString().take(8)}.tmp")
         Files.deleteIfExists(tmp)
         OwnerOnly.write(tmp, Json.write(this))
         try {
             Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
         } catch (e: AtomicMoveNotSupportedException) {
             Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING)
+        } finally {
+            Files.deleteIfExists(tmp)
         }
     }
 
