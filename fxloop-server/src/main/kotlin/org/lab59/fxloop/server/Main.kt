@@ -39,34 +39,114 @@ fun registry(ctx: Ctx): ToolRegistry = ToolRegistry().also { reg ->
     reg.observer = ctx::toolActivity
 }
 
-/** Markdown tool reference generated from the live registry (`--tool-reference`, written to docs/tools.md). */
+private val TARGET_PARAMS = linkedSetOf("handle", "path", "query", "windowIndex", "picked")
+
+private val TOOL_GROUPS: List<Pair<String, List<String>>> = listOf(
+    "Run and connect" to listOf(
+        "fx_get_app_status", "fx_start_app", "fx_restart_app", "fx_stop_app",
+        "fx_connect_existing", "fx_attach", "fx_set_control_mode",
+    ),
+    "See" to listOf(
+        "fx_take_screenshot", "fx_compare_screenshots", "fx_capture_states",
+        "fx_get_screenshot", "fx_get_picked",
+    ),
+    "Read the scene" to listOf(
+        "fx_get_scene_graph", "fx_find_nodes", "fx_get_property",
+        "fx_get_node_details", "fx_describe_at",
+    ),
+    "Ask why and inspector" to listOf(
+        "fx_explain_layout", "fx_explain_style", "fx_suggest_override",
+        "fx_explain_property", "fx_open_inspector", "fx_wait_for_prompt", "fx_reply_to_prompt",
+    ),
+    "Find problems" to listOf(
+        "fx_lint_visual", "fx_lint_css", "fx_lint_fxml", "fx_get_ui_errors", "fx_get_logs",
+    ),
+    "Drive" to listOf(
+        "fx_click_node", "fx_type_keys", "fx_set_text", "fx_set_property", "fx_eval_js", "fx_lock_input",
+    ),
+    "Apply edits" to listOf(
+        "fx_reload", "fx_reload_fxml", "fx_set_watch_mode",
+    ),
+    "Lock it in" to listOf(
+        "fx_get_journal", "fx_export_test",
+    ),
+)
+
+private fun formatParamType(def: Map<String, Any>): String {
+    val base = "`${def["type"] ?: "any"}`"
+    val enumValues = (def["enum"] as? List<*>)?.joinToString(" \\| ") { "`$it`" }
+    return if (enumValues != null) "$base ($enumValues)" else base
+}
+
+/** Markdown tool reference generated from the live registry (`--tool-reference`, embedded in docs/mcp.md). */
 fun toolReference(reg: ToolRegistry): String = buildString {
-    appendLine("# FXLoop tool reference")
+    val byName = reg.all().associateBy { it.name }
+    val seen = LinkedHashSet<String>()
+    val grouped = buildList {
+        for ((group, names) in TOOL_GROUPS) {
+            val tools = names.mapNotNull { name -> byName[name]?.also { seen += name } }
+            if (tools.isNotEmpty()) add(group to tools)
+        }
+        val other = reg.all().filter { it.name !in seen }
+        if (other.isNotEmpty()) add("Other" to other)
+    }
+
+    appendLine("_Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-reference`). Do not edit this section by hand._")
     appendLine()
-    appendLine("_Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-reference`). Do not edit by hand._")
+    appendLine("Tool kinds indicate side effects: `read`, `idempotent_write`, `write`, and `destructive`. `fx_eval_js` is disabled unless `FXLOOP_WEBVIEW=true`. Expand any category below for full parameter details.")
     appendLine()
-    appendLine("| Tool | Kind | Summary |")
+    appendLine("### Node target")
+    appendLine()
+    appendLine("Tools that operate on a JavaFX node accept any one of `handle`, `path`, `query`, or `picked: true` (pass `windowIndex` to scope `query` or pick a non-focused window):")
+    appendLine()
+    appendLine("| Param | Type | Description |")
     appendLine("|---|---|---|")
-    reg.all().forEach { appendLine("| [`${it.name}`](#${it.name}) | ${it.kind.name.lowercase()} | ${it.title} |") }
-    reg.all().forEach { t ->
+    appendLine("| `handle` | `integer` | Session node handle (from `fx_get_scene_graph` / `fx_find_nodes`) |")
+    appendLine("| `path` | `string` | Stable node path, e.g. `Stage[0]/Scene/VBox/Button#addBtn` or `Stage[0]//Button#addBtn` |")
+    appendLine("| `query` | `string` | CSS selector that must match exactly one node, e.g. `#addBtn` |")
+    appendLine("| `windowIndex` | `integer` | Window index (see `fx_get_app_status.windows`); default: focused window |")
+    appendLine("| `picked` | `boolean` | Target the node the developer picked in pick mode (see `fx_get_picked`) |")
+
+    for ((group, tools) in grouped) {
         appendLine()
-        appendLine("## ${t.name}")
-        appendLine()
-        appendLine(t.description)
-        appendLine()
-        @Suppress("UNCHECKED_CAST")
-        val props = t.inputSchema["properties"] as Map<String, Map<String, Any>>
-        val required = (t.inputSchema["required"] as? List<*>).orEmpty()
-        if (props.isEmpty()) {
-            appendLine("_No parameters._")
-        } else {
-            appendLine("| Param | Type | Required | Description |")
-            appendLine("|---|---|---|---|")
-            props.forEach { (name, def) ->
-                val type = (def["type"] ?: "any").toString() + ((def["enum"] as? List<*>)?.let { " (${it.joinToString("\\|")})" } ?: "")
-                appendLine("| `$name` | $type | ${if (name in required) "yes" else ""} | ${def["description"]} |")
+        appendLine("<details>")
+        appendLine("<summary><strong>$group</strong> (${tools.size} ${if (tools.size == 1) "tool" else "tools"})</summary>")
+        for (t in tools) {
+            @Suppress("UNCHECKED_CAST")
+            val props = t.inputSchema["properties"] as Map<String, Map<String, Any>>
+            val required = (t.inputSchema["required"] as? List<*>).orEmpty()
+            val hasTarget = TARGET_PARAMS.all { it in props }
+            val specificProps = if (hasTarget) props.filterKeys { it !in TARGET_PARAMS } else props
+
+            appendLine()
+            appendLine("#### ${t.name}")
+            appendLine()
+            val meta = buildString {
+                append("_Kind: `${t.kind.name.lowercase()}`_")
+                if (hasTarget) append(" · Accepts [node target parameters](#node-target).")
+            }
+            appendLine(meta)
+            appendLine()
+            appendLine(t.description)
+            when {
+                props.isEmpty() -> {
+                    appendLine()
+                    appendLine("_No parameters._")
+                }
+                specificProps.isEmpty() -> Unit
+                else -> {
+                    appendLine()
+                    appendLine("| Param | Type | Required | Description |")
+                    appendLine("|---|---|---|---|")
+                    specificProps.forEach { (name, def) ->
+                        val desc = def["description"]?.toString().orEmpty().replace("|", "\\|").replace("\n", " ")
+                        appendLine("| `$name` | ${formatParamType(def)} | ${if (name in required) "yes" else ""} | $desc |")
+                    }
+                }
             }
         }
+        appendLine()
+        appendLine("</details>")
     }
 }
 
