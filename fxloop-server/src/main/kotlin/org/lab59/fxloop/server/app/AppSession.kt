@@ -379,9 +379,13 @@ class AppSession(val config: Config) {
         return file to hs
     }
 
-    /** Connects to an embedded (`FxLoopDev.install()`) or attached agent via its handshake file. */
+    /**
+     * Connects to an embedded (`FxLoopDev.install()`) or attached agent via its handshake file.
+     * @param descriptor replaces the session's descriptor (the `attach` command builds one per app start, and reuses
+     * one session across restarts); null keeps the current one or, for an embedded app, reads `launch.json`
+     */
     @Synchronized
-    fun connectExisting(handshakeFile: Path, newMode: Mode, yieldToAgents: Boolean = false): ObjectNode {
+    fun connectExisting(handshakeFile: Path, newMode: Mode, yieldToAgents: Boolean = false, descriptor: LaunchDescriptor? = null): ObjectNode {
         if (mode == Mode.LAUNCHED && process != null) {
             // switching modes would drop the supervised app from supervision: stop it first
             fcp?.close()
@@ -398,7 +402,8 @@ class AppSession(val config: Config) {
             appInspectorEdit = hs.inspectorEdit == true
             // embedded apps are built from this project: reload tiers need its source roots and output dir (attach has none)
             // fxloop:run leaves its launch.json next to the handshake: reuse it instead of building again
-            if (newMode == Mode.EMBEDDED && descriptor == null) descriptor = try {
+            if (descriptor != null) this.descriptor = descriptor
+            else if (newMode == Mode.EMBEDDED && this.descriptor == null) this.descriptor = try {
                 handshakeFile.resolveSibling(LaunchDescriptor.FILE_NAME).takeIf { Files.isRegularFile(it) }
                     ?.let(LaunchDescriptor::readFrom) ?: build.prepare()
             } catch (e: RuntimeException) {
