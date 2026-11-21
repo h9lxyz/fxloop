@@ -26,9 +26,14 @@ class SkillsLayoutTest {
     @Test
     fun `tool reference is generated from the registry`(@TempDir dir: Path) {
         val ctx = Ctx(Config(projectDir = dir, webview = true))
-        val expected = toolReference(registry(ctx))
+        val expected = toolReference(registry(ctx)).trim()
         ctx.shutdown()
-        assertThat(repo.resolve("docs/tools.md").readText()).describedAs("regenerate with --tool-reference").isEqualTo(expected)
+        val mcp = repo.resolve("docs/mcp.md").readText()
+        val begin = "<!-- BEGIN:tool-reference -->"
+        val end = "<!-- END:tool-reference -->"
+        assertThat(mcp).contains(begin, end)
+        val actual = mcp.substringAfter(begin).substringBefore(end).trim()
+        assertThat(actual).describedAs("regenerate with --tool-reference").isEqualTo(expected)
     }
 
     @Test

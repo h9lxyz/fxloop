@@ -35,8 +35,9 @@ with the tag as its version. It uploads a signed deployment under the `org.lab59
 
 ## Generated files
 
-`docs/tools.md` is generated from the tool registry
-(`java -jar fxloop-server/target/fxloop-server-*-all.jar --tool-reference`); don't edit it by hand.
+The `## Tool reference` section in [docs/mcp.md](docs/mcp.md#tool-reference) (between
+`<!-- BEGIN:tool-reference -->` and `<!-- END:tool-reference -->`) is generated from the tool registry
+(`java -jar fxloop-server/target/fxloop-server-*-all.jar --tool-reference`); don't edit that section by hand.
 
 ## Repository layout
 

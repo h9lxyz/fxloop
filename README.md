@@ -111,8 +111,8 @@ later ([attach options & limits](docs/attach.md), or add the optional
 - **Lock in**: turns what was clicked into a headless JUnit 5 + TestFX test.
 - **Stays out of production**: nothing is added to your app; the plugin's guard fails the package if FXLoop leaks in.
 
-FXLoop exposes 40 `fx_*` tools: see the [MCP server overview](docs/mcp.md) to browse them by job, or the
-[tool reference](docs/tools.md) for every parameter.
+FXLoop exposes 40 `fx_*` tools: see the [MCP server overview](docs/mcp.md) to browse them by job, or jump straight
+to the [tool reference](docs/mcp.md#tool-reference) for every parameter.
 
 ## How it works
 
@@ -154,8 +154,7 @@ servers). More in the [troubleshooting guide](docs/troubleshooting.md).
 |---|---|
 | [Install guide](INSTALL.md) | Step-by-step manual setup, client configs, optional build plugins, and uninstall |
 | [Attach guide](docs/attach.md) | Attaching the dev bar and CSS inspector to an already-running JavaFX app |
-| [MCP server overview](docs/mcp.md) | Architecture, setup, tool categories, reload tiers, dev bar, and execution modes |
-| [Tool reference](docs/tools.md) | Generated reference for all 40 `fx_*` tools and every parameter |
+| [MCP server & tool reference](docs/mcp.md) | Architecture, setup, reload tiers, dev bar, modes, and full reference for all 40 `fx_*` tools |
 | [Agent skills](docs/skills.md) | How the 10 `SKILL.md` workflows turn plain requests into UI audits and fixes |
 | [Configuration](docs/configuration.md) | `FXLOOP_*` env vars, CLI flags, `fxloop.properties`, and the `fxloop-dev` API |
 | [Troubleshooting](docs/troubleshooting.md) | Error codes, common failures, and diagnostic steps |

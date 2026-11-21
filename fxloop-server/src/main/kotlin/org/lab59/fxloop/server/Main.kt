@@ -72,16 +72,13 @@ private val TOOL_GROUPS: List<Pair<String, List<String>>> = listOf(
     ),
 )
 
-private fun slug(heading: String): String =
-    heading.lowercase().replace(Regex("[^a-z0-9 _-]"), "").replace(' ', '-')
-
 private fun formatParamType(def: Map<String, Any>): String {
     val base = "`${def["type"] ?: "any"}`"
     val enumValues = (def["enum"] as? List<*>)?.joinToString(" \\| ") { "`$it`" }
     return if (enumValues != null) "$base ($enumValues)" else base
 }
 
-/** Markdown tool reference generated from the live registry (`--tool-reference`, written to docs/tools.md). */
+/** Markdown tool reference generated from the live registry (`--tool-reference`, embedded in docs/mcp.md). */
 fun toolReference(reg: ToolRegistry): String = buildString {
     val byName = reg.all().associateBy { it.name }
     val seen = LinkedHashSet<String>()
@@ -94,24 +91,9 @@ fun toolReference(reg: ToolRegistry): String = buildString {
         if (other.isNotEmpty()) add("Other" to other)
     }
 
-    appendLine("# FXLoop tool reference")
+    appendLine("_Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-reference`). Do not edit this section by hand._")
     appendLine()
-    appendLine("_Generated from the tool registry (`java -jar fxloop-server-*-all.jar --tool-reference`). Do not edit by hand._")
-    appendLine()
-    appendLine("For the workflow-oriented introduction, see the [MCP server overview](mcp.md). Tool kinds indicate side effects: `read`, `idempotent_write`, `write`, and `destructive`. `fx_eval_js` is disabled unless `FXLOOP_WEBVIEW=true`.")
-    appendLine()
-    appendLine(grouped.joinToString(" · ") { (group, _) -> "[$group](#${slug(group)})" } + " · [Node target](#node-target)")
-    appendLine()
-    appendLine("| Tool | Category | Kind | Summary |")
-    appendLine("|---|---|---|---|")
-    for ((group, tools) in grouped) {
-        for (t in tools) {
-            appendLine("| [`${t.name}`](#${t.name}) | [$group](#${slug(group)}) | `${t.kind.name.lowercase()}` | ${t.title} |")
-        }
-    }
-
-    appendLine()
-    appendLine("## Common parameters")
+    appendLine("Tool kinds indicate side effects: `read`, `idempotent_write`, `write`, and `destructive`. `fx_eval_js` is disabled unless `FXLOOP_WEBVIEW=true`. Expand any category below for full parameter details.")
     appendLine()
     appendLine("### Node target")
     appendLine()
@@ -127,7 +109,8 @@ fun toolReference(reg: ToolRegistry): String = buildString {
 
     for ((group, tools) in grouped) {
         appendLine()
-        appendLine("## $group")
+        appendLine("<details>")
+        appendLine("<summary><strong>$group</strong> (${tools.size} ${if (tools.size == 1) "tool" else "tools"})</summary>")
         for (t in tools) {
             @Suppress("UNCHECKED_CAST")
             val props = t.inputSchema["properties"] as Map<String, Map<String, Any>>
@@ -136,7 +119,7 @@ fun toolReference(reg: ToolRegistry): String = buildString {
             val specificProps = if (hasTarget) props.filterKeys { it !in TARGET_PARAMS } else props
 
             appendLine()
-            appendLine("### ${t.name}")
+            appendLine("#### ${t.name}")
             appendLine()
             val meta = buildString {
                 append("_Kind: `${t.kind.name.lowercase()}`_")
@@ -162,6 +145,8 @@ fun toolReference(reg: ToolRegistry): String = buildString {
                 }
             }
         }
+        appendLine()
+        appendLine("</details>")
     }
 }
 
