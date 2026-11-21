@@ -4,7 +4,6 @@ import org.lab59.fxloop.protocol.Fcp
 import org.lab59.fxloop.protocol.Handshake
 import org.lab59.fxloop.protocol.Tokens
 import java.lang.instrument.Instrumentation
-import java.lang.management.ManagementFactory
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicReference
 import javafx.application.Platform
@@ -20,7 +19,14 @@ class AgentRuntime private constructor(
      * When the app started, for the server's "files changed since the app started" baseline: the JVM's start in attach
      * mode (the agent arrives late, and edits made before it must still reload), else the moment the agent started.
      */
-    val startedAt: Long = if (mode == "attach") ManagementFactory.getRuntimeMXBean().startTime else System.currentTimeMillis()
+    val startedAt: Long = if (mode == "attach") jvmStart() else System.currentTimeMillis()
+
+    /**
+     * This JVM's pid, read once here: [writeHandshake] runs on the listener thread after the FXML hook installed its
+     * class transformer, and resolving `RuntimeMXBean` there (lambda bootstrap) has failed with a ClassCircularityError
+     * (JavaFX 27 on CI), which left the app without a handshake. `ProcessHandle` needs no management beans.
+     */
+    private val pid: Long = ProcessHandle.current().pid()
     val errors: ErrorRing = ErrorRing(200)
     val logs: LogCapture = LogCapture()
     val handles: HandleTable = HandleTable()
@@ -117,7 +123,6 @@ class AgentRuntime private constructor(
      * launch's server owns its token, so its handshake never carries one).
      */
     private fun writeHandshake(file: Path, port: Int) {
-        val pid = ManagementFactory.getRuntimeMXBean().pid
         val writeToken = options.token == null
         Handshake(Fcp.VERSION, pid, port, startedAt, mode, if (writeToken) token else null, options.inspectorEdit.takeIf { it })
             .writeTo(file.toAbsolutePath())
@@ -173,6 +178,10 @@ class AgentRuntime private constructor(
     }
 
     companion object {
+        /** When this JVM started (attach mode: the agent arrives late), from the process table, else now. */
+        private fun jvmStart(): Long =
+            ProcessHandle.current().info().startInstant().map { it.toEpochMilli() }.orElse(System.currentTimeMillis())
+
         private val INSTANCE = AtomicReference<AgentRuntime?>()
 
         /**

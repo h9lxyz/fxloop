@@ -71,7 +71,8 @@ class HandshakeRepublishTest {
     @Test
     fun `attach mode reports the JVM's start time, not the moment the agent was loaded`(@TempDir dir: Path) {
         val jvmStart = ManagementFactory.getRuntimeMXBean().startTime
-        assertThat(AgentRuntime.forTest(options(dir.resolve("h.json")), "attach").startedAt).isEqualTo(jvmStart)
+        // read from the process table: the same moment as the MXBean reports, to its clock tick
+        assertThat(AgentRuntime.forTest(options(dir.resolve("h.json")), "attach").startedAt).isCloseTo(jvmStart, org.assertj.core.data.Offset.offset(1000L))
         val before = System.currentTimeMillis()
         assertThat(AgentRuntime.forTest(options(dir.resolve("h.json")), "javaagent").startedAt).isGreaterThanOrEqualTo(before)
     }
