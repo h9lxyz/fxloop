@@ -1,26 +1,80 @@
 # The FXLoop MCP server
 
 FXLoop is a stdio [MCP](https://modelcontextprotocol.io) server that gives a coding agent eyes, ears and hands on the
-JavaFX app you are building. It builds your project, launches the app with a small in-JVM agent, and exposes nearly
-forty `fx_*` tools: screenshots and the scene graph, clicks and typing, logs and UI exceptions, "why" answers for
-layout, CSS and bindings, live reload of CSS, FXML and code, and TestFX export of what was clicked.
+JavaFX app you are building. It builds your project, launches the app with a small in-JVM agent (or connects to an app
+you started yourself), and exposes 40 `fx_*` tools (39 by default, plus `fx_eval_js` when `FXLOOP_WEBVIEW=true`).
 
 It works with any MCP client: Claude Code, Cursor, VS Code (Copilot agent mode), Codex CLI, Gemini CLI and the rest.
-This page is the overview. Every parameter of every tool is in the generated [tool reference](tools.md).
+This page is the overview; every parameter of every tool is in the generated [tool reference](tools.md).
 
-```
-┌──────────────┐  stdio (MCP)  ┌─────────────────────┐  loopback TCP, token   ┌───────────────────────────┐
-│ your agent   │◄─────────────►│ fxloop-server       │◄──────────────────────►│ your app's JVM            │
-│ (MCP client) │               │ builds, launches,   │                        │  fxloop-agent (-javaagent)│
-└──────────────┘               │ reloads, diffs,     │      spawns, watches   │  scene graph, robot input,│
-                               │ journals, exports   │───────────────────────►│  reload, error capture    │
-                               └─────────────────────┘                        └───────────────────────────┘
-```
+[Setup](#setup) · [Typical loop](#typical-loop) · [Tools by job](#tools-by-job) · [Key concepts](#key-concepts) · [Reload tiers](#reload-tiers) · [Dev bar & inspector](#dev-bar-and-inspector) · [Ways to run](#ways-to-run) · [Safety](#safety)
+
+<p align="center">
+  <img src="assets/fxloop-how-it-works.svg" width="840" alt="Diagram: your agent talks MCP over stdio to the FXLoop server, which launches your JavaFX app with fxloop-agent, or connects to it when you start it yourself and run attach. The MCP session ends at the server, so your app can crash or restart while your agent stays connected.">
+</p>
 
 The MCP session belongs to the server, not to the app, so the app can crash, restart or be hot-swapped without the
-agent losing its connection. Your app needs no FXLoop dependency: the agent is injected with `-javaagent`.
+agent losing its connection. Your app needs no FXLoop dependency: the agent is injected with `-javaagent` (or loaded on
+demand by `attach`).
 
-## What the agent can do
+## Setup
+
+The fastest route is the [`fxloop-connect` skill](skills.md#fxloop-connect), which downloads the server jar, registers
+it for your agent and launches the app without changing your build files. Without skills, any agent can follow
+[INSTALL.md](../INSTALL.md) unattended.
+
+To register it manually:
+
+1. Download the server jar once (on Windows PowerShell, type `curl.exe`):
+
+   ```sh
+   curl -fsSL --create-dirs -o "$HOME/.fxloop/fxloop-server.jar" https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar
+   ```
+
+2. Print the exact config for your client (with the right `java` path filled in) and add it to the project:
+
+   ```sh
+   java -jar "$HOME/.fxloop/fxloop-server.jar" doctor --client=<claude-code|cursor|vscode|codex|gemini>
+   ```
+
+   For Claude Code, you can register it directly with:
+
+   ```sh
+   claude mcp add -s project fxloop -- java -jar '${HOME}/.fxloop/fxloop-server.jar'
+   ```
+
+Config snippets for all supported clients are in the
+[MCP clients reference](../fxloop-skills/skills/fxloop-connect/references/mcp-clients.md). Add
+`-e FXLOOP_PROJECT_DIR=/abs/path/to/your-app` if the client does not start the server in your project directory, then
+start a new agent session (or reload MCP servers) so the `fx_*` tools appear.
+
+No build plugin is needed: the server works out the launch itself, and uses the
+[Maven](../fxloop-maven-plugin/README.md) or [Gradle](../fxloop-gradle-plugin/README.md) plugin when the build has one.
+Pin an ambiguous main class with `main-class=<fqcn>` in `fxloop.properties`. If something doesn't work, run
+`java -jar "$HOME/.fxloop/fxloop-server.jar" doctor` in the project.
+
+Common knobs, all optional (full list in [configuration](configuration.md)):
+
+| Variable | Use |
+|---|---|
+| `FXLOOP_PROJECT_DIR` | The app project, if it is not the server's working directory |
+| `FXLOOP_APP_ARGS` | Program arguments, e.g. `--seed` for demo data |
+| `FXLOOP_HEADLESS` | `monocle` or `xvfb` for runs without a display |
+| `FXLOOP_WATCH` | `css-only` (default), `all` or `off`: what your own saves apply live |
+| `FXLOOP_EXTERNAL_COMPILE` | Let your IDE or `gradle -t classes` compile; FXLoop only hot-swaps the output |
+| `FXLOOP_JAVA_HOME` | The JDK that runs the app. Point it at a JetBrains Runtime and new methods, lambdas and fields hot-swap instead of restarting |
+| `FXLOOP_VIEWER` | Port for the live screenshot viewer |
+
+## Typical loop
+
+Most agent sessions follow a four-step loop:
+
+1. **Start or connect:** call `fx_get_app_status` to build and launch the app (or attach to one you already run).
+2. **See and diagnose:** capture frames (`fx_take_screenshot`), inspect the scene (`fx_get_scene_graph`, `fx_find_nodes`), lint (`fx_lint_visual`, `fx_lint_css`, `fx_lint_fxml`), and ask *why* (`fx_explain_layout`, `fx_explain_style`, `fx_explain_property`).
+3. **Act and live-reload:** drive flows (`fx_click_node`, `fx_set_text`, `fx_type_keys`), edit CSS/FXML/Java/Kotlin files, and apply them with `fx_reload`.
+4. **Verify and lock in:** check pixel diffs (`fx_compare_screenshots`), pseudo-states (`fx_capture_states`), and UI errors (`fx_get_ui_errors`), then export regressions as a TestFX test (`fx_export_test`).
+
+## Tools by job
 
 ### Run and connect
 
@@ -99,23 +153,20 @@ agent losing its connection. Your app needs no FXLoop dependency: the agent is i
 | [`fx_get_journal`](tools.md#fx_get_journal) | The ordered log of every successful action, the agent's and yours |
 | [`fx_export_test`](tools.md#fx_export_test) | Turn the journal into a JUnit 5 + TestFX test with assertions synthesized from what each action changed |
 
-## Ideas that run through every tool
+## Key concepts
 
-**Stable node addresses.** Tools take a node as a session `handle`, a stable `path` such as
-`Stage[0]/Scene/BorderPane/HBox/Button#saveBtn`, a CSS `query` that must match exactly one node, or `picked:true` for
-the node you picked. Paths survive restarts, so a replay or an exported test finds the same button again.
-
-**Every action reports its effects.** Clicks, typing, property writes and reloads return a scene diff: which nodes
-appeared or went away and which properties changed. The agent learns that the dialog opened, or that nothing happened,
-without taking another screenshot.
-
-**Paths always, pixels on demand.** Every screenshot is saved under `target/fxloop/screens/` (Maven) or
-`build/fxloop/screens/` (Gradle) with an `index.html` gallery, and its path is in the result, so you can open exactly
-what the agent saw. Images are returned to the model only when it asks for them, which keeps long sessions cheap.
-`FXLOOP_VIEWER=<port>` adds a live, token-protected browser view, handy for headless and remote runs.
-
-**Bounded, explained output.** Trees, lists and logs are paged and budgeted with explicit truncation markers. Errors
-come back as results with a one-line cause and a next step; an FX-thread timeout includes the FX thread's stack.
+- **Stable node addresses.** Tools take a node as a session `handle`, a stable `path` such as
+  `Stage[0]/Scene/BorderPane/HBox/Button#saveBtn`, a CSS `query` that must match exactly one node, or `picked:true` for
+  the node you picked. Paths survive restarts, so a replay or an exported test finds the same button again.
+- **Every action reports its effects.** Clicks, typing, property writes and reloads return a scene diff: which nodes
+  appeared or went away and which properties changed. The agent learns that the dialog opened, or that nothing happened,
+  without taking another screenshot.
+- **Paths always, pixels on demand.** Every screenshot is saved under `target/fxloop/screens/` (Maven) or
+  `build/fxloop/screens/` (Gradle) with an `index.html` gallery, and its path is in the result, so you can open exactly
+  what the agent saw. Images are returned to the model only when it asks for them, which keeps long sessions cheap.
+  `FXLOOP_VIEWER=<port>` adds a live, token-protected browser view, handy for headless and remote runs.
+- **Bounded, explained output.** Trees, lists and logs are paged and budgeted with explicit truncation markers. Errors
+  come back as results with a one-line cause and a next step; an FX-thread timeout includes the FX thread's stack.
 
 ## Reload tiers
 
@@ -136,37 +187,54 @@ build-file changes, deletions and edits no reload has seen run the full build fi
 already applied is not compiled again by `fx_reload`. The details are in [limitations](limitations.md#hot-reload-hotswap)
 and the [fxloop-dev API](configuration.md#live-dev-loop-fxloop-dev-api).
 
-## You and the agent in the same app
+## Dev bar and inspector
 
-- **Dev bar.** A thin overlay on the app window shows the mode, who is driving, the last reload ("CSS applied · 12 ms")
-  and anything that needs you ("Restart needed · pom.xml changed" with a **Restart** button). It is invisible to the
+### Dev bar and Pick
+
+- **Dev bar:** a thin overlay on the app window shows the mode, who is driving, the last reload (`CSS applied · 12 ms`),
+  and anything that needs you (`Restart needed · pom.xml changed` with a **Restart** button). It is invisible to the
   tools, so it never shows up in screenshots or layout measurements. Drag it to move the window, double-click it to
-  maximize; on a narrow window the buttons that don't fit move into its `⋯` menu, and `⌄` collapses it to a pill.
-- **Pick.** Click **Pick** (or press `Ctrl+Shift+F12`), click a node, and ask "why is *this* grey?". The agent reads
-  it with `fx_get_picked`, and every node tool accepts `picked:true`.
-- **Open CSS inspector.** The bar's **Open CSS inspector** button opens the browser inspector: live scene tree, the
-  cascade with `file:line` for each rule, and layout boxes. Under `fxloop:run` / `fxloopRun` or [`attach`](attach.md) (or with
-  `FXLOOP_INSPECTOR_EDIT=true`) you can also try changes live: edit a value, untick a declaration or add a rule. They go
-  into a scratch stylesheet in the running app. *Apply to file…* shows which lines of which stylesheet would change and,
-  once you confirm, writes them there, reloads the CSS and clears the scratch; you can send each rule to another of your
-  stylesheets instead. Rules from a library's stylesheet are marked with where it was loaded from: *Map to source…*
-  tells FXLoop where the library's source file is, so changes can be saved there too. *Ask agent to apply* hands them to
-  the agent instead ([configuration](configuration.md)).
-- **Ask agent (prototype).** The inspector's *Ask agent* box sends a request about the selected node; click a property
-  name first to scope it to that declaration (selector and `file:line` go along). An agent that is listening
-  (`fx_wait_for_prompt`, a long poll it calls in a loop) receives your text, the node's path and a screenshot of it,
-  plus any unapplied scratch CSS, and answers with `fx_reply_to_prompt`; answers appear under your prompt. The box
-  shows whether an agent is listening right now; prompts sent while none is wait in the queue (in memory, last 50).
-  Under `fxloop:run` / `fxloopRun` or `attach`, the run's own inspector helper forwards your prompts to the agent session's server
-  (and shows its answers), even before that session attaches to the app; once it does, the page switches to the agent
-  session's inspector on the same node.
-- **Watching the agent.** The bar always says what the agent is doing ("Agent: clicking Button#save") and whether you
-  have access. Before it clicks through the UI like a person, the agent can lock your input with `fx_lock_input`: your
-  clicks and keys in the app are dropped, inspector editing pauses, and the bar reads "you're watching". **Take over**
-  (bar or inspector) ends the lock at once; it also expires on its own.
-- **Shared control.** With `FXLOOP_CONTROL=auto` (the default), the first time you touch the app the agent switches to
-  synthetic events and stops moving your mouse. Your own clicks and typing go into the journal too (password fields
-  never), so `fx_export_test` can turn a flow *you* clicked through into a test.
+  maximize; on a narrow window overflow buttons move into `⋯`, and `⌄` collapses it to a pill.
+- **Pick:** click **Pick** (or press `Ctrl+Shift+F12`), click a node, and ask your agent *"why is this grey?"*. The
+  agent reads it with `fx_get_picked`, and every node tool accepts `picked:true`.
+
+### Browser CSS inspector
+
+The bar's **Open CSS inspector** button opens a browser DevTools view next to your running app with the live scene
+tree, the CSS cascade (`file:line` per rule), and layout box metrics.
+
+Under `fxloop:run` / `fxloopRun` or [`attach`](attach.md) (or with `FXLOOP_INSPECTOR_EDIT=true`):
+
+- **Try changes live:** edit a property value, untick a declaration, or add a rule into a scratch stylesheet in the
+  running app.
+- **Save to source:** *Apply to file…* previews which stylesheet lines will change, writes them on confirm, reloads the
+  CSS, and clears the scratch; you can also route each rule to a different stylesheet or hand them off with
+  *Ask agent to apply* ([configuration](configuration.md)).
+- **Library stylesheets:** rules loaded from a jar or external module show their origin; *Map to source…* points FXLoop
+  at the source file so changes can be saved there too.
+
+### Ask agent (prototype)
+
+The inspector's *Ask agent* box sends a request about the selected node; click a property name first to scope it to that
+declaration (selector and `file:line` go along).
+
+- An agent listening in a loop (`fx_wait_for_prompt`) receives your prompt, the node path, a screenshot, and any
+  unapplied scratch CSS, and responds with `fx_reply_to_prompt` directly under your prompt.
+- The box shows whether an agent is listening right now; prompts sent while none is wait in an in-memory queue (last
+  50).
+- Under `fxloop:run` / `fxloopRun` or `attach`, the inspector helper forwards your prompts to the agent session's server
+  even before that session attaches to the app; once it connects, the page switches to the agent session's inspector on
+  the same node.
+
+### Shared control and input locking
+
+- **Watching the agent:** the bar always shows what the agent is doing (`Agent: clicking Button#save`). Before a
+  multi-step flow, the agent can call `fx_lock_input` to drop your clicks and keys and pause inspector editing while the
+  bar reads *"you're watching"*. Click **Take over** (bar or inspector) to end the lock immediately, or wait for it to
+  expire.
+- **Shared control:** with `FXLOOP_CONTROL=auto` (the default), touching the app switches the agent to synthetic events
+  and stops it from moving your mouse. Your own clicks and typing also enter the journal (password fields are never
+  recorded), so `fx_export_test` can turn a flow *you* clicked through into a test.
 
 ## Ways to run
 
@@ -186,45 +254,11 @@ structural change no longer leaves the agent stuck.
 Headless runs make FXLoop usable in devcontainers, over SSH and in CI. There the screenshot *is* the app's face. See
 [CI templates](ci/README.md) and [Monocle](ci/monocle.md).
 
-## Setup
-
-The [`fxloop-connect` skill](skills.md#fxloop-connect) registers the server for your agent and launches the app,
-without changing your build files. The complete setup for any client, written so that an agent can follow it
-from its raw URL, is [INSTALL.md](https://github.com/h9lxyz/fxloop/blob/main/INSTALL.md). To do it by hand, point your
-client at the server jar and your project:
-
-```sh
-curl -fsSL --create-dirs -o "$HOME/.fxloop/fxloop-server.jar" https://github.com/h9lxyz/fxloop/releases/latest/download/fxloop-server-all.jar
-claude mcp add fxloop -- java -jar "$HOME/.fxloop/fxloop-server.jar"
-```
-
-On Windows, use PowerShell and type `curl.exe`. Behind a proxy, put the jar at that path any way you can. The server
-runs in the client's working directory; add `-e FXLOOP_PROJECT_DIR=/abs/path/to/your-app` when the app is elsewhere. If
-something doesn't work, run `java -jar "$HOME/.fxloop/fxloop-server.jar" doctor` in the project.
-
-Config snippets for Cursor, VS Code, Codex CLI, Gemini CLI and generic stdio clients are in the
-[MCP clients reference](../fxloop-skills/skills/fxloop-connect/references/mcp-clients.md). No build plugin is
-needed: the server works out the launch itself, and uses the [Maven](../fxloop-maven-plugin/README.md) or
-[Gradle](../fxloop-gradle-plugin/README.md) plugin when the build has one. Pin an ambiguous main class with
-`main-class=<fqcn>` in `fxloop.properties`.
-
-Common knobs, all optional (full list in [configuration](configuration.md)):
-
-| Variable | Use |
-|---|---|
-| `FXLOOP_PROJECT_DIR` | The app project, if it is not the server's working directory |
-| `FXLOOP_APP_ARGS` | Program arguments, e.g. `--seed` for demo data |
-| `FXLOOP_HEADLESS` | `monocle` or `xvfb` for runs without a display |
-| `FXLOOP_WATCH` | `css-only` (default), `all` or `off`: what your own saves apply live |
-| `FXLOOP_EXTERNAL_COMPILE` | Let your IDE or `gradle -t classes` compile; FXLoop only hot-swaps the output |
-| `FXLOOP_JAVA_HOME` | The JDK that runs the app. Point it at a JetBrains Runtime and new methods, lambdas and fields hot-swap instead of restarting |
-| `FXLOOP_VIEWER` | Port for the live screenshot viewer |
-
 ## Safety
 
 FXLoop is a local developer tool for one trusted user. The app-side agent listens on loopback only and requires a
 random per-run token. Tool file paths are confined to the project directory, `fx_eval_js` is off by default, `fx_attach`
 and the `attach` command are audit-logged, and there is no telemetry. The agent is a no-op without its launch arguments, and
 `-Dfxloop.enabled=false` disables it outright. Keep `fxloop-dev` out of shipped artifacts: the guard in
-[INSTALL.md, "Add the build plugin"](https://github.com/h9lxyz/fxloop/blob/main/INSTALL.md#add-the-build-plugin-optional)
-fails the production build if it leaks, and the connect skill adds it along with the build plugin. Details: [security](security.md).
+[INSTALL.md, "Add the build plugin"](../INSTALL.md#add-the-build-plugin-optional) fails the production build if it leaks,
+and the connect skill adds it along with the build plugin. Details: [security](security.md).
