@@ -1,7 +1,7 @@
 # FXLoop — Agentic Dev-Loop for JavaFX
 ## Product Overview, Architecture & Roadmap (Document 0 of 6)
 
-> **License:** Apache-2.0 (deliberate differentiator — the closest prior art, `fxgraph-mcp-server`, ships without a license).
+> **License:** Split license — `AGPL-3.0-only` for the core engine (`fxloop-server`, `fxloop-agent`), `Apache-2.0` for build plugins, dev helper, `fxloop-launch`/`fxloop-protocol`, and skills (deliberate differentiator — the closest prior art, `fxgraph-mcp-server`, ships without a license; see root `LICENSE`).
 > **Audience of this document set:** a coding agent (e.g., Claude Code) implementing the system, and the human product owner reviewing scope.
 
 ---
@@ -127,7 +127,7 @@ Swing/SWT support; RPA against apps the user cannot relaunch (until attach mode,
 | D5 | NDJSON/TCP for FCP (not shared-mem, not embedding MCP in-app) | Debuggable with `nc`, trivial in both processes, restart-friendly. |
 | D6 | Robot input as default click mode, event-level as fallback | Fidelity (picking, hover, focus traversal) — fixes fxgraph's documented weakness; event mode retained for headless/velocity. |
 | D7 | Free-text typing = programmatic `set_text`; Robot reserved for key *codes* | Robot text typing is keyboard-layout-dependent (DE layouts!) — honest split avoids a classic flake source. |
-| D8 | Apache-2.0 | Adoption + clear differentiation vs unlicensed prior art. |
+| D8 | AGPL-3.0-only (core) / Apache-2.0 (build & project glue) | Keeps project/build dependencies frictionless under Apache-2.0 while protecting `fxloop-server` and `fxloop-agent` from closed-source repackaging or hosted reselling under AGPL-3.0-only. |
 
 ## 12. How a coding agent should consume these PRDs
 

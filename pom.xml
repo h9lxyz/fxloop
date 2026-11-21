@@ -13,6 +13,8 @@
   <description>Agentic dev-loop for JavaFX (tooling written in Kotlin): MCP server + in-JVM agent giving coding agents eyes, ears and hands.</description>
   <url>https://github.com/h9lxyz/fxloop</url>
 
+  <!-- Default license for build/integration modules (fxloop-protocol, fxloop-launch, fxloop-dev, fxloop-maven-plugin, samples).
+       fxloop-server and fxloop-agent override <licenses> with AGPL-3.0-only. -->
   <licenses>
     <license>
       <name>Apache-2.0</name>

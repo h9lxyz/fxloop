@@ -7,7 +7,7 @@
 An MCP server for JavaFX: any MCP agent can screenshot, drive, explain and live-reload your running app.
 Java or Kotlin, Maven or Gradle.
 
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![License: AGPL-3.0 / Apache-2.0](https://img.shields.io/badge/license-AGPL--3.0%20%2F%20Apache--2.0-blue.svg)](LICENSE)
 ![Java 21+](https://img.shields.io/badge/java-21%2B-orange.svg)
 ![Kotlin and Java apps](https://img.shields.io/badge/apps-Java%20%7C%20Kotlin-7f52ff.svg)
 ![MCP](https://img.shields.io/badge/MCP-stdio%20server-black.svg)
@@ -142,4 +142,8 @@ FXLoop is at its first `0.0.x` releases. Know the [limitations](docs/limitations
 
 ## Contributing and license
 
-Build instructions are in [CONTRIBUTING.md](CONTRIBUTING.md). FXLoop is licensed under [Apache-2.0](LICENSE).
+Build instructions are in [CONTRIBUTING.md](CONTRIBUTING.md). The core engine (`fxloop-server` and `fxloop-agent`) is
+licensed under [AGPL-3.0-only](LICENSE-AGPL-3.0); the build plugins, project integration modules and skills
+(`fxloop-maven-plugin`, `fxloop-gradle-plugin`, `fxloop-dev`, `fxloop-launch`, `fxloop-protocol`, `fxloop-skills`) are
+licensed under [Apache-2.0](LICENSE-APACHE-2.0). Using FXLoop to build, inspect and test commercial or proprietary
+JavaFX apps is free and does not affect your application's license — see [LICENSE](LICENSE).
