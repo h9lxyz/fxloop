@@ -52,7 +52,7 @@
     <kotlin.compiler.jvmTarget>21</kotlin.compiler.jvmTarget>
     <!-- Compile Kotlin in the Maven JVM: no long-lived ~1 GB Kotlin daemons left behind by builds and tests. -->
     <kotlin.compiler.daemon>false</kotlin.compiler.daemon>
-    <javafx.version>21.0.13</javafx.version>
+    <javafx.version>21.0.13.1</javafx.version>
     <jackson.version>2.23.0</jackson.version>
     <mcp.version>2.1.0</mcp.version>
     <bytebuddy.version>1.18.17</bytebuddy.version>
