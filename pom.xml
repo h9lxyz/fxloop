@@ -54,7 +54,7 @@
     <kotlin.compiler.daemon>false</kotlin.compiler.daemon>
     <javafx.version>21.0.13</javafx.version>
     <jackson.version>2.23.0</jackson.version>
-    <mcp.version>2.1.0</mcp.version>
+    <mcp.version>2.2.0</mcp.version>
     <bytebuddy.version>1.18.17</bytebuddy.version>
     <directory-watcher.version>0.19.1</directory-watcher.version>
     <slf4j.version>2.0.20</slf4j.version>
